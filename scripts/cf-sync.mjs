@@ -86,9 +86,9 @@ function fail(message) {
   process.exit(1);
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv, env = process.env) {
   let dryRun = false;
-  let yes = false;
+  let yes = env.npm_config_yes === 'true' || env.npm_config_yes === '1';
   for (const arg of argv) {
     if (arg === '--dry-run' || arg === '--check') {
       dryRun = true;
@@ -196,7 +196,7 @@ async function main() {
 
   if (envName !== 'dev' && !yes) {
     fail(
-      `cf:sync: ${envName} would write secrets to ${wranglerWorkerName(envName)}.\nRe-run with --yes if you mean it.`,
+      `cf:sync: ${envName} would write secrets to ${wranglerWorkerName(envName)}.\nRe-run: npm run cf:sync:${envName} -- --yes`,
     );
   }
 

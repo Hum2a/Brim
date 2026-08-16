@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   CONFIG_VAR_KEYS,
+  parseArgs,
   planCloudflareSync,
   varsFromWranglerConfig,
   wranglerEnvFlag,
@@ -75,5 +76,19 @@ describe('planCloudflareSync', () => {
     assert.deepEqual(plan.secretKeys, []);
     assert.equal(JSON.stringify(plan).includes('wrong.example'), false);
     assert.equal(JSON.stringify(plan).includes('staging.example'), false);
+  });
+});
+
+describe('parseArgs', () => {
+  it('treats --yes on the child argv as confirmation', () => {
+    assert.deepEqual(parseArgs(['--yes'], {}), { dryRun: false, yes: true });
+  });
+
+  it('treats npm --yes (npm_config_yes) as confirmation', () => {
+    assert.deepEqual(parseArgs([], { npm_config_yes: 'true' }), { dryRun: false, yes: true });
+  });
+
+  it('does not confirm without --yes', () => {
+    assert.deepEqual(parseArgs(['--dry-run'], {}), { dryRun: true, yes: false });
   });
 });
