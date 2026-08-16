@@ -227,6 +227,7 @@ export function EstimatePage() {
   const [fillPrice, setFillPrice] = useState("");
   const [fillBrim, setFillBrim] = useState(true);
   const [fillWhen, setFillWhen] = useState("");
+  const [fillStationId, setFillStationId] = useState("none");
   const [stale, setStale] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
   const [stationId, setStationId] = useState<string | undefined>();
@@ -251,6 +252,20 @@ export function EstimatePage() {
     selectedVehicle?.propulsion === "bev" || selectedVehicle?.propulsion === "phev";
   const savedBev = selectedVehicle?.propulsion === "bev";
   const electricTrip = propulsion === "bev" || propulsion === "phev" || savedElectric;
+
+  const fillStations = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string }>();
+    for (const s of nearbyStations) byId.set(s.id, { id: s.id, name: s.brand ? `${s.brand} · ${s.name}` : s.name });
+    for (const s of estimate?.cheapestFill?.stations ?? []) {
+      byId.set(s.stationId, { id: s.stationId, name: s.brand ? `${s.brand} · ${s.name}` : s.name });
+    }
+    return [...byId.values()];
+  }, [nearbyStations, estimate?.cheapestFill]);
+
+  useEffect(() => {
+    if (!fillOpen) return;
+    setFillStationId(stationId && fillStations.some((s) => s.id === stationId) ? stationId : "none");
+  }, [fillOpen, stationId, fillStations]);
 
   const tripRef = useRef({
     origin,
@@ -853,7 +868,7 @@ export function EstimatePage() {
             aria-describedby={errorSource === "maps" && error ? "maps-error maps-help" : "maps-help"}
           />
           <p id="maps-help" className="text-xs text-mist">
-            A Google Maps directions link. If it cannot be read, type the places below.
+            A Google, Apple, or Bing Maps directions link. If it cannot be read, type the places below.
           </p>
         </FormItem>
         <Button type="submit" variant="ghost">
@@ -1551,6 +1566,7 @@ export function EstimatePage() {
                   price: Number.isFinite(pounds) ? Math.round(pounds * 100) : 0,
                   brim: fillBrim,
                   ...(when && Number.isFinite(when.getTime()) ? { occurredAt: when.toISOString() } : {}),
+                  ...(!savedBev && fillStationId !== "none" ? { stationId: fillStationId } : {}),
                 }),
               })
                 .then(async () => {
@@ -1577,6 +1593,10 @@ export function EstimatePage() {
                   }
                   if (message === "unit_mismatch") {
                     toast("That quantity unit does not match this car.");
+                    return;
+                  }
+                  if (message === "unknown_station") {
+                    toast("That station is not in the price feed.");
                     return;
                   }
                   setPendingSave("fill");
@@ -1612,6 +1632,24 @@ export function EstimatePage() {
                 onChange={(ev) => setFillWhen(ev.target.value)}
               />
             </FormItem>
+            {!savedBev && fillStations.length > 0 ? (
+              <FormItem>
+                <Label>Station (optional)</Label>
+                <Select value={fillStationId} onValueChange={setFillStationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Skip" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Skip</SelectItem>
+                    {fillStations.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            ) : null}
             <Button type="submit" className="mt-2">
               {savedBev ? "Store charge" : "Store fill-up"}
             </Button>

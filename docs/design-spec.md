@@ -545,7 +545,10 @@ parses:
 https://www.google.com/maps/dir/<origin>/<destination>/@<lat>,<lng>,<zoom>z/data=...
 ```
 Origin, destination and waypoints are path segments; travel mode is in the `data` blob
-(`!3e0` = driving). The DOM is obfuscated and changes without notice - anything read from it
+(`!3e0` = driving). The same module also parses Apple Maps (`saddr` / `daddr`) and Bing
+(`rtp=adr.` / `pos.`) directions query strings. Path and query only, never the DOM.
+
+The DOM is obfuscated and changes without notice - anything read from it
 will break.
 
 Manifest V3, minimal permissions: `contextMenus`, `activeTab`, host permission for the Brim API
@@ -726,7 +729,7 @@ PATCH  /v1/vehicles/:id              |  DELETE /v1/vehicles/:id
 GET    /v1/vehicles/:id/compliance   → per-zone compliance for this vehicle, with caveats
 POST   /v1/vehicles/:id/tariffs      |  GET /v1/vehicles/:id/tariffs
 
-POST   /v1/fill-ups                  { vehicleId, odometerMiles, quantity, unit, price, brim }
+POST   /v1/fill-ups                  { vehicleId, odometerMiles, quantity, unit, price, brim, stationId? }
 GET    /v1/vehicles/:id/fill-ups     → { fillUps[] }
 DELETE /v1/fill-ups/:id
 GET    /v1/vehicles/:id/calibration  → { value, unit, sampleCount, stddev, confidence }
@@ -966,6 +969,7 @@ P4) and **Tailwind + shadcn/ui** (§15).
 | **P9** | Reg lookup: DVLA VES + VCA join + disambiguation + reg privacy controls |
 | **P10** | Fill-up logging + calibration + tier-0 estimates. The retention loop |
 | **P11** | Extension (context menu) + Web Share Target + parser hardening, PWA, a11y pass, HMRC comparison, Herald What's-New surface |
+| **P12** | Fill-up station on log, Apple/Bing Maps URLs, owner plate in garage. §13.4 aggregate learning stays future |
 
 `brim-build-prompts.md` implements P0–P4. Later phases get their own kits.
 

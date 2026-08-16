@@ -226,6 +226,8 @@ export function fromFillUp(row: typeof fillUps.$inferSelect): FillUpRow {
   };
   const note = optString(row.note);
   if (note) mapped.note = note;
+  const stationId = optString(row.stationId);
+  if (stationId) mapped.station_id = stationId;
   return mapped;
 }
 
@@ -240,6 +242,7 @@ function fillUpValues(row: FillUpRow) {
     filledToBrim: row.filled_to_brim,
     occurredAt: new Date(row.occurred_at),
     note: row.note ?? null,
+    stationId: row.station_id ?? null,
   };
 }
 
@@ -519,6 +522,7 @@ export async function neonSaveFillUp(
           filledToBrim: values.filledToBrim,
           occurredAt: values.occurredAt,
           note: values.note,
+          stationId: values.stationId,
         },
       });
     return row;

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { calibrateFromFillUps } from '@brim/engine';
+import { isFixtureMode } from '@brim/shared';
+import { eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 import type { ApiBindings } from './env.js';
 import { ownerFromContext } from './session.js';
@@ -11,10 +13,13 @@ import {
   getFillUp,
   getVehicle,
   listFillUps,
+  persistLive,
   saveCalibration,
   saveFillUp,
   type BrimDb,
 } from './db/repo.js';
+import { stations } from './db/schema.js';
+import { fixtureCorpus } from './prices.js';
 
 const fillUpBody = z.object({
   vehicleId: z.string().min(1),
@@ -25,10 +30,23 @@ const fillUpBody = z.object({
   brim: z.boolean(),
   occurredAt: z.string().optional(),
   note: z.string().max(280).optional(),
+  stationId: z.string().min(1).optional(),
 });
 
-function publicFillUp(row: FillUpRow) {
-  return {
+function publicFillUp(row: FillUpRow, stationName?: string) {
+  const body: {
+    id: string;
+    vehicleId: string;
+    odometerMiles: number;
+    quantity: number;
+    unit: FillUpRow['unit'];
+    pricePence: number;
+    brim: boolean;
+    occurredAt: string;
+    note?: string;
+    stationId?: string;
+    stationName?: string;
+  } = {
     id: row.id,
     vehicleId: row.vehicle_id,
     odometerMiles: row.odometer_miles,
@@ -37,8 +55,43 @@ function publicFillUp(row: FillUpRow) {
     pricePence: row.price_pence,
     brim: row.filled_to_brim,
     occurredAt: row.occurred_at,
-    note: row.note,
   };
+  if (row.note) body.note = row.note;
+  if (row.station_id) body.stationId = row.station_id;
+  if (stationName) body.stationName = stationName;
+  return body;
+}
+
+async function lookupStation(
+  env: ApiBindings,
+  db: BrimDb,
+  stationId: string,
+): Promise<{ id: string; name: string } | undefined> {
+  if (isFixtureMode(env.BRIM_FIXTURES)) {
+    const station = fixtureCorpus(env.BRIM_FIXTURES).stations.find((s) => s.id === stationId);
+    return station ? { id: station.id, name: station.name } : undefined;
+  }
+  if (!persistLive(db) || !db.drizzle) return undefined;
+  const rows = await db.drizzle
+    .select({ id: stations.id, name: stations.name })
+    .from(stations)
+    .where(eq(stations.id, stationId));
+  const row = rows[0];
+  return row ? { id: row.id, name: row.name } : undefined;
+}
+
+async function namesForFills(
+  env: ApiBindings,
+  db: BrimDb,
+  rows: FillUpRow[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const ids = [...new Set(rows.map((r) => r.station_id).filter((id): id is string => Boolean(id)))];
+  for (const id of ids) {
+    const hit = await lookupStation(env, db, id);
+    if (hit) names.set(hit.id, hit.name);
+  }
+  return names;
 }
 
 export async function recomputeCalibration(
@@ -98,6 +151,15 @@ export async function createFillUpHandler(c: Context<{ Bindings: ApiBindings }>)
   if (!vehicle) return c.json({ error: 'not_found' }, 404);
   const wantUnit = vehicle.propulsion === 'bev' ? 'kwh' : 'litres';
   if (parsed.data.unit !== wantUnit) return c.json({ error: 'unit_mismatch' }, 400);
+  if (parsed.data.stationId && vehicle.propulsion === 'bev') {
+    return c.json({ error: 'unknown_station' }, 400);
+  }
+  let stationName: string | undefined;
+  if (parsed.data.stationId) {
+    const station = await lookupStation(c.env, db, parsed.data.stationId);
+    if (!station) return c.json({ error: 'unknown_station' }, 400);
+    stationName = station.name;
+  }
   const existing = await listFillUps(db, session.ownerId, vehicle.id);
   const latestMiles = existing.reduce((max, f) => Math.max(max, f.odometer_miles), 0);
   if (existing.length > 0 && parsed.data.odometerMiles <= latestMiles) {
@@ -114,10 +176,11 @@ export async function createFillUpHandler(c: Context<{ Bindings: ApiBindings }>)
     occurred_at: parsed.data.occurredAt ?? new Date().toISOString(),
   };
   if (parsed.data.note) row.note = parsed.data.note;
+  if (parsed.data.stationId) row.station_id = parsed.data.stationId;
   const saved = await saveFillUp(db, session.ownerId, row);
   if (!saved) return c.json({ error: 'not_found' }, 404);
   await recomputeCalibration(db, session.ownerId, saved.vehicle_id, saved.occurred_at);
-  return c.json(publicFillUp(saved), 201);
+  return c.json(publicFillUp(saved, stationName), 201);
 }
 
 export async function listFillUpsHandler(c: Context<{ Bindings: ApiBindings }>) {
@@ -126,7 +189,10 @@ export async function listFillUpsHandler(c: Context<{ Bindings: ApiBindings }>) 
   const db = createDb(c.env);
   if (!(await getVehicle(db, session.ownerId, vehicleId))) return c.json({ error: 'not_found' }, 404);
   const rows = await listFillUps(db, session.ownerId, vehicleId);
-  return c.json({ fillUps: rows.map(publicFillUp) });
+  const names = await namesForFills(c.env, db, rows);
+  return c.json({
+    fillUps: rows.map((row) => publicFillUp(row, row.station_id ? names.get(row.station_id) : undefined)),
+  });
 }
 
 export async function deleteFillUpHandler(c: Context<{ Bindings: ApiBindings }>) {

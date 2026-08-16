@@ -145,7 +145,7 @@ describe('vehicles resolve', () => {
     expect(stored?.vrm_encrypted).toBeUndefined();
   });
 
-  it('encrypts a VRM only for a signed-in save and never lists it', async () => {
+  it('encrypts a VRM only for a signed-in save and returns plaintext to the owner', async () => {
     const env = { BRIM_FIXTURES: '1', VRM_ENCRYPTION_KEY: FIXTURE_KEY };
     const signup = await app.request(
       '/v1/auth/sign-up/email',
@@ -174,9 +174,9 @@ describe('vehicles resolve', () => {
     );
     expect(created.status).toBe(201);
     const body = (await created.json()) as Record<string, unknown>;
-    expect(body.vrm).toBeUndefined();
+    expect(body.vrm).toBe('AB12CDE');
     expect(body.vrm_hash).toBeUndefined();
-    expect(JSON.stringify(body)).not.toMatch(/AB12CDE/i);
+    expect(body.vrm_encrypted).toBeUndefined();
     const stored = [...getMemoryDb().vehicles.values()].find((v) => v.nickname === 'Saved golf');
     expect(stored?.vrm_hash).toBeTruthy();
     expect(stored?.vrm_encrypted?.startsWith('v1:')).toBe(true);
@@ -184,8 +184,8 @@ describe('vehicles resolve', () => {
 
     const listed = await app.request('/v1/vehicles', { headers: { Cookie: cookie, Origin: origin } }, env);
     const json = (await listed.json()) as { vehicles: Array<Record<string, unknown>> };
+    expect(json.vehicles[0]?.vrm).toBe('AB12CDE');
     expect(json.vehicles[0]?.vrm_hash).toBeUndefined();
     expect(json.vehicles[0]?.vrm_encrypted).toBeUndefined();
-    expect(JSON.stringify(json)).not.toMatch(/AB12CDE/i);
   });
 });

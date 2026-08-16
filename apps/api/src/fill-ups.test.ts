@@ -197,4 +197,84 @@ describe('fill-ups', () => {
     const est = (await estimate.json()) as { consumption: { tier: number } };
     expect(est.consumption.tier).not.toBe(0);
   });
+
+  it('stores an optional fixture station on a liquid fill-up', async () => {
+    const { vehicle, cookie, headers } = await createCar('petrol', 'Station fill');
+    const created = await app.request(
+      '/v1/fill-ups',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          vehicleId: vehicle.id,
+          odometerMiles: 10000,
+          quantity: 40,
+          unit: 'litres',
+          price: 5800,
+          brim: true,
+          stationId: 'ff_shell_crawley',
+        }),
+      },
+      env,
+    );
+    expect(created.status).toBe(201);
+    const saved = (await created.json()) as { stationId?: string; stationName?: string };
+    expect(saved.stationId).toBe('ff_shell_crawley');
+    expect(saved.stationName?.length).toBeGreaterThan(0);
+
+    const listed = await app.request(
+      `/v1/vehicles/${vehicle.id}/fill-ups`,
+      { headers: { Cookie: cookie } },
+      env,
+    );
+    const json = (await listed.json()) as {
+      fillUps: Array<{ stationId?: string; stationName?: string }>;
+    };
+    expect(json.fillUps[0]?.stationId).toBe('ff_shell_crawley');
+    expect(json.fillUps[0]?.stationName).toBe(saved.stationName);
+  });
+
+  it('rejects an unknown station and a station on a BEV charge', async () => {
+    const petrol = await createCar('petrol', 'Unknown station');
+    const unknown = await app.request(
+      '/v1/fill-ups',
+      {
+        method: 'POST',
+        headers: petrol.headers,
+        body: JSON.stringify({
+          vehicleId: petrol.vehicle.id,
+          odometerMiles: 10000,
+          quantity: 40,
+          unit: 'litres',
+          price: 5800,
+          brim: true,
+          stationId: 'not-a-station',
+        }),
+      },
+      env,
+    );
+    expect(unknown.status).toBe(400);
+    expect(((await unknown.json()) as { error: string }).error).toBe('unknown_station');
+
+    const bev = await createCar('bev', 'Leaf station');
+    const charged = await app.request(
+      '/v1/fill-ups',
+      {
+        method: 'POST',
+        headers: bev.headers,
+        body: JSON.stringify({
+          vehicleId: bev.vehicle.id,
+          odometerMiles: 10000,
+          quantity: 16,
+          unit: 'kwh',
+          price: 0,
+          brim: true,
+          stationId: 'ff_shell_crawley',
+        }),
+      },
+      env,
+    );
+    expect(charged.status).toBe(400);
+    expect(((await charged.json()) as { error: string }).error).toBe('unknown_station');
+  });
 });

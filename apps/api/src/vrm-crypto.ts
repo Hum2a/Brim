@@ -19,7 +19,7 @@ async function hmacKey(secret: Uint8Array): Promise<CryptoKey> {
 }
 
 async function aesKey(secret: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", secret, { name: "AES-GCM" }, false, ["encrypt"]);
+  return crypto.subtle.importKey("raw", secret, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
 export function decodeVrmKey(raw: string): Uint8Array | undefined {
@@ -44,4 +44,22 @@ export async function encryptVrm(key: Uint8Array, vrm: string): Promise<string> 
     new TextEncoder().encode(vrm),
   );
   return `v1:${toB64Url(iv)}:${toB64Url(cipher)}`;
+}
+
+export async function decryptVrm(key: Uint8Array, packed: string): Promise<string | undefined> {
+  const parts = packed.split(":");
+  const version = parts[0];
+  const ivPart = parts[1];
+  const cipherPart = parts[2];
+  if (version !== "v1" || !ivPart || !cipherPart) return undefined;
+  try {
+    const plain = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: fromB64Url(ivPart) },
+      await aesKey(key),
+      fromB64Url(cipherPart),
+    );
+    return new TextDecoder().decode(plain);
+  } catch {
+    return undefined;
+  }
 }

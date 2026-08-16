@@ -20,7 +20,7 @@ import {
   saveVehicle,
 } from './db/repo.js';
 import type { VehicleRow } from './db/memory.js';
-import { decodeVrmKey, encryptVrm, hashVrm } from './vrm-crypto.js';
+import { decodeVrmKey, decryptVrm, encryptVrm, hashVrm } from './vrm-crypto.js';
 
 const vehicleBody = z.object({
   nickname: z.string().optional(),
@@ -77,11 +77,25 @@ type VehicleFields = {
   hasHeatPump?: boolean | undefined;
 };
 
-function publicVehicle(row: VehicleRow, isDefault?: boolean) {
+async function publicVehicle(
+  env: ApiBindings,
+  kind: 'anon' | 'user',
+  row: VehicleRow,
+  isDefault?: boolean,
+) {
   const rest = { ...row };
   delete rest.vrm_hash;
   delete rest.vrm_encrypted;
-  return isDefault === undefined ? rest : { ...rest, is_default: isDefault };
+  const body: Record<string, unknown> =
+    isDefault === undefined ? { ...rest } : { ...rest, is_default: isDefault };
+  if (kind === 'user' && row.vrm_encrypted) {
+    const key = env.VRM_ENCRYPTION_KEY ? decodeVrmKey(env.VRM_ENCRYPTION_KEY) : undefined;
+    if (key) {
+      const vrm = await decryptVrm(key, row.vrm_encrypted);
+      if (vrm) body.vrm = vrm;
+    }
+  }
+  return body;
 }
 
 async function attachVrm(
@@ -136,7 +150,9 @@ export async function listVehiclesHandler(c: Context<{ Bindings: ApiBindings }>)
   const settings = await getSettings(db, session.ownerId);
   const vehicles = await listVehicles(db, session.ownerId);
   return c.json({
-    vehicles: vehicles.map((v) => publicVehicle(v, settings?.default_vehicle_id === v.id)),
+    vehicles: await Promise.all(
+      vehicles.map((v) => publicVehicle(c.env, session.kind, v, settings?.default_vehicle_id === v.id)),
+    ),
   });
 }
 
@@ -157,7 +173,7 @@ export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>
   );
   const stored = await attachVrm(c.env, session.kind, row, vrm);
   if ('error' in stored) return c.json({ error: 'invalid_vrm' }, 400);
-  return c.json(publicVehicle(await saveVehicle(createDb(c.env), stored)), 201);
+  return c.json(await publicVehicle(c.env, session.kind, await saveVehicle(createDb(c.env), stored)), 201);
 }
 
 export async function patchVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {
@@ -171,7 +187,7 @@ export async function patchVehicleHandler(c: Context<{ Bindings: ApiBindings }>)
   const next = applyVehicleFields(existing, fields);
   const stored = await attachVrm(c.env, session.kind, next, vrm);
   if ('error' in stored) return c.json({ error: 'invalid_vrm' }, 400);
-  return c.json(publicVehicle(await saveVehicle(db, stored)));
+  return c.json(await publicVehicle(c.env, session.kind, await saveVehicle(db, stored)));
 }
 
 export async function deleteVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {

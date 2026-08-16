@@ -62,6 +62,7 @@ export type FillUpRow = {
   filled_to_brim: boolean;
   occurred_at: string;
   note?: string;
+  station_id?: string;
 };
 
 export type CalibrationRow = {

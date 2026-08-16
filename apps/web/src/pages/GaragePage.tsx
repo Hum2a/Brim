@@ -34,6 +34,7 @@ type Vehicle = {
   battery_kwh_usable?: number;
   has_heat_pump?: boolean;
   is_default?: boolean;
+  vrm?: string;
 };
 
 type FillUp = {
@@ -44,7 +45,11 @@ type FillUp = {
   pricePence: number;
   brim: boolean;
   occurredAt: string;
+  stationId?: string;
+  stationName?: string;
 };
+
+type NearbyFillStation = { id: string; name: string };
 
 type Calibration = {
   sampleCount: number;
@@ -90,10 +95,13 @@ export function GaragePage() {
   const [note, setNote] = useState("");
   const [occurredAt, setOccurredAt] = useState("");
   const [fillError, setFillError] = useState<{ field: "odo" | "qty"; message: string } | null>(null);
+  const [fillStationId, setFillStationId] = useState("none");
+  const [homeStations, setHomeStations] = useState<NearbyFillStation[]>([]);
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
   const [catalogueOpen, setCatalogueOpen] = useState(false);
   const [pendingVrm, setPendingVrm] = useState<string | undefined>();
   const [pendingVes, setPendingVes] = useState<VesSummary | undefined>();
+  const [plateOpen, setPlateOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -113,6 +121,10 @@ export function GaragePage() {
   }, [refresh]);
 
   const vehicle = vehicles.find((v) => v.id === selected);
+
+  useEffect(() => {
+    setPlateOpen(false);
+  }, [selected]);
 
   useEffect(() => {
     if (!vehicle) {
@@ -145,6 +157,28 @@ export function GaragePage() {
         })
         .catch(() => undefined);
     }
+  }, [vehicle]);
+
+  useEffect(() => {
+    if (!vehicle || vehicle.propulsion === "bev") {
+      setHomeStations([]);
+      setFillStationId("none");
+      return;
+    }
+    const grade = vehicle.propulsion === "diesel" ? "B7" : "E10";
+    void api<{ places: Array<{ kind: string; lat: number; lng: number }> }>("/v1/saved-places")
+      .then(async (r) => {
+        const home = r.places.find((p) => p.kind === "home");
+        if (!home) {
+          setHomeStations([]);
+          return;
+        }
+        const near = await api<{ stations: NearbyFillStation[] }>(
+          `/v1/stations/near?lat=${home.lat}&lng=${home.lng}&grade=${grade}`,
+        );
+        setHomeStations(near.stations);
+      })
+      .catch(() => setHomeStations([]));
   }, [vehicle]);
 
   async function saveMeta() {
@@ -223,6 +257,7 @@ export function GaragePage() {
           brim,
           note: note || undefined,
           ...(when && Number.isFinite(when.getTime()) ? { occurredAt: when.toISOString() } : {}),
+          ...(vehicle.propulsion !== "bev" && fillStationId !== "none" ? { stationId: fillStationId } : {}),
         }),
       });
       setOdo("");
@@ -230,6 +265,7 @@ export function GaragePage() {
       setPrice("");
       setNote("");
       setOccurredAt("");
+      setFillStationId("none");
       setFillError(null);
       toast("Fill-up stored.");
       const fillsRes = await api<{ fillUps: FillUp[] }>(`/v1/vehicles/${vehicle.id}/fill-ups`);
@@ -245,6 +281,8 @@ export function GaragePage() {
         const text = "That quantity unit does not match this car.";
         setFillError({ field: "qty", message: text });
         toast(text);
+      } else if (message === "unknown_station") {
+        toast("That station is not in the price feed.");
       } else setAuthOpen(true);
     }
   }
@@ -381,6 +419,24 @@ export function GaragePage() {
                       <Label htmlFor="nick">Nickname</Label>
                       <Input id="nick" value={nickname} onChange={(ev) => setNickname(ev.target.value)} />
                     </FormItem>
+                    {vehicle.vrm ? (
+                      <FormItem>
+                        <p className="text-sm">Registration</p>
+                        <div className="flex items-center gap-2">
+                          <span className="tabular text-sm">
+                            {plateOpen ? vehicle.vrm : "Hidden"}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPlateOpen((open) => !open)}
+                          >
+                            {plateOpen ? "Hide registration" : "Show registration"}
+                          </Button>
+                        </div>
+                      </FormItem>
+                    ) : null}
                     <FormItem>
                       <Label>Vehicle class</Label>
                       <Select value={kind} onValueChange={setKind}>
@@ -512,6 +568,24 @@ export function GaragePage() {
                       <Label htmlFor="note">Note</Label>
                       <Input id="note" value={note} onChange={(ev) => setNote(ev.target.value)} />
                     </FormItem>
+                    {!bev && homeStations.length > 0 ? (
+                      <FormItem>
+                        <Label>Station (optional)</Label>
+                        <Select value={fillStationId} onValueChange={setFillStationId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Skip" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Skip</SelectItem>
+                            {homeStations.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    ) : null}
                     <Button type="submit" className="mt-2">
                       {bev ? "Store charge" : "Store fill-up"}
                     </Button>
@@ -527,6 +601,7 @@ export function GaragePage() {
                         <span className="tabular text-mist">
                           {f.occurredAt.slice(0, 10)} · {f.odometerMiles.toFixed(0)} mi · {f.quantity} {f.unit}
                           {f.brim ? (bev ? " · full" : " · brim") : ""}
+                          {f.stationName ? ` · ${f.stationName}` : ""}
                           {f.pricePence > 0 ? ` · £${(f.pricePence / 100).toFixed(2)}` : ""}
                         </span>
                         <Button type="button" variant="ghost" size="sm" onClick={() => void removeFill(f.id)}>

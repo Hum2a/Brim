@@ -29,9 +29,9 @@ Brim joins DVLA VES (`make`, fuel, capacity, CO₂, year, `euroStatus`) to the i
 2. **Derived fields only.** Persist make, year, propulsion, cc, CO₂, euro status, and confirmed `vcaMatchId`. Never store the raw VES JSON.
 3. **Year comes from VES, not VCA.** Join on make + fuel + cc ±50 + CO₂ ±5. Copy `yearOfManufacture` onto the vehicle profile. Revisit the year window when the catalogue has years.
 4. **Encrypted VRM only on a signed-in save.** HMAC-SHA256 `vrm_hash` and AES-256-GCM `vrm_encrypted` using `VRM_ENCRYPTION_KEY`. Anonymous resolve discards the plate. Missing key: save the profile without VRM columns.
-5. **Delete with the vehicle or account.** List/GET responses never include `vrm`, `vrm_hash`, or `vrm_encrypted`.
+5. **Delete with the vehicle or account.** List/GET never include `vrm_hash` or `vrm_encrypted`. Signed-in owner list/create/patch may include decrypted `vrm`. Anonymous responses never include `vrm`.
 6. **No logs.** The redacting logger treats `vrm`, `reg`, `registration`, `plate`, `registrationNumber`, and `registration_number`. Resolve does not log the request body.
 
 ## Consequences
 
-Forked PRs and `BRIM_FIXTURES=1` use dummy plates and recorded VES bodies. A later VCA dataset must not silently replace a saved `vcaMatchId`. Showing a decrypted plate in the garage is out of P9.
+Forked PRs and `BRIM_FIXTURES=1` use dummy plates and recorded VES bodies. A later VCA dataset must not silently replace a saved `vcaMatchId`. Showing a decrypted plate in the garage is in for P12; ciphertext never leaves the API.

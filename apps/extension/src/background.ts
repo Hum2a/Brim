@@ -8,6 +8,9 @@ const MAPS_URL_PATTERNS = [
   "https://www.google.co.uk/maps/dir/*",
   "https://maps.google.co.uk/maps/dir/*",
   "https://maps.app.goo.gl/*",
+  "https://maps.apple.com/*",
+  "https://www.bing.com/maps*",
+  "https://bing.com/maps*",
 ];
 
 chrome.runtime.onInstalled.addListener(() => {

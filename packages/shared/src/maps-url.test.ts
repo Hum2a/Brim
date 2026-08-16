@@ -93,6 +93,29 @@ const valid: Array<{
     destination: "Bath",
     waypoints: ["Keynsham", "Saltford"],
   },
+  {
+    url: "https://maps.apple.com/?saddr=Crawley&daddr=London",
+    origin: "Crawley",
+    destination: "London",
+  },
+  {
+    url: "https://maps.apple.com/?saddr=Leeds&daddr=Sheffield%7CManchester&dirflg=d",
+    origin: "Leeds",
+    destination: "Manchester",
+    waypoints: ["Sheffield"],
+    mode: "drive",
+  },
+  {
+    url: "https://www.bing.com/maps?rtp=adr.Crawley~adr.London",
+    origin: "Crawley",
+    destination: "London",
+  },
+  {
+    url: "https://bing.com/maps/directions?rtp=adr.Leeds~adr.Sheffield~adr.Manchester",
+    origin: "Leeds",
+    destination: "Manchester",
+    waypoints: ["Sheffield"],
+  },
 ];
 
 const malformed = [

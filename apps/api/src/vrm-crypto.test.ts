@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeVrmKey, encryptVrm, hashVrm } from "./vrm-crypto.js";
+import { decodeVrmKey, decryptVrm, encryptVrm, hashVrm } from "./vrm-crypto.js";
 
 const KEY = decodeVrmKey("AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE")!;
 
@@ -12,5 +12,7 @@ describe("vrm crypto", () => {
     const packed = await encryptVrm(KEY, "AB12CDE");
     expect(packed.startsWith("v1:")).toBe(true);
     expect(packed).not.toMatch(/AB12CDE/i);
+    const roundTrip = await decryptVrm(KEY, packed);
+    expect(roundTrip).toBe("AB12CDE");
   });
 });
