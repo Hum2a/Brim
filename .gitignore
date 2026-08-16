@@ -27,3 +27,5 @@ apps/web/dev-dist/
 gitleaks-report.json
 data/vca/raw/*
 !data/vca/raw/.gitkeep
+data/fuel-finder/raw/*
+!data/fuel-finder/raw/.gitkeep

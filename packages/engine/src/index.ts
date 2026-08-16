@@ -280,3 +280,10 @@ export function computeEstimate(input: EstimateInput): Estimate {
     warnings,
   };
 }
+
+export {
+  calibrateFromFillUps,
+  type CalibrationFromFillUps,
+  type FillUpSample,
+} from "./consumption/calibrate.js";
+

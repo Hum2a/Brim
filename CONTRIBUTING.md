@@ -136,7 +136,7 @@ app.post("/v1/estimate", async (c) => {
 const db = createDb(process.env.DATABASE_URL);
 ```
 
-Deploy is **one Worker** per environment (SPA assets + `/v1`): <kbd>npm run deploy:staging</kbd> / <kbd>deploy:prod</kbd>.
+Deploy is **one Worker** per environment (SPA assets + `/v1`). <kbd>npm run deploy:staging</kbd> / <kbd>deploy:prod</kbd> build the web app and the API, then upload. <kbd>npm run deploy:all</kbd> does staging then production. <kbd>npm run db:migrate:all</kbd> runs drizzle against dev, staging, and production in that order.
 
 ---
 

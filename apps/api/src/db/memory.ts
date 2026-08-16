@@ -63,6 +63,32 @@ export type FillUpRow = {
   note?: string;
 };
 
+export type CalibrationRow = {
+  id: string;
+  vehicle_id: string;
+  calculated_value: number;
+  unit: string;
+  sample_count: number;
+  stddev?: number;
+  last_computed_at: string;
+};
+
+export type OwnerSettingsRow = {
+  owner_id: string;
+  default_vehicle_id?: string;
+  updated_at: string;
+};
+
+export type SavedPlaceRow = {
+  id: string;
+  owner_id: string;
+  kind: 'home' | 'work' | 'favourite';
+  label: string;
+  lat: number;
+  lng: number;
+  created_at: string;
+};
+
 export type AnonProfile = {
   id: string;
   created_at: string;
@@ -92,6 +118,9 @@ type MemoryShape = {
   tariffs: Map<string, TariffRow>;
   journeys: Map<string, JourneyRow>;
   fillUps: Map<string, FillUpRow>;
+  calibrations: Map<string, CalibrationRow>;
+  settings: Map<string, OwnerSettingsRow>;
+  places: Map<string, SavedPlaceRow>;
   routeCache: Map<string, { value: string; expiresAt: number }>;
 };
 
@@ -106,6 +135,9 @@ function empty(): MemoryShape {
     tariffs: new Map(),
     journeys: new Map(),
     fillUps: new Map(),
+    calibrations: new Map(),
+    settings: new Map(),
+    places: new Map(),
     routeCache: new Map(),
   };
 }

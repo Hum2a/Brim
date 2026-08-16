@@ -1,17 +1,38 @@
 import { isFixtureMode } from '@brim/shared';
-import { getMemoryDb, type JourneyRow, type TariffRow, type VehicleRow } from './memory.js';
+import {
+  getMemoryDb,
+  type CalibrationRow,
+  type FillUpRow,
+  type JourneyRow,
+  type OwnerSettingsRow,
+  type SavedPlaceRow,
+  type TariffRow,
+  type VehicleRow,
+} from './memory.js';
 import {
   neonClaimAnon,
+  neonDeleteFillUp,
   neonDeleteJourney,
   neonDeleteOwner,
+  neonDeletePlace,
   neonDeleteVehicle,
   neonEnsureAnonProfile,
+  neonGetCalibration,
+  neonGetFillUp,
   neonGetJourney,
+  neonGetPlace,
+  neonGetSettings,
   neonGetVehicle,
+  neonListFillUps,
   neonListJourneys,
+  neonListPlaces,
   neonListTariffs,
   neonListVehicles,
+  neonSaveCalibration,
+  neonSaveFillUp,
   neonSaveJourney,
+  neonSavePlace,
+  neonSaveSettings,
   neonSaveTariff,
   neonSaveVehicle,
   neonYtdMiles,
@@ -52,6 +73,15 @@ export async function deleteVehicle(db: BrimDb, ownerId: string, id: string): Pr
   getMemoryDb().vehicles.delete(id);
   for (const [tid, t] of getMemoryDb().tariffs) {
     if (t.vehicle_id === id) getMemoryDb().tariffs.delete(tid);
+  }
+  for (const [fid, f] of getMemoryDb().fillUps) {
+    if (f.vehicle_id === id) getMemoryDb().fillUps.delete(fid);
+  }
+  for (const [cid, c] of getMemoryDb().calibrations) {
+    if (c.vehicle_id === id) getMemoryDb().calibrations.delete(cid);
+  }
+  for (const s of getMemoryDb().settings.values()) {
+    if (s.default_vehicle_id === id) delete s.default_vehicle_id;
   }
   return true;
 }
@@ -134,6 +164,123 @@ export async function ytdMiles(
     .reduce((sum, j) => sum + j.distance_meters / 1609.344, 0);
 }
 
+export async function listFillUps(
+  db: BrimDb,
+  ownerId: string,
+  vehicleId: string,
+): Promise<FillUpRow[]> {
+  if (persistLive(db)) return neonListFillUps(db, ownerId, vehicleId);
+  if (!(await getVehicle(db, ownerId, vehicleId))) return [];
+  return [...getMemoryDb().fillUps.values()]
+    .filter((f) => f.vehicle_id === vehicleId)
+    .sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1));
+}
+
+export async function getFillUp(
+  db: BrimDb,
+  ownerId: string,
+  id: string,
+): Promise<FillUpRow | undefined> {
+  if (persistLive(db)) return neonGetFillUp(db, ownerId, id);
+  const row = getMemoryDb().fillUps.get(id);
+  if (!row) return undefined;
+  if (!(await getVehicle(db, ownerId, row.vehicle_id))) return undefined;
+  return row;
+}
+
+export async function saveFillUp(
+  db: BrimDb,
+  ownerId: string,
+  row: FillUpRow,
+): Promise<FillUpRow | undefined> {
+  if (persistLive(db)) return neonSaveFillUp(db, ownerId, row);
+  if (!(await getVehicle(db, ownerId, row.vehicle_id))) return undefined;
+  getMemoryDb().fillUps.set(row.id, row);
+  return row;
+}
+
+export async function deleteFillUp(db: BrimDb, ownerId: string, id: string): Promise<boolean> {
+  if (persistLive(db)) return neonDeleteFillUp(db, ownerId, id);
+  const existing = await getFillUp(db, ownerId, id);
+  if (!existing) return false;
+  getMemoryDb().fillUps.delete(id);
+  return true;
+}
+
+export async function getCalibration(
+  db: BrimDb,
+  ownerId: string,
+  vehicleId: string,
+): Promise<CalibrationRow | undefined> {
+  if (persistLive(db)) return neonGetCalibration(db, ownerId, vehicleId);
+  if (!(await getVehicle(db, ownerId, vehicleId))) return undefined;
+  return [...getMemoryDb().calibrations.values()].find((c) => c.vehicle_id === vehicleId);
+}
+
+export async function saveCalibration(
+  db: BrimDb,
+  ownerId: string,
+  row: CalibrationRow,
+): Promise<CalibrationRow | undefined> {
+  if (persistLive(db)) return neonSaveCalibration(db, ownerId, row);
+  if (!(await getVehicle(db, ownerId, row.vehicle_id))) return undefined;
+  for (const [id, c] of getMemoryDb().calibrations) {
+    if (c.vehicle_id === row.vehicle_id) getMemoryDb().calibrations.delete(id);
+  }
+  getMemoryDb().calibrations.set(row.id, row);
+  return row;
+}
+
+export async function getSettings(
+  db: BrimDb,
+  ownerId: string,
+): Promise<OwnerSettingsRow | undefined> {
+  if (persistLive(db)) return neonGetSettings(db, ownerId);
+  return getMemoryDb().settings.get(ownerId);
+}
+
+export async function saveSettings(db: BrimDb, row: OwnerSettingsRow): Promise<OwnerSettingsRow> {
+  if (persistLive(db)) return neonSaveSettings(db, row);
+  getMemoryDb().settings.set(row.owner_id, row);
+  return row;
+}
+
+export async function listPlaces(db: BrimDb, ownerId: string): Promise<SavedPlaceRow[]> {
+  if (persistLive(db)) return neonListPlaces(db, ownerId);
+  return [...getMemoryDb().places.values()].filter((p) => p.owner_id === ownerId);
+}
+
+export async function getPlace(
+  db: BrimDb,
+  ownerId: string,
+  id: string,
+): Promise<SavedPlaceRow | undefined> {
+  if (persistLive(db)) return neonGetPlace(db, ownerId, id);
+  const row = getMemoryDb().places.get(id);
+  return row?.owner_id === ownerId ? row : undefined;
+}
+
+export async function savePlace(db: BrimDb, row: SavedPlaceRow): Promise<SavedPlaceRow> {
+  if (persistLive(db)) return neonSavePlace(db, row);
+  if (row.kind === 'home' || row.kind === 'work') {
+    for (const [id, p] of getMemoryDb().places) {
+      if (p.owner_id === row.owner_id && p.kind === row.kind && p.id !== row.id) {
+        getMemoryDb().places.delete(id);
+      }
+    }
+  }
+  getMemoryDb().places.set(row.id, row);
+  return row;
+}
+
+export async function deletePlace(db: BrimDb, ownerId: string, id: string): Promise<boolean> {
+  if (persistLive(db)) return neonDeletePlace(db, ownerId, id);
+  const existing = await getPlace(db, ownerId, id);
+  if (!existing) return false;
+  getMemoryDb().places.delete(id);
+  return true;
+}
+
 export async function ensureAnonProfile(db: BrimDb, id: string): Promise<void> {
   if (persistLive(db)) {
     await neonEnsureAnonProfile(db, id);
@@ -175,6 +322,35 @@ export async function claimAnon(
       moved += 1;
     }
   }
+  const userSettings = memory.settings.get(userId);
+  const anonSettings = memory.settings.get(anonId);
+  if (anonSettings) {
+    if (userSettings) {
+      if (!userSettings.default_vehicle_id && anonSettings.default_vehicle_id) {
+        userSettings.default_vehicle_id = anonSettings.default_vehicle_id;
+      }
+      memory.settings.delete(anonId);
+    } else {
+      anonSettings.owner_id = userId;
+      memory.settings.set(userId, anonSettings);
+      memory.settings.delete(anonId);
+      moved += 1;
+    }
+  }
+  const reserved = new Set(
+    [...memory.places.values()]
+      .filter((p) => p.owner_id === userId && (p.kind === 'home' || p.kind === 'work'))
+      .map((p) => p.kind),
+  );
+  for (const p of [...memory.places.values()]) {
+    if (p.owner_id !== anonId) continue;
+    if ((p.kind === 'home' || p.kind === 'work') && reserved.has(p.kind)) {
+      memory.places.delete(p.id);
+    } else {
+      p.owner_id = userId;
+      moved += 1;
+    }
+  }
   profile.claimed_by_user_id = userId;
   return { merged: true, moved };
 }
@@ -184,9 +360,13 @@ export async function exportOwner(db: BrimDb, ownerId: string) {
   return {
     vehicles: owned,
     journeys: await listJourneys(db, ownerId),
-    tariffs: (
-      await Promise.all(owned.map((v) => listTariffs(db, ownerId, v.id)))
-    ).flat(),
+    tariffs: (await Promise.all(owned.map((v) => listTariffs(db, ownerId, v.id)))).flat(),
+    fillUps: (await Promise.all(owned.map((v) => listFillUps(db, ownerId, v.id)))).flat(),
+    calibrations: (
+      await Promise.all(owned.map((v) => getCalibration(db, ownerId, v.id)))
+    ).filter((row): row is CalibrationRow => Boolean(row)),
+    settings: (await getSettings(db, ownerId)) ?? null,
+    places: await listPlaces(db, ownerId),
   };
 }
 
@@ -202,6 +382,10 @@ export async function deleteOwner(db: BrimDb, ownerId: string): Promise<void> {
   for (const j of [...memory.journeys.values()]) {
     if (j.owner_id === ownerId) memory.journeys.delete(j.id);
   }
+  for (const p of [...memory.places.values()]) {
+    if (p.owner_id === ownerId) memory.places.delete(p.id);
+  }
+  memory.settings.delete(ownerId);
   memory.anon.delete(ownerId);
   memory.users.delete(ownerId);
 }

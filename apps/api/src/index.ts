@@ -27,12 +27,27 @@ import {
   listModelsHandler,
 } from './catalogue.js';
 import {
+  createFillUpHandler,
+  deleteFillUpHandler,
+  getCalibrationHandler,
+  listFillUpsHandler,
+} from './fill-ups.js';
+import {
+  createPlaceHandler,
+  deletePlaceHandler,
+  listPlacesHandler,
+  patchPlaceHandler,
+} from './places-saved.js';
+import { getSettingsHandler, patchSettingsHandler } from './settings.js';
+import {
   deleteJourneyHandler,
   exportJourneysHandler,
   getJourneyHandler,
+  journeySummaryHandler,
   listJourneysHandler,
   saveJourneyHandler,
 } from './journeys.js';
+import { handleMetaPrices, handleStationsNear } from './stations.js';
 
 const app = new Hono<{ Bindings: ApiBindings }>();
 
@@ -60,6 +75,8 @@ app.post('/v1/places/resolve', handlePlaceResolve);
 app.post('/v1/places/reverse', handlePlaceReverse);
 app.post('/v1/estimate', handleEstimate);
 app.post('/v1/estimate/from-maps-url', handleFromMapsUrl);
+app.get('/v1/stations/near', handleStationsNear);
+app.get('/v1/meta/prices', handleMetaPrices);
 
 app.get('/v1/auth/session', sessionHandler);
 app.post('/v1/auth/claim-anon', claimAnonHandler);
@@ -77,10 +94,23 @@ app.patch('/v1/vehicles/:id', patchVehicleHandler);
 app.delete('/v1/vehicles/:id', deleteVehicleHandler);
 app.get('/v1/vehicles/:id/tariffs', listTariffsHandler);
 app.post('/v1/vehicles/:id/tariffs', createTariffHandler);
+app.get('/v1/vehicles/:id/fill-ups', listFillUpsHandler);
+app.get('/v1/vehicles/:id/calibration', getCalibrationHandler);
+
+app.get('/v1/settings', getSettingsHandler);
+app.patch('/v1/settings', patchSettingsHandler);
+app.get('/v1/saved-places', listPlacesHandler);
+app.post('/v1/saved-places', createPlaceHandler);
+app.patch('/v1/saved-places/:id', patchPlaceHandler);
+app.delete('/v1/saved-places/:id', deletePlaceHandler);
+
+app.post('/v1/fill-ups', createFillUpHandler);
+app.delete('/v1/fill-ups/:id', deleteFillUpHandler);
 
 app.post('/v1/journeys', saveJourneyHandler);
 app.get('/v1/journeys', listJourneysHandler);
 app.get('/v1/journeys/export', exportJourneysHandler);
+app.get('/v1/journeys/summary', journeySummaryHandler);
 app.get('/v1/journeys/:id', getJourneyHandler);
 app.delete('/v1/journeys/:id', deleteJourneyHandler);
 

@@ -1,7 +1,8 @@
 import { VCA_VEHICLE_FIXTURES } from "./vca-vehicles.js";
 import { UK_PLACES } from "../places.js";
+import { FUEL_FINDER_FIXTURES } from "./fuel-finder.js";
 
-export type FixtureName = "health" | "uk-places" | "vca-vehicles";
+export type FixtureName = "health" | "uk-places" | "vca-vehicles" | "fuel-finder";
 
 const registry: Record<FixtureName, unknown> = {
   health: {
@@ -12,6 +13,7 @@ const registry: Record<FixtureName, unknown> = {
   },
   "uk-places": UK_PLACES,
   "vca-vehicles": VCA_VEHICLE_FIXTURES,
+  "fuel-finder": FUEL_FINDER_FIXTURES,
 };
 
 function envFlag(explicit: string | undefined): string | undefined {

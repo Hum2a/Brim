@@ -37,6 +37,14 @@ export function wranglerWorkerName(envName) {
   return 'brim-api-production';
 }
 
+export const SYNC_SECRET_KEYS = ['DATABASE_URL', 'FUEL_FINDER_CLIENT_ID', 'FUEL_FINDER_CLIENT_SECRET'];
+
+export function wranglerSyncWorkerName(envName) {
+  if (envName === 'dev') return 'brim-sync';
+  if (envName === 'staging') return 'brim-sync-staging';
+  return 'brim-sync-production';
+}
+
 export function varsFromWranglerConfig(config, envName) {
   const flag = wranglerEnvFlag(envName);
   if (!flag) return { ...(config.vars ?? {}) };
@@ -133,11 +141,11 @@ function describePlan(envName, plan) {
   return bits.join('\n');
 }
 
-function runWrangler(args) {
+function runWrangler(args, cwd) {
   const wranglerJs = path.join(root, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [wranglerJs, ...args], {
-      cwd: path.join(root, 'apps', 'api'),
+      cwd,
       stdio: 'inherit',
       env: process.env,
     });
@@ -212,14 +220,25 @@ async function main() {
     const args = ['secret', 'bulk', file];
     const flag = wranglerEnvFlag(envName);
     if (flag) args.push('--env', flag);
-    const code = await runWrangler(args);
+    const code = await runWrangler(args, path.join(root, 'apps', 'api'));
     if (code !== 0) process.exit(code);
+
+    const syncSecrets = Object.fromEntries(
+      Object.entries(plan.secrets).filter(([key]) => SYNC_SECRET_KEYS.includes(key)),
+    );
+    if (Object.keys(syncSecrets).length > 0) {
+      writeFileSync(file, serializeEnv(syncSecrets, HEADER));
+      const syncArgs = ['secret', 'bulk', file];
+      if (flag) syncArgs.push('--env', flag);
+      const syncCode = await runWrangler(syncArgs, path.join(root, 'workers', 'sync'));
+      if (syncCode !== 0) process.exit(syncCode);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 
   console.log(
-    `cf:sync: uploaded ${plan.secretKeys.length} secret(s) to ${wranglerWorkerName(envName)}`,
+    `cf:sync: uploaded ${plan.secretKeys.length} secret(s) to ${wranglerWorkerName(envName)} (and Fuel Finder keys to ${wranglerSyncWorkerName(envName)} when present)`,
   );
 }
 

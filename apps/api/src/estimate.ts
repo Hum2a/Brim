@@ -10,6 +10,7 @@ import {
   propulsionSchema,
   ukTaxYearStartUtc,
   vehicleProfileSchema,
+  type PriceSource,
 } from '@brim/shared';
 import type { RoutePlace, RouteRequest } from '@brim/routing';
 import {
@@ -26,7 +27,8 @@ import { createLogger } from './logger.js';
 import { createDb } from './db/client.js';
 import { NeonRouteCache } from './db/route-cache.js';
 import { ownerFromContext } from './session.js';
-import { getDefaultTariff, getVehicle, persistLive, ytdMiles } from './db/repo.js';
+import { getDefaultTariff, getCalibration, getVehicle, persistLive, ytdMiles } from './db/repo.js';
+import { resolveEstimatePrice } from './prices.js';
 import type { BrimDb } from './db/types.js';
 import type { VehicleRow } from './db/memory.js';
 
@@ -45,6 +47,7 @@ const estimateBodySchema = z.object({
   vehicleId: z.string().optional(),
   vehicleInline: vehicleProfileSchema.optional(),
   propulsion: propulsionSchema.optional(),
+  stationId: z.string().optional(),
   priceStrategy: z.enum(['national-median', 'user-tariff', 'hardcoded-fallback']).optional(),
   pricePence: z.number().optional(),
   nowIso: z.string().optional(),
@@ -111,6 +114,17 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   const saved = body.vehicleId ? await getVehicle(db, session.ownerId, body.vehicleId) : undefined;
   const vehicleInline = body.vehicleInline ?? (saved ? vehicleFromRow(saved) : undefined);
   const propulsion = vehicleInline?.propulsion ?? body.propulsion ?? 'petrol';
+  const storedCalib = body.vehicleId
+    ? await getCalibration(db, session.ownerId, body.vehicleId)
+    : undefined;
+  const calibration =
+    storedCalib && storedCalib.sample_count > 0
+      ? {
+          value: storedCalib.calculated_value,
+          unit: storedCalib.unit as 'l/100km' | 'kWh/100km' | 'mpg' | 'mi/kWh',
+          sampleCount: storedCalib.sample_count,
+        }
+      : undefined;
   const hasProfile = Boolean(vehicleInline);
   const chosen = chooseProvider({
     fixtureMode: isFixtureMode(c.env.BRIM_FIXTURES),
@@ -159,13 +173,41 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
     body.priceStrategy === 'user-tariff' && body.vehicleId
       ? await getDefaultTariff(db, session.ownerId, body.vehicleId)
       : undefined;
-  const fallbackPence = propulsion === 'bev' ? 7.5 : 140;
-  const pricePence = body.pricePence ?? tariff?.pence_per_kwh ?? fallbackPence;
-  const priceUnit = propulsion === 'bev' ? 'p/kWh' : 'ppl';
-  const priceSource =
-    body.priceStrategy === 'user-tariff' && (tariff || body.pricePence !== undefined)
-      ? 'user-tariff'
-      : 'national-median';
+  const originCoords =
+    origin.lat !== undefined && origin.lng !== undefined ? { lat: origin.lat, lng: origin.lng } : undefined;
+  const useTariff = body.priceStrategy === 'user-tariff' && (tariff || body.pricePence !== undefined);
+  let pricePence = propulsion === 'bev' ? 7.5 : 140;
+  let priceUnit: 'ppl' | 'p/kWh' = propulsion === 'bev' ? 'p/kWh' : 'ppl';
+  let priceSource: PriceSource = useTariff ? 'user-tariff' : 'national-median';
+  let priceObservedAt = nowIso;
+  let pickedStationId: string | undefined;
+  let priceReason: string | undefined;
+  let priceWarning: { code: string; message: string; severity: 'info' | 'warning' | 'blocking' } | undefined;
+
+  if (propulsion === 'bev') {
+    pricePence = body.pricePence ?? tariff?.pence_per_kwh ?? 7.5;
+    priceUnit = 'p/kWh';
+    priceSource = useTariff ? 'user-tariff' : 'national-median';
+  } else if (useTariff || body.pricePence !== undefined) {
+    pricePence = body.pricePence ?? tariff?.pence_per_kwh ?? 140;
+    priceUnit = 'ppl';
+    priceSource = useTariff ? 'user-tariff' : 'national-median';
+  } else {
+    const resolved = await resolveEstimatePrice(c.env, db, {
+      propulsion,
+      ...(body.stationId ? { stationId: body.stationId } : {}),
+      ...(originCoords ? { origin: originCoords } : {}),
+    });
+    if (resolved) {
+      pricePence = resolved.pence;
+      priceUnit = 'ppl';
+      priceSource = resolved.source;
+      priceObservedAt = resolved.observedAt;
+      pickedStationId = resolved.stationId;
+      priceReason = resolved.reason;
+      priceWarning = resolved.warning;
+    }
+  }
 
   const estimateFor = (distanceMeters: number, durationSeconds: number, providerFuel?: number) =>
     computeEstimate({
@@ -173,6 +215,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
       durationSeconds,
       propulsion,
       vehicle: vehicleInline,
+      calibration,
       official:
         vehicleInline?.officialConsumption !== undefined
           ? {
@@ -193,7 +236,8 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
       pricePence,
       priceUnit,
       priceSource,
-      priceObservedAt: nowIso,
+      priceObservedAt,
+      ...(pickedStationId ? { stationId: pickedStationId } : {}),
       charges: [],
       gridIntensityGPerKwh: 150,
     });
@@ -203,6 +247,9 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
     route.durationSeconds,
     route.providerFuelLitres,
   );
+
+  if (priceReason) estimate.reasons.push(priceReason);
+  if (priceWarning) estimate.warnings.push(priceWarning);
 
   if (chosen.exceeded) {
     estimate.reasons.push(

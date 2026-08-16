@@ -1,7 +1,7 @@
 # Brim - Design Specification
 
 > [!IMPORTANT]
-> **Authoritative.** Code that contradicts this file is a bug in one of the two — flag it, do not silently reconcile. [ADR 0003](adr/0003-cinematic-ui-override.md) records a product override of §15.
+> **Authoritative.** Code that contradicts this file is a bug in one of the two - flag it, do not silently reconcile. [ADR 0003](adr/0003-cinematic-ui-override.md) records a product override of §15.
 >
 > [Docs hub](README.md) · [Self-hosting](self-hosting.md) · [ADRs](adr/README.md) · [Contributing](../CONTRIBUTING.md)
 
@@ -289,7 +289,7 @@ type Estimate = {
 |---|---|---|---|
 | **Google Routes API** | distance, duration, polyline, road composition, tolls, generic fuel estimate | Paid; Advanced SKU for fuel/eco/tolls | Primary provider. `TRAFFIC_AWARE_OPTIMAL`, `travelMode: DRIVE` |
 | **OSRM / Valhalla** | distance, duration, polyline | Self-hosted, free | Fallback provider (§11.2). No tolls, no fuel |
-| **Fuel Finder (CMA/DBT)** | per-forecourt prices by grade, site details, hours | OGL v3.0, free | OAuth2 client credentials, 100 req/min, ~8,000 forecourts, 30-min update obligation |
+| **Fuel Finder (CMA/DBT)** | per-forecourt prices by grade, site details, hours | OGL v3.0, free | OAuth2 client credentials, **30 req/min sequential only** (HTTP 429 if a second request starts before the previous finishes), ~8,000 forecourts, 30-min update obligation |
 | **DVLA VES API** | make, fuel type, engine capacity, CO₂, year, Euro status | Free, API key, terms-bound | **No model or derivative, no mpg** |
 | **VCA car fuel data** | official mpg / kWh / CO₂ by derivative | Downloadable dataset | Bulk-load via `data:sync-vca` (session cookie, then `download.aspx` / ZIP). **UK type-approved cars only** - not motorcycles, grey imports, or kit cars. No live API; make/model search is `GET /v1/vehicles/catalogue` |
 | **National Grid ESO Carbon Intensity** | gCO₂/kWh, regional + forecast | Free, no key | EV carbon accuracy |
@@ -327,8 +327,19 @@ computation is dropped to save SKU cost.
 Expect the feed to be dirty. This is a normalisation pipeline, not a fetch.
 
 ### 7.1 Sync job
-Cloudflare cron, every 20 minutes (obligation is 30). Full paginated pull into Neon. Never on a
-request path.
+Cloudflare cron (`workers/sync`, `*/20 * * * *`; obligation is 30 minutes). Sequential paginated
+pull into Neon via OAuth2 client credentials. Never on a request path. Local/first load is
+`data:sync-fuel`. ~8,000 sites at 500/batch is about 16 station pages plus 16 price pages; sleep
+~4s between pages to stay under 30 rpm.
+
+Base `https://www.fuel-finder.service.gov.uk`. Token: `POST /api/v1/oauth/generate_access_token`.
+Stations: `GET /api/v1/pfs?batch-number=`. Prices: `GET /api/v1/pfs/fuel-prices?batch-number=`.
+Incremental: `effective-start-timestamp=YYYY-MM-DD HH:MM:SS`.
+
+Prices arrive as pence strings (`"0120.0000"` = 120.0 ppl); some sites still send pounds (`< 2`).
+CMA types map onto the SQL CHECK (`E10|E5|B7|SDV|LPG`): `E10`→`E10`, `E5`→`E5`,
+`B7_STANDARD`→`B7`, `B7_PREMIUM`→`SDV`. Skip `B10`, `HVO`, and unknown types. Do not widen the
+CHECK to store those grades.
 
 ### 7.2 Known data problems and required handling
 
@@ -347,7 +358,7 @@ normalisation bugs are fixable retroactively.
 ### 7.3 Price selection precedence
 1. Station the user explicitly picked
 2. Cheapest suitable station on route (if opted in)
-3. User's home-area median for their grade (within 10 miles of saved home)
+3. User's home-area median for their grade (within 10 miles of saved home, or the trip start if home is not saved)
 4. National median for the grade
 5. Hard-coded fallback with a loud "price data unavailable" reason
 
@@ -643,6 +654,10 @@ journeys         id, owner_id, vehicle_id, origin_label, dest_label, origin_poin
                  distance_meters, duration_seconds, polyline, departs_at,
                  estimate_json, charges_json, is_saved, created_at
 
+owner_settings  owner_id, default_vehicle_id?, updated_at
+saved_places     id, owner_id, kind ('home'|'work'|'favourite'), label, lat, lng, created_at
+                 unique (owner_id, kind) where kind in ('home','work')
+
 stations         id, brand, brand_canonical, name, address, postcode,
                  location geography(Point,4326), opening_hours_json, last_seen_at, is_stale
 
@@ -664,7 +679,8 @@ grid_intensity   region, intensity_g_per_kwh, valid_from, valid_to
 route_cache      cache_key, provider, response_json, expires_at
 ```
 
-RLS: `vehicles`, `tariffs`, `fill_ups`, `journeys`, `calibrations` owner-scoped. `stations`,
+RLS: `vehicles`, `tariffs`, `fill_ups`, `journeys`, `calibrations`, `owner_settings`,
+`saved_places` owner-scoped. `stations`,
 `station_prices`, `zones`, `tolls`, `vca_vehicles`, `grid_intensity` public-read,
 service-role-write. Anonymous users get a signed anon session id as the RLS subject, so the same
 policies cover both, and claim-on-signup is an owner-id rewrite inside a transaction.
@@ -693,16 +709,24 @@ GET    /v1/vehicles/:id/compliance   → per-zone compliance for this vehicle, w
 POST   /v1/vehicles/:id/tariffs      |  GET /v1/vehicles/:id/tariffs
 
 POST   /v1/fill-ups                  { vehicleId, odometerMiles, quantity, unit, price, brim }
+GET    /v1/vehicles/:id/fill-ups     → { fillUps[] }
+DELETE /v1/fill-ups/:id
 GET    /v1/vehicles/:id/calibration  → { value, unit, sampleCount, stddev, confidence }
 
-GET    /v1/stations/near-route       { polyline, grade, maxDetourKm } → ranked
-GET    /v1/stations/near             { lat, lng, radiusKm, grade }
+GET    /v1/settings                  |  PATCH /v1/settings  { defaultVehicleId }
+GET    /v1/saved-places              |  POST /v1/saved-places
+PATCH  /v1/saved-places/:id          |  DELETE /v1/saved-places/:id
+
+GET    /v1/stations/near-route       { polyline, grade, maxDetourKm } → ranked (P8)
+GET    /v1/stations/near             { lat, lng, radiusKm, grade } → cap, exclude stale
 GET    /v1/charges/for-route         { polyline, departsAt, vehicleId } → Charge[]
 GET    /v1/zones                     public zone list with verified_on dates
 
 POST   /v1/journeys                  |  GET /v1/journeys  |  GET /v1/journeys/export (CSV)
+GET    /v1/journeys/summary          tax-year miles, AMAP, actual spend
+GET    /v1/journeys/:id
 POST   /v1/auth/claim-anon           merge anon profile into account
-GET    /v1/meta/prices               national + regional medians
+GET    /v1/meta/prices               national medians per grade + observedAt
 GET    /health
 ```
 
@@ -831,11 +855,11 @@ and on all charge-window logic**.
 dev:web / dev:api / dev:ext / dev:all / dev:fixtures
 build:web / build:api / build:ext
 test / test:watch / test:ci / test:rls / test:e2e
-db:generate / db:migrate / db:migrate:development / db:migrate:staging / db:migrate:production / db:studio / db:force-rls / db:rls:check / db:seed
-data:sync-fuel / data:sync-vca / data:sync-carbon / data:normalise-check / data:verify-zones
+db:generate / db:migrate / db:migrate:development / db:migrate:staging / db:migrate:production / db:migrate:all / db:studio / db:force-rls / db:rls:check / db:seed
+data:sync-fuel / data:sync-fuel:staging / data:sync-fuel:prod / data:sync-vca / data:sync-vca:staging / data:sync-vca:prod / data:sync-carbon / data:normalise-check / data:verify-zones
 env:setup / env:merge / env:sync / env:sync:staging / env:sync:prod / cf:sync / cf:sync:staging / cf:sync:prod / rules:sync / rules:check / ignore:sync
 check / ship-it / doctor / git:unlock / clean / reset / size
-deploy:staging / deploy:prod / deploy:preview
+deploy:staging / deploy:prod / deploy:preview / deploy:all / deploy:sync:staging / deploy:sync:prod
 ```
 
 All data and database commands go through `scripts/with-env.mjs` so the target environment is

@@ -11,6 +11,7 @@ import { ownerFromContext } from './session.js';
 import { createDb } from './db/client.js';
 import {
   deleteVehicle,
+  getSettings,
   getVehicle,
   listTariffs,
   listVehicles,
@@ -104,7 +105,14 @@ async function owner(c: Context<{ Bindings: ApiBindings }>) {
 export async function listVehiclesHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
   const db = createDb(c.env);
-  return c.json({ vehicles: await listVehicles(db, session.ownerId) });
+  const settings = await getSettings(db, session.ownerId);
+  const vehicles = await listVehicles(db, session.ownerId);
+  return c.json({
+    vehicles: vehicles.map((v) => ({
+      ...v,
+      is_default: settings?.default_vehicle_id === v.id,
+    })),
+  });
 }
 
 export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {

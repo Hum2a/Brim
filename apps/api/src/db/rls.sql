@@ -6,6 +6,8 @@ ALTER TABLE tariffs FORCE ROW LEVEL SECURITY;
 ALTER TABLE fill_ups FORCE ROW LEVEL SECURITY;
 ALTER TABLE journeys FORCE ROW LEVEL SECURITY;
 ALTER TABLE calibrations FORCE ROW LEVEL SECURITY;
+ALTER TABLE owner_settings FORCE ROW LEVEL SECURITY;
+ALTER TABLE saved_places FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY vehicles_owner ON vehicles
   USING (owner_id = current_setting('brim.owner_id', true))
@@ -34,3 +36,9 @@ CREATE POLICY calibrations_owner ON calibrations
   WITH CHECK (
     vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = current_setting('brim.owner_id', true))
   );
+CREATE POLICY owner_settings_owner ON owner_settings
+  USING (owner_id = current_setting('brim.owner_id', true))
+  WITH CHECK (owner_id = current_setting('brim.owner_id', true));
+CREATE POLICY saved_places_owner ON saved_places
+  USING (owner_id = current_setting('brim.owner_id', true))
+  WITH CHECK (owner_id = current_setting('brim.owner_id', true));

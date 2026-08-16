@@ -1,6 +1,24 @@
 import { and, desc, eq, gte, lte } from 'drizzle-orm';
-import { anonProfiles, journeys, routeCache, tariffs, vehicles } from './schema.js';
-import type { JourneyRow, TariffRow, VehicleRow } from './memory.js';
+import {
+  anonProfiles,
+  calibrations,
+  fillUps,
+  journeys,
+  ownerSettings,
+  routeCache,
+  savedPlaces,
+  tariffs,
+  vehicles,
+} from './schema.js';
+import type {
+  CalibrationRow,
+  FillUpRow,
+  JourneyRow,
+  OwnerSettingsRow,
+  SavedPlaceRow,
+  TariffRow,
+  VehicleRow,
+} from './memory.js';
 import { withRls, type RlsTx } from './with-rls.js';
 import type { BrimDb } from './types.js';
 
@@ -192,6 +210,72 @@ function journeyValues(row: JourneyRow) {
   };
 }
 
+export function fromFillUp(row: typeof fillUps.$inferSelect): FillUpRow {
+  const mapped: FillUpRow = {
+    id: row.id,
+    vehicle_id: row.vehicleId,
+    odometer_miles: row.odometerMiles,
+    quantity: row.quantity,
+    unit: row.unit === 'kwh' ? 'kwh' : 'litres',
+    price_pence: row.pricePence,
+    filled_to_brim: row.filledToBrim,
+    occurred_at: iso(row.occurredAt),
+  };
+  const note = optString(row.note);
+  if (note) mapped.note = note;
+  return mapped;
+}
+
+function fillUpValues(row: FillUpRow) {
+  return {
+    id: row.id,
+    vehicleId: row.vehicle_id,
+    odometerMiles: row.odometer_miles,
+    quantity: row.quantity,
+    unit: row.unit,
+    pricePence: row.price_pence,
+    filledToBrim: row.filled_to_brim,
+    occurredAt: new Date(row.occurred_at),
+    note: row.note ?? null,
+  };
+}
+
+export function fromCalibration(row: typeof calibrations.$inferSelect): CalibrationRow {
+  const mapped: CalibrationRow = {
+    id: row.id,
+    vehicle_id: row.vehicleId,
+    calculated_value: row.calculatedValue,
+    unit: row.unit,
+    sample_count: row.sampleCount,
+    last_computed_at: iso(row.lastComputedAt),
+  };
+  const stddev = optNumber(row.stddev);
+  if (stddev !== undefined) mapped.stddev = stddev;
+  return mapped;
+}
+
+export function fromSettings(row: typeof ownerSettings.$inferSelect): OwnerSettingsRow {
+  const mapped: OwnerSettingsRow = {
+    owner_id: row.ownerId,
+    updated_at: iso(row.updatedAt),
+  };
+  const vehicleId = optString(row.defaultVehicleId);
+  if (vehicleId) mapped.default_vehicle_id = vehicleId;
+  return mapped;
+}
+
+export function fromPlace(row: typeof savedPlaces.$inferSelect): SavedPlaceRow {
+  return {
+    id: row.id,
+    owner_id: row.ownerId,
+    kind: row.kind === 'work' ? 'work' : row.kind === 'favourite' ? 'favourite' : 'home',
+    label: row.label,
+    lat: row.lat,
+    lng: row.lng,
+    created_at: iso(row.createdAt),
+  };
+}
+
 export async function neonListVehicles(db: BrimDb, ownerId: string): Promise<VehicleRow[]> {
   return withRls(db, { ownerId }, async (tx) => {
     const rows = await tx.select().from(vehicles).where(eq(vehicles.ownerId, ownerId));
@@ -369,6 +453,227 @@ export async function neonDeleteJourney(db: BrimDb, ownerId: string, id: string)
   });
 }
 
+export async function neonListFillUps(
+  db: BrimDb,
+  ownerId: string,
+  vehicleId: string,
+): Promise<FillUpRow[]> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const owned = await tx
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(and(eq(vehicles.id, vehicleId), eq(vehicles.ownerId, ownerId)));
+    if (!owned[0]) return [];
+    const rows = await tx
+      .select()
+      .from(fillUps)
+      .where(eq(fillUps.vehicleId, vehicleId))
+      .orderBy(desc(fillUps.occurredAt));
+    return rows.map(fromFillUp);
+  });
+}
+
+export async function neonGetFillUp(
+  db: BrimDb,
+  ownerId: string,
+  id: string,
+): Promise<FillUpRow | undefined> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const rows = await tx.select().from(fillUps).where(eq(fillUps.id, id));
+    const row = rows[0];
+    if (!row) return undefined;
+    const owned = await tx
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(and(eq(vehicles.id, row.vehicleId), eq(vehicles.ownerId, ownerId)));
+    return owned[0] ? fromFillUp(row) : undefined;
+  });
+}
+
+export async function neonSaveFillUp(
+  db: BrimDb,
+  ownerId: string,
+  row: FillUpRow,
+): Promise<FillUpRow | undefined> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const owned = await tx
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(and(eq(vehicles.id, row.vehicle_id), eq(vehicles.ownerId, ownerId)));
+    if (!owned[0]) return undefined;
+    const values = fillUpValues(row);
+    await tx
+      .insert(fillUps)
+      .values(values)
+      .onConflictDoUpdate({
+        target: fillUps.id,
+        set: {
+          odometerMiles: values.odometerMiles,
+          quantity: values.quantity,
+          unit: values.unit,
+          pricePence: values.pricePence,
+          filledToBrim: values.filledToBrim,
+          occurredAt: values.occurredAt,
+          note: values.note,
+        },
+      });
+    return row;
+  });
+}
+
+export async function neonDeleteFillUp(db: BrimDb, ownerId: string, id: string): Promise<boolean> {
+  const existing = await neonGetFillUp(db, ownerId, id);
+  if (!existing) return false;
+  return withRls(db, { ownerId }, async (tx) => {
+    const deleted = await tx.delete(fillUps).where(eq(fillUps.id, id)).returning({ id: fillUps.id });
+    return deleted.length > 0;
+  });
+}
+
+export async function neonGetCalibration(
+  db: BrimDb,
+  ownerId: string,
+  vehicleId: string,
+): Promise<CalibrationRow | undefined> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const owned = await tx
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(and(eq(vehicles.id, vehicleId), eq(vehicles.ownerId, ownerId)));
+    if (!owned[0]) return undefined;
+    const rows = await tx.select().from(calibrations).where(eq(calibrations.vehicleId, vehicleId));
+    const row = rows[0];
+    return row ? fromCalibration(row) : undefined;
+  });
+}
+
+export async function neonSaveCalibration(
+  db: BrimDb,
+  ownerId: string,
+  row: CalibrationRow,
+): Promise<CalibrationRow | undefined> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const owned = await tx
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(and(eq(vehicles.id, row.vehicle_id), eq(vehicles.ownerId, ownerId)));
+    if (!owned[0]) return undefined;
+    await tx.delete(calibrations).where(eq(calibrations.vehicleId, row.vehicle_id));
+    await tx.insert(calibrations).values({
+      id: row.id,
+      vehicleId: row.vehicle_id,
+      calculatedValue: row.calculated_value,
+      unit: row.unit,
+      sampleCount: row.sample_count,
+      stddev: row.stddev ?? null,
+      lastComputedAt: new Date(row.last_computed_at),
+    });
+    return row;
+  });
+}
+
+export async function neonGetSettings(
+  db: BrimDb,
+  ownerId: string,
+): Promise<OwnerSettingsRow | undefined> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const rows = await tx.select().from(ownerSettings).where(eq(ownerSettings.ownerId, ownerId));
+    const row = rows[0];
+    return row ? fromSettings(row) : undefined;
+  });
+}
+
+export async function neonSaveSettings(
+  db: BrimDb,
+  row: OwnerSettingsRow,
+): Promise<OwnerSettingsRow> {
+  await withRls(db, { ownerId: row.owner_id }, async (tx) => {
+    await tx
+      .insert(ownerSettings)
+      .values({
+        ownerId: row.owner_id,
+        defaultVehicleId: row.default_vehicle_id ?? null,
+        updatedAt: new Date(row.updated_at),
+      })
+      .onConflictDoUpdate({
+        target: ownerSettings.ownerId,
+        set: {
+          defaultVehicleId: row.default_vehicle_id ?? null,
+          updatedAt: new Date(row.updated_at),
+        },
+      });
+  });
+  return row;
+}
+
+export async function neonListPlaces(db: BrimDb, ownerId: string): Promise<SavedPlaceRow[]> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const rows = await tx.select().from(savedPlaces).where(eq(savedPlaces.ownerId, ownerId));
+    return rows.map(fromPlace);
+  });
+}
+
+export async function neonGetPlace(
+  db: BrimDb,
+  ownerId: string,
+  id: string,
+): Promise<SavedPlaceRow | undefined> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const rows = await tx
+      .select()
+      .from(savedPlaces)
+      .where(and(eq(savedPlaces.id, id), eq(savedPlaces.ownerId, ownerId)));
+    const row = rows[0];
+    return row ? fromPlace(row) : undefined;
+  });
+}
+
+export async function neonSavePlace(db: BrimDb, row: SavedPlaceRow): Promise<SavedPlaceRow> {
+  await withRls(db, { ownerId: row.owner_id }, async (tx) => {
+    if (row.kind === 'home' || row.kind === 'work') {
+      await tx
+        .delete(savedPlaces)
+        .where(
+          and(
+            eq(savedPlaces.ownerId, row.owner_id),
+            eq(savedPlaces.kind, row.kind),
+          ),
+        );
+    }
+    await tx
+      .insert(savedPlaces)
+      .values({
+        id: row.id,
+        ownerId: row.owner_id,
+        kind: row.kind,
+        label: row.label,
+        lat: row.lat,
+        lng: row.lng,
+        createdAt: new Date(row.created_at),
+      })
+      .onConflictDoUpdate({
+        target: savedPlaces.id,
+        set: {
+          kind: row.kind,
+          label: row.label,
+          lat: row.lat,
+          lng: row.lng,
+        },
+      });
+  });
+  return row;
+}
+
+export async function neonDeletePlace(db: BrimDb, ownerId: string, id: string): Promise<boolean> {
+  return withRls(db, { ownerId }, async (tx) => {
+    const deleted = await tx
+      .delete(savedPlaces)
+      .where(and(eq(savedPlaces.id, id), eq(savedPlaces.ownerId, ownerId)))
+      .returning({ id: savedPlaces.id });
+    return deleted.length > 0;
+  });
+}
+
 export async function neonYtdMiles(
   db: BrimDb,
   ownerId: string,
@@ -428,6 +733,41 @@ export async function neonClaimAnon(
       await tx.update(journeys).set({ ownerId: userId }).where(eq(journeys.id, journey.id));
       moved += 1;
     }
+
+    const userSettings = await tx.select().from(ownerSettings).where(eq(ownerSettings.ownerId, userId));
+    const anonSettings = await tx.select().from(ownerSettings).where(eq(ownerSettings.ownerId, anonId));
+    if (anonSettings[0]) {
+      if (userSettings[0]) {
+        if (!userSettings[0].defaultVehicleId && anonSettings[0].defaultVehicleId) {
+          await tx
+            .update(ownerSettings)
+            .set({ defaultVehicleId: anonSettings[0].defaultVehicleId, updatedAt: new Date() })
+            .where(eq(ownerSettings.ownerId, userId));
+        }
+        await tx.delete(ownerSettings).where(eq(ownerSettings.ownerId, anonId));
+      } else {
+        await tx
+          .update(ownerSettings)
+          .set({ ownerId: userId, updatedAt: new Date() })
+          .where(eq(ownerSettings.ownerId, anonId));
+        moved += 1;
+      }
+    }
+
+    const userPlaces = await tx.select().from(savedPlaces).where(eq(savedPlaces.ownerId, userId));
+    const reserved = new Set(
+      userPlaces.filter((p) => p.kind === 'home' || p.kind === 'work').map((p) => p.kind),
+    );
+    const anonPlaces = await tx.select().from(savedPlaces).where(eq(savedPlaces.ownerId, anonId));
+    for (const place of anonPlaces) {
+      if ((place.kind === 'home' || place.kind === 'work') && reserved.has(place.kind)) {
+        await tx.delete(savedPlaces).where(eq(savedPlaces.id, place.id));
+      } else {
+        await tx.update(savedPlaces).set({ ownerId: userId }).where(eq(savedPlaces.id, place.id));
+        moved += 1;
+      }
+    }
+
     if (profile) {
       await tx
         .update(anonProfiles)
@@ -448,6 +788,8 @@ export async function neonDeleteOwner(db: BrimDb, ownerId: string): Promise<void
   await withRls(db, { serviceRole: true }, async (tx) => {
     await tx.delete(vehicles).where(eq(vehicles.ownerId, ownerId));
     await tx.delete(journeys).where(eq(journeys.ownerId, ownerId));
+    await tx.delete(savedPlaces).where(eq(savedPlaces.ownerId, ownerId));
+    await tx.delete(ownerSettings).where(eq(ownerSettings.ownerId, ownerId));
     await tx.delete(anonProfiles).where(eq(anonProfiles.id, ownerId));
   });
 }

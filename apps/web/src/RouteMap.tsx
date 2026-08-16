@@ -8,6 +8,7 @@ export type MapPin = { lat: number; lng: number; label?: string };
 
 export type RouteMapOverlays = {
   stations?: Array<{ id: string; lat: number; lng: number; label?: string }>;
+  selectedStationId?: string;
   zones?: Array<{ id: string; name: string; geojson: unknown }>;
 };
 
@@ -27,6 +28,7 @@ export type RouteMapProps = {
   onDestinationDrag: (pin: { lat: number; lng: number }) => void;
   onWaypointDrag?: (index: number, pin: { lat: number; lng: number }) => void;
   onSelectAlternative?: (id: string) => void;
+  onSelectStation?: (id: string) => void;
 };
 
 type LineCollection = {
@@ -39,6 +41,16 @@ type LineCollection = {
 };
 
 const emptyCollection: LineCollection = { type: "FeatureCollection", features: [] };
+
+function stationEl(selected: boolean, label: string): HTMLDivElement {
+  const el = document.createElement("div");
+  el.className = selected
+    ? "h-2.5 w-2.5 cursor-pointer rounded-[2px] border border-forecourt bg-diesel"
+    : "h-2 w-2 cursor-pointer rounded-[2px] border border-forecourt bg-background";
+  el.setAttribute("role", "button");
+  el.setAttribute("aria-label", label);
+  return el;
+}
 
 function markerEl(kind: "origin" | "destination" | "via"): HTMLDivElement {
   const el = document.createElement("div");
@@ -111,25 +123,29 @@ export default function RouteMap(props: RouteMapProps) {
     onDestinationDrag,
     onWaypointDrag,
     onSelectAlternative,
+    onSelectStation,
+    overlays,
   } = props;
-  void props.overlays;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const originMarker = useRef<maplibregl.Marker | null>(null);
   const destMarker = useRef<maplibregl.Marker | null>(null);
   const viaMarkers = useRef<maplibregl.Marker[]>([]);
+  const stationMarkers = useRef<maplibregl.Marker[]>([]);
   const dragging = useRef(false);
   const clickRef = useRef(onMapClick);
   const originDragRef = useRef(onOriginDrag);
   const destDragRef = useRef(onDestinationDrag);
   const viaDragRef = useRef(onWaypointDrag);
   const selectRef = useRef(onSelectAlternative);
+  const stationClickRef = useRef(onSelectStation);
   clickRef.current = onMapClick;
   originDragRef.current = onOriginDrag;
   destDragRef.current = onDestinationDrag;
   viaDragRef.current = onWaypointDrag;
   selectRef.current = onSelectAlternative;
+  stationClickRef.current = onSelectStation;
 
   useEffect(() => {
     const node = rootRef.current;
@@ -160,7 +176,9 @@ export default function RouteMap(props: RouteMapProps) {
       originMarker.current?.remove();
       destMarker.current?.remove();
       for (const m of viaMarkers.current) m.remove();
+      for (const m of stationMarkers.current) m.remove();
       viaMarkers.current = [];
+      stationMarkers.current = [];
       originMarker.current = null;
       destMarker.current = null;
       map.remove();
@@ -263,6 +281,25 @@ export default function RouteMap(props: RouteMapProps) {
     };
     whenStyleReady(map, apply);
   }, [encodedPolyline, alternatives, selectedRouteId, reduceMotion]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const stations = overlays?.stations ?? [];
+    const selected = overlays?.selectedStationId;
+    const apply = () => {
+      for (const marker of stationMarkers.current) marker.remove();
+      stationMarkers.current = stations.map((station) => {
+        const el = stationEl(station.id === selected, station.label ?? "Forecourt");
+        el.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          stationClickRef.current?.(station.id);
+        });
+        return new maplibregl.Marker({ element: el }).setLngLat([station.lng, station.lat]).addTo(map);
+      });
+    };
+    whenStyleReady(map, apply);
+  }, [overlays]);
 
   return (
     <div

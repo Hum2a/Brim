@@ -6,6 +6,7 @@ import {
   planCloudflareSync,
   varsFromWranglerConfig,
   wranglerEnvFlag,
+  wranglerSyncWorkerName,
   wranglerWorkerName,
 } from './cf-sync.mjs';
 
@@ -22,6 +23,14 @@ describe('wranglerWorkerName', () => {
     assert.equal(wranglerWorkerName('dev'), 'brim-api');
     assert.equal(wranglerWorkerName('staging'), 'brim-api-staging');
     assert.equal(wranglerWorkerName('prod'), 'brim-api-production');
+  });
+});
+
+describe('wranglerSyncWorkerName', () => {
+  it('targets the Fuel Finder cron Worker per environment', () => {
+    assert.equal(wranglerSyncWorkerName('dev'), 'brim-sync');
+    assert.equal(wranglerSyncWorkerName('staging'), 'brim-sync-staging');
+    assert.equal(wranglerSyncWorkerName('prod'), 'brim-sync-production');
   });
 });
 

@@ -1,5 +1,12 @@
 export { isFixtureMode, loadFixture, type FixtureName } from './fixtures/index.js';
 export { VCA_VEHICLE_FIXTURES } from './fixtures/vca-vehicles.js';
+export {
+  FUEL_FINDER_FIXTURES,
+  FUEL_FINDER_FIXTURE_NOW,
+  FUEL_FINDER_PFS_FIXTURES,
+  FUEL_FINDER_PRICE_FIXTURES,
+} from './fixtures/fuel-finder.js';
+export * from './fuel-finder/index.js';
 export * from './vca/types.js';
 export { parseCsv, parseCsvRows, normHeader } from './vca/csv.js';
 export {

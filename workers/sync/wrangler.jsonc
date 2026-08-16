@@ -1,0 +1,31 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "account_id": "e6d408ebc85e159e6e22ee963641d342",
+  "name": "brim-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["*/20 * * * *"]
+  },
+  "env": {
+    "staging": {
+      "name": "brim-sync-staging",
+      "workers_dev": true,
+      "triggers": {
+        "crons": ["*/20 * * * *"]
+      }
+    },
+    "production": {
+      "name": "brim-sync-production",
+      "workers_dev": true,
+      "triggers": {
+        "crons": ["*/20 * * * *"]
+      }
+    }
+  }
+}

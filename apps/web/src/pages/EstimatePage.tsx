@@ -50,7 +50,9 @@ type Vehicle = {
   propulsion: string;
   make?: string;
   model?: string;
+  is_default?: boolean;
 };
+type SavedPlace = { id: string; kind: "home" | "work" | "favourite"; label: string; lat: number; lng: number };
 type Tariff = { id: string; pence_per_kwh: number; is_default: boolean };
 type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
 type Estimate = {
@@ -73,6 +75,13 @@ type Estimate = {
   waypoints?: Place[];
   routeLabel?: string;
   durationTrafficSeconds?: number;
+  price?: {
+    pence: number;
+    unit: "ppl" | "p/kWh";
+    source: string;
+    stationId?: string;
+    observedAt: string;
+  };
   alternatives?: Array<{
     id: string;
     label: string;
@@ -93,6 +102,34 @@ function tripPlace(label: string, pin: Place | null) {
   if (!pin) return label;
   return { lat: pin.lat, lng: pin.lng, label };
 }
+
+function priceSourceLabel(source: string): string {
+  if (source === "national-median") return "National median";
+  if (source === "home-area-median") return "Near your start";
+  if (source === "user-picked-station") return "This forecourt";
+  if (source === "hardcoded-fallback") return "Price data unavailable";
+  if (source === "user-tariff") return "Your tariff";
+  return source;
+}
+
+function formatObservedAt(iso: string): string {
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return "updated just now";
+  const min = Math.round(ms / 60_000);
+  if (min < 1) return "updated just now";
+  if (min < 60) return `updated ${min} min ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 36) return `updated ${hr} h ago`;
+  return `updated ${Math.round(hr / 24)} d ago`;
+}
+
+type NearbyStation = {
+  id: string;
+  lat: number;
+  lng: number;
+  name: string;
+  brand?: string;
+};
 
 type ViaDraft = { id: string; text: string; pin: Place | null };
 
@@ -127,9 +164,17 @@ export function EstimatePage() {
   const [vehicleId, setVehicleId] = useState("inline");
   const [homePence, setHomePence] = useState("7.5");
   const [authOpen, setAuthOpen] = useState(false);
-  const [pendingSave, setPendingSave] = useState<"vehicle" | "journey" | null>(null);
+  const [pendingSave, setPendingSave] = useState<"vehicle" | "journey" | "fill" | null>(null);
+  const [places, setPlaces] = useState<SavedPlace[]>([]);
+  const [fillOpen, setFillOpen] = useState(false);
+  const [fillOdo, setFillOdo] = useState("");
+  const [fillQty, setFillQty] = useState("");
+  const [fillPrice, setFillPrice] = useState("");
+  const [fillBrim, setFillBrim] = useState(true);
   const [stale, setStale] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
+  const [stationId, setStationId] = useState<string | undefined>();
+  const [nearbyStations, setNearbyStations] = useState<NearbyStation[]>([]);
   const [wide, setWide] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
   );
@@ -159,6 +204,7 @@ export function EstimatePage() {
     vehicleId,
     savedElectric,
     homePence,
+    stationId,
   });
   tripRef.current = {
     origin,
@@ -171,6 +217,7 @@ export function EstimatePage() {
     vehicleId,
     savedElectric,
     homePence,
+    stationId,
   };
 
   useEffect(() => {
@@ -184,11 +231,32 @@ export function EstimatePage() {
   }, [savedElectric, vehicleId]);
 
   useEffect(() => {
+    if (!originPin || propulsion === "bev") {
+      setNearbyStations([]);
+      return;
+    }
+    const grade = propulsion === "diesel" ? "B7" : "E10";
+    void api<{
+      stations: Array<{ id: string; lat: number; lng: number; name: string; brand?: string }>;
+    }>(`/v1/stations/near?lat=${originPin.lat}&lng=${originPin.lng}&grade=${grade}`)
+      .then((r) => setNearbyStations(r.stations))
+      .catch(() => setNearbyStations([]));
+  }, [originPin, propulsion]);
+
+  useEffect(() => {
     void api<Health>("/health")
       .then(setHealth)
       .catch(() => setHealth(null));
     void api<{ vehicles: Vehicle[] }>("/v1/vehicles")
-      .then((r) => setVehicles(r.vehicles))
+      .then((r) => {
+        setVehicles(r.vehicles);
+        if (new URLSearchParams(window.location.search).get("journey")) return;
+        const def = r.vehicles.find((v) => v.is_default) ?? r.vehicles[0];
+        if (def) setVehicleId(def.id);
+      })
+      .catch(() => undefined);
+    void api<{ places: SavedPlace[] }>("/v1/saved-places")
+      .then((r) => setPlaces(r.places))
       .catch(() => undefined);
     const cached = localStorage.getItem("brim:last-estimate");
     if (cached) {
@@ -215,6 +283,24 @@ export function EstimatePage() {
     if (shared) {
       setMaps(shared);
       void runMaps(shared);
+    }
+    const journeyId = params.get("journey");
+    if (journeyId) {
+      void api<{
+        origin: string;
+        destination: string;
+        vehicleId?: string;
+        originPin?: Place;
+        destinationPin?: Place;
+      }>(`/v1/journeys/${journeyId}`)
+        .then((j) => {
+          setOrigin(j.originPin?.label ?? j.origin);
+          setDestination(j.destinationPin?.label ?? j.destination);
+          if (j.originPin) setOriginPin(j.originPin);
+          if (j.destinationPin) setDestPin(j.destinationPin);
+          if (j.vehicleId) setVehicleId(j.vehicleId);
+        })
+        .catch(() => undefined);
     }
   }, []);
 
@@ -371,6 +457,7 @@ export function EstimatePage() {
         }
       }
     }
+    if (trip.stationId && trip.propulsion !== "bev") body.stationId = trip.stationId;
     return body;
   }
 
@@ -512,6 +599,7 @@ export function EstimatePage() {
     setPendingSave(null);
     if (pending === "vehicle") await saveVehicle();
     if (pending === "journey") await saveJourney();
+    if (pending === "fill") setFillOpen(true);
     const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles").catch(() => null);
     if (list) setVehicles(list.vehicles);
   }
@@ -526,6 +614,18 @@ export function EstimatePage() {
   }, [estimate]);
 
   const viaPins = viaDrafts.map((v) => v.pin).filter((p): p is Place => Boolean(p));
+  const stationOverlays = useMemo(() => {
+    if (nearbyStations.length === 0) return undefined;
+    return {
+      stations: nearbyStations.map((s) => ({
+        id: s.id,
+        lat: s.lat,
+        lng: s.lng,
+        label: s.brand ? `${s.brand} · ${s.name}` : s.name,
+      })),
+      ...(stationId ? { selectedStationId: stationId } : {}),
+    };
+  }, [nearbyStations, stationId]);
   const mapProps = {
     onMapClick,
     onOriginDrag,
@@ -546,6 +646,11 @@ export function EstimatePage() {
         }
       : {}),
     ...(selectedRouteId ? { selectedRouteId } : {}),
+    onSelectStation: (id: string) => {
+      setStationId(id);
+      scheduleEstimate();
+    },
+    ...(stationOverlays ? { overlays: stationOverlays } : {}),
   };
 
   const form = (
@@ -642,6 +747,28 @@ export function EstimatePage() {
           <Button type="button" variant="ghost" size="sm" onClick={useMyLocation}>
             Use my location
           </Button>
+          {places.some((p) => p.kind === "home" || p.kind === "work") ? (
+            <div className="mt-1 flex gap-2">
+              {places
+                .filter((p) => p.kind === "home" || p.kind === "work")
+                .map((p) => (
+                  <Button
+                    key={`from-${p.id}`}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setOrigin(p.label);
+                      setOriginPin({ label: p.label, lat: p.lat, lng: p.lng });
+                      setFocusStop("destination");
+                      scheduleEstimate();
+                    }}
+                  >
+                    {p.kind === "home" ? "Home" : "Work"}
+                  </Button>
+                ))}
+            </div>
+          ) : null}
           {geoError ? <p className="text-xs text-warning">{geoError}</p> : null}
         </FormItem>
         <FormItem>
@@ -660,6 +787,27 @@ export function EstimatePage() {
               scheduleEstimate();
             }}
           />
+          {places.some((p) => p.kind === "home" || p.kind === "work") ? (
+            <div className="mt-1 flex gap-2">
+              {places
+                .filter((p) => p.kind === "home" || p.kind === "work")
+                .map((p) => (
+                  <Button
+                    key={`to-${p.id}`}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDestination(p.label);
+                      setDestPin({ label: p.label, lat: p.lat, lng: p.lng });
+                      scheduleEstimate();
+                    }}
+                  >
+                    {p.kind === "home" ? "Home" : "Work"}
+                  </Button>
+                ))}
+            </div>
+          ) : null}
         </FormItem>
         {viaDrafts.map((via, index) => (
           <FormItem key={via.id}>
@@ -856,6 +1004,25 @@ export function EstimatePage() {
         <m.p variants={reveal} className="tabular mt-2 text-mist">
           {band}
         </m.p>
+        {estimate.price ? (
+          <m.p
+            variants={reveal}
+            className={
+              estimate.price.source === "hardcoded-fallback"
+                ? "mt-2 text-sm text-warning"
+                : "mt-2 text-sm text-mist"
+            }
+          >
+            <span className="tabular">
+              {estimate.price.pence.toFixed(1)} {estimate.price.unit}
+            </span>
+            {" · "}
+            {priceSourceLabel(estimate.price.source)}
+            {estimate.price.source !== "hardcoded-fallback"
+              ? ` · ${formatObservedAt(estimate.price.observedAt)}`
+              : null}
+          </m.p>
+        ) : null}
         <m.div variants={reveal} className="mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="diesel">{estimate.consumption.label}</Badge>
           <span className="tabular text-sm">{estimate.consumption.display}</span>
@@ -901,6 +1068,11 @@ export function EstimatePage() {
           <Button type="button" variant="ghost" onClick={() => void saveJourney()}>
             Save journey
           </Button>
+          {vehicleId !== "inline" ? (
+            <Button type="button" variant="ghost" onClick={() => setFillOpen(true)}>
+              Log a fill-up
+            </Button>
+          ) : null}
           <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
             Sign in to sync
           </Button>
@@ -964,6 +1136,65 @@ export function EstimatePage() {
             idPrefix="estimate-auth"
             onSuccess={() => void onAuthSuccess()}
           />
+        </DialogContent>
+      </Dialog>
+      <Dialog open={fillOpen} onOpenChange={setFillOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log a fill-up</DialogTitle>
+            <DialogDescription>Odometer, quantity, brim. Used to correct the brochure figure.</DialogDescription>
+          </DialogHeader>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const pounds = Number(fillPrice);
+              void api("/v1/fill-ups", {
+                method: "POST",
+                body: JSON.stringify({
+                  vehicleId,
+                  odometerMiles: Number(fillOdo),
+                  quantity: Number(fillQty),
+                  unit: savedElectric ? "kwh" : "litres",
+                  price: Number.isFinite(pounds) ? Math.round(pounds * 100) : 0,
+                  brim: fillBrim,
+                }),
+              })
+                .then(() => {
+                  toast("Fill-up stored.");
+                  setFillOpen(false);
+                  setFillOdo("");
+                  setFillQty("");
+                  setFillPrice("");
+                })
+                .catch(() => {
+                  setPendingSave("fill");
+                  setFillOpen(false);
+                  setAuthOpen(true);
+                });
+            }}
+          >
+            <FormItem>
+              <Label htmlFor="est-odo">Odometer miles</Label>
+              <Input id="est-odo" className="tabular" value={fillOdo} onChange={(ev) => setFillOdo(ev.target.value)} required />
+            </FormItem>
+            <FormItem>
+              <Label htmlFor="est-qty">{savedElectric ? "kWh" : "Litres"}</Label>
+              <Input id="est-qty" className="tabular" value={fillQty} onChange={(ev) => setFillQty(ev.target.value)} required />
+            </FormItem>
+            <FormItem>
+              <Label htmlFor="est-gbp">Price £</Label>
+              <Input id="est-gbp" className="tabular" value={fillPrice} onChange={(ev) => setFillPrice(ev.target.value)} />
+            </FormItem>
+            <FormItem>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={fillBrim} onChange={(ev) => setFillBrim(ev.target.checked)} />
+                Filled to brim
+              </label>
+            </FormItem>
+            <Button type="submit" className="mt-2">
+              Store fill-up
+            </Button>
+          </Form>
         </DialogContent>
       </Dialog>
     </main>

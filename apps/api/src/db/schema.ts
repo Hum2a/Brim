@@ -1,11 +1,13 @@
 /**
- * Drizzle table map matching apps/api/src/db/migrations/0001_init.sql.
+ * Drizzle table map matching apps/api/src/db/migrations.
  * Runtime queries in fixture mode use the memory store; Neon uses this schema
  * once DATABASE_URL is supplied to createDb().
  *
- * Geography columns (origin_point, dest_point, station location, zone geometry)
- * are omitted until P7/P8. vrm_encrypted is stored but never written in P4.
+ * Geography columns (origin_point, dest_point, zone geometry) stay off the
+ * object mapper. Station points are written and read with ST_MakePoint / ST_DWithin.
+ * vrm_encrypted is stored but never written in P4.
  */
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   date,
@@ -17,6 +19,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('user', {
@@ -148,6 +151,31 @@ export const journeys = pgTable('journeys', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 });
 
+export const ownerSettings = pgTable('owner_settings', {
+  ownerId: text('owner_id').primaryKey(),
+  defaultVehicleId: text('default_vehicle_id'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
+export const savedPlaces = pgTable(
+  'saved_places',
+  {
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull(),
+    kind: text('kind').notNull(),
+    label: text('label').notNull(),
+    lat: doublePrecision('lat').notNull(),
+    lng: doublePrecision('lng').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex('saved_places_one_home_work')
+      .on(table.ownerId, table.kind)
+      .where(sql`kind IN ('home', 'work')`),
+    index('saved_places_owner_idx').on(table.ownerId),
+  ],
+);
+
 export const stations = pgTable('stations', {
   id: text('id').primaryKey(),
   brand: text('brand'),
@@ -229,6 +257,12 @@ export const routeCache = pgTable('route_cache', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
 
+export const ingestionState = pgTable('ingestion_state', {
+  source: text('source').primaryKey(),
+  watermark: timestamp('watermark', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+});
+
 export const schema = {
   user,
   session,
@@ -240,6 +274,8 @@ export const schema = {
   calibrations,
   fillUps,
   journeys,
+  ownerSettings,
+  savedPlaces,
   stations,
   stationPrices,
   zones,
@@ -247,4 +283,5 @@ export const schema = {
   vcaVehicles,
   gridIntensity,
   routeCache,
+  ingestionState,
 };

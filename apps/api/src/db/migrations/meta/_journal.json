@@ -29,6 +29,20 @@
       "when": 1722729600000,
       "tag": "0004_rls_role",
       "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1722816000000,
+      "tag": "0005_owner_settings",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1722902400000,
+      "tag": "0006_stations_geo",
+      "breakpoints": false
     }
   ]
 }

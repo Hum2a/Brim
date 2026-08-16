@@ -7,6 +7,7 @@ import { EstimatePage } from "./pages/EstimatePage.js";
 
 const KitchenSink = lazy(() => import("./pages/KitchenSink.js").then((mod) => ({ default: mod.KitchenSink })));
 const HistoryPage = lazy(() => import("./pages/HistoryPage.js").then((mod) => ({ default: mod.HistoryPage })));
+const GaragePage = lazy(() => import("./pages/GaragePage.js").then((mod) => ({ default: mod.GaragePage })));
 const AccountPage = lazy(() => import("./pages/AccountPage.js").then((mod) => ({ default: mod.AccountPage })));
 
 function NavLink({ href, label, current }: { href: string; label: string; current: boolean }) {
@@ -26,6 +27,7 @@ function NavLink({ href, label, current }: { href: string; label: string; curren
 function RouteBody({ path }: { path: string }) {
   if (path.startsWith("/kitchen-sink")) return <KitchenSink />;
   if (path.startsWith("/history")) return <HistoryPage />;
+  if (path.startsWith("/garage")) return <GaragePage />;
   if (path.startsWith("/account")) return <AccountPage />;
   return <EstimatePage />;
 }
@@ -48,6 +50,7 @@ export function AppShell() {
               </Link>
               <nav className="flex items-center gap-1">
                 <NavLink href="/" label="Estimate" current={path === "/"} />
+                <NavLink href="/garage" label="Garage" current={path.startsWith("/garage")} />
                 <NavLink href="/history" label="History" current={path.startsWith("/history")} />
                 <NavLink href="/account" label="Account" current={path.startsWith("/account")} />
                 <NavLink href="/kitchen-sink" label="Lab" current={path.startsWith("/kitchen-sink")} />
