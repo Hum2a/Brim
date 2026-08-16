@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { propulsionSchema, vehicleKindSchema } from "@brim/shared";
+import { consumptionUnitSchema, propulsionSchema, testCycleSchema, vehicleKindSchema } from "@brim/shared";
 import type { Context } from "hono";
 import type { ApiBindings } from "./env.js";
 import { cookieHeader, encodeSession, ensureAnon, readSession } from "./auth.js";
@@ -12,14 +12,19 @@ const vehicleBody = z.object({
   propulsion: propulsionSchema,
   make: z.string().optional(),
   model: z.string().optional(),
+  derivative: z.string().optional(),
+  transmission: z.string().optional(),
   year: z.number().int().optional(),
+  engineCc: z.number().int().optional(),
+  co2Gkm: z.number().int().optional(),
   tankLitres: z.number().optional(),
   batteryKwhUsable: z.number().optional(),
   euroStatus: z.string().optional(),
   euroStatusSource: z.enum(["dvla", "derived"]).optional(),
   officialConsumption: z.number().optional(),
-  officialUnit: z.string().optional(),
-  officialCycle: z.string().optional(),
+  officialUnit: consumptionUnitSchema.optional(),
+  officialCycle: testCycleSchema.optional(),
+  vcaMatchId: z.string().optional(),
 });
 
 const tariffBody = z.object({
@@ -57,7 +62,11 @@ export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>
   if (parsed.data.nickname) row.nickname = parsed.data.nickname;
   if (parsed.data.make) row.make = parsed.data.make;
   if (parsed.data.model) row.model = parsed.data.model;
+  if (parsed.data.derivative) row.derivative = parsed.data.derivative;
+  if (parsed.data.transmission) row.transmission = parsed.data.transmission;
   if (parsed.data.year !== undefined) row.year = parsed.data.year;
+  if (parsed.data.engineCc !== undefined) row.engine_cc = parsed.data.engineCc;
+  if (parsed.data.co2Gkm !== undefined) row.co2_gkm = parsed.data.co2Gkm;
   if (parsed.data.tankLitres !== undefined) row.tank_litres = parsed.data.tankLitres;
   if (parsed.data.batteryKwhUsable !== undefined) row.battery_kwh_usable = parsed.data.batteryKwhUsable;
   if (parsed.data.euroStatus) row.euro_status = parsed.data.euroStatus;
@@ -65,6 +74,7 @@ export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>
   if (parsed.data.officialConsumption !== undefined) row.official_consumption = parsed.data.officialConsumption;
   if (parsed.data.officialUnit) row.official_unit = parsed.data.officialUnit;
   if (parsed.data.officialCycle) row.official_cycle = parsed.data.officialCycle;
+  if (parsed.data.vcaMatchId) row.vca_match_id = parsed.data.vcaMatchId;
   return c.json(saveVehicle(row), 201);
 }
 

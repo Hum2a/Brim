@@ -14,6 +14,18 @@ export default tseslint.config(
     ],
   },
   {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        Buffer: "readonly",
+        URL: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        process: "readonly",
+      },
+    },
+  },
+  {
     rules: {
       "@typescript-eslint/consistent-type-imports": [
         "error",

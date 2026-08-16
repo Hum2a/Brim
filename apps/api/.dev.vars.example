@@ -1,0 +1,13 @@
+# Local Wrangler secrets. Copy to .dev.vars then `npm run env:sync`.
+# wrangler dev (no --env) reads this file. Never commit real values.
+
+DATABASE_URL=
+BETTER_AUTH_SECRET=
+GOOGLE_MAPS_API_KEY=
+FUEL_FINDER_CLIENT_ID=
+FUEL_FINDER_CLIENT_SECRET=
+DVLA_VES_API_KEY=
+RESEND_API_KEY=
+VRM_ENCRYPTION_KEY=
+OSRM_URL=
+BRIM_FIXTURES=0

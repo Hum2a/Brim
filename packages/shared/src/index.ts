@@ -1,4 +1,18 @@
 export { isFixtureMode, loadFixture, type FixtureName } from "./fixtures/index.js";
+export { VCA_VEHICLE_FIXTURES } from "./fixtures/vca-vehicles.js";
+export * from "./vca/types.js";
+export { parseCsv, parseCsvRows, normHeader } from "./vca/csv.js";
+export {
+  assertVcaHeaders,
+  catalogueId,
+  mapFuel,
+  normaliseVcaCsv,
+  normaliseVcaRecords,
+  normaliseVcaRow,
+  parseNumber,
+  vcaToCatalogue,
+} from "./vca/normalise.js";
+export { getVcaById, searchVcaCatalogue, CATALOGUE_LIMIT, MIN_QUERY } from "./vca/search.js";
 export * from "./units.js";
 export * from "./constants/emissions.2025.js";
 export * from "./constants/corrections.js";

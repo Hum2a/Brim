@@ -64,6 +64,8 @@ export const vehicleProfileSchema = z.object({
   propulsion: propulsionSchema,
   make: z.string().optional(),
   model: z.string().optional(),
+  derivative: z.string().optional(),
+  vcaMatchId: z.string().optional(),
   year: z.number().int().optional(),
   officialConsumption: z.number().optional(),
   officialUnit: consumptionUnitSchema.optional(),

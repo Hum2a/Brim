@@ -20,6 +20,7 @@
     "@brim/routing": "*",
     "@brim/shared": "*",
     "drizzle-orm": "^0.44.4",
+    "@neondatabase/serverless": "^1.0.2",
     "hono": "^4.9.4"
   },
   "devDependencies": {

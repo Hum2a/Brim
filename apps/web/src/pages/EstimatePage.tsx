@@ -13,10 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
 import { api } from "../api.js";
+import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
 
 type Health = { status: string; fixtureMode: boolean };
 type Place = { label: string; lat: number; lng: number };
-type Vehicle = { id: string; nickname?: string; propulsion: string };
+type Vehicle = { id: string; nickname?: string; propulsion: string; make?: string; model?: string };
+type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
 type Estimate = {
   cost: { totalPence: { point: number; low: number; high: number }; energyPence: { point: number }; chargesPence: number };
   consumption: { label: string; display: string };
@@ -41,10 +43,13 @@ export function EstimatePage() {
   const [origin, setOrigin] = useState("Crawley");
   const [destination, setDestination] = useState("London");
   const [originHits, setOriginHits] = useState<Place[]>([]);
-  const [propulsion, setPropulsion] = useState<"petrol" | "diesel" | "phev" | "bev">("petrol");
+  const [propulsion, setPropulsion] = useState<Propulsion>("petrol");
+  const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
   const [mpg, setMpg] = useState("40");
   const [tank, setTank] = useState("55");
   const [miKwh, setMiKwh] = useState("3.8");
+  const [overrideMpg, setOverrideMpg] = useState("");
+  const [overrideMiKwh, setOverrideMiKwh] = useState("");
   const [battery, setBattery] = useState("64");
   const [start, setStart] = useState("80");
   const [departsAt, setDepartsAt] = useState(nowLocal);
@@ -120,34 +125,49 @@ export function EstimatePage() {
   }
 
   function vehicleInline() {
-    if (propulsion === "bev") {
-      return {
-        kind: "car" as const,
-        propulsion,
-        userEnteredConsumption: Number(miKwh),
-        userEnteredUnit: "mi/kWh" as const,
-        batteryKwhUsable: Number(battery),
-        startChargePercent: Number(start),
-      };
-    }
-    if (propulsion === "phev") {
-      return {
-        kind: "car" as const,
-        propulsion,
-        userEnteredConsumption: Number(miKwh),
-        userEnteredUnit: "mi/kWh" as const,
-        batteryKwhUsable: Number(battery),
-        startChargePercent: Number(start),
-        tankLitres: Number(tank),
-      };
-    }
-    return {
-      kind: "car" as const,
+    const useElectricFigure = propulsion === "bev" || (propulsion === "phev" && !catalogue);
+    const overrideRaw = useElectricFigure ? (catalogue ? overrideMiKwh : miKwh) : catalogue ? overrideMpg : mpg;
+    const overrideNum = Number(overrideRaw);
+    const hasOverride = overrideRaw.trim() !== "" && Number.isFinite(overrideNum) && overrideNum > 0;
+
+    const profile: Record<string, unknown> = {
+      kind: "car",
       propulsion,
-      userEnteredConsumption: Number(mpg),
-      userEnteredUnit: "mpg" as const,
-      tankLitres: Number(tank),
     };
+    if (catalogue) {
+      profile.make = catalogue.make;
+      profile.model = catalogue.model;
+      profile.vcaMatchId = catalogue.id;
+      profile.officialConsumption = catalogue.officialConsumption;
+      profile.officialUnit = catalogue.officialUnit;
+      profile.officialCycle = catalogue.officialCycle;
+      if (catalogue.derivative) profile.derivative = catalogue.derivative;
+      if (catalogue.transmission) profile.transmission = catalogue.transmission;
+      if (catalogue.engineCc !== undefined) profile.engineCc = catalogue.engineCc;
+      if (catalogue.co2Gkm !== undefined) profile.co2Gkm = catalogue.co2Gkm;
+    }
+    if (hasOverride) {
+      profile.userEnteredConsumption = overrideNum;
+      profile.userEnteredUnit = useElectricFigure ? "mi/kWh" : "mpg";
+    }
+    if (propulsion !== "bev") {
+      const tankLitres = Number(tank);
+      if (Number.isFinite(tankLitres) && tankLitres > 0) profile.tankLitres = tankLitres;
+    }
+    if (propulsion === "bev" || propulsion === "phev") {
+      const batteryKwh = Number(battery);
+      const startPct = Number(start);
+      if (Number.isFinite(batteryKwh) && batteryKwh > 0) profile.batteryKwhUsable = batteryKwh;
+      if (Number.isFinite(startPct) && startPct > 0) profile.startChargePercent = startPct;
+    }
+    return profile;
+  }
+
+  function onPickCar(next: CatalogueVehicle | null) {
+    setCatalogue(next);
+    if (next) setPropulsion(next.propulsion);
+    setOverrideMpg("");
+    setOverrideMiKwh("");
   }
 
   function onSubmit(e: FormEvent) {
@@ -166,7 +186,10 @@ export function EstimatePage() {
     try {
       await api("/v1/vehicles", {
         method: "POST",
-        body: JSON.stringify({ nickname: `${propulsion} car`, ...vehicleInline() }),
+        body: JSON.stringify({
+          nickname: catalogue ? `${catalogue.make} ${catalogue.model}` : `${propulsion} car`,
+          ...vehicleInline(),
+        }),
       });
       const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
       setVehicles(list.vehicles);
@@ -255,10 +278,10 @@ export function EstimatePage() {
                       <SelectValue placeholder="Type details this time" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="inline">Type details this time</SelectItem>
+                        <SelectItem value="inline">Type details this time</SelectItem>
                       {vehicles.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
-                          {v.nickname ?? v.propulsion}
+                          {v.nickname ?? [v.make, v.model].filter(Boolean).join(" ") ?? v.propulsion}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -292,25 +315,54 @@ export function EstimatePage() {
               {vehicleId === "inline" ? (
                 <>
                   <FormItem>
+                    <VehicleCatalogue selected={catalogue} onSelect={onPickCar} />
+                  </FormItem>
+                  <FormItem>
                     <Label>Propulsion</Label>
-                    <Select value={propulsion} onValueChange={(v) => setPropulsion(v as typeof propulsion)}>
+                    <Select
+                      value={propulsion}
+                      onValueChange={(v) => {
+                        const next = v as Propulsion;
+                        setPropulsion(next);
+                        if (catalogue && catalogue.propulsion !== next) setCatalogue(null);
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="petrol">Petrol</SelectItem>
                         <SelectItem value="diesel">Diesel</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
                         <SelectItem value="phev">Plug-in hybrid</SelectItem>
                         <SelectItem value="bev">Electric</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormItem>
-                  {propulsion === "bev" || propulsion === "phev" ? (
+                  {propulsion === "bev" || (propulsion === "phev" && !catalogue) ? (
                     <>
                       <FormItem>
-                        <Label htmlFor="mikwh">mi/kWh</Label>
-                        <Input id="mikwh" value={miKwh} onChange={(ev) => setMiKwh(ev.target.value)} className="tabular" />
+                        <Label htmlFor="mikwh">{catalogue ? "Your mi/kWh (optional)" : "mi/kWh"}</Label>
+                        <Input
+                          id="mikwh"
+                          value={catalogue ? overrideMiKwh : miKwh}
+                          onChange={(ev) => (catalogue ? setOverrideMiKwh(ev.target.value) : setMiKwh(ev.target.value))}
+                          className="tabular"
+                          placeholder={catalogue ? "Leave blank to use the official figure" : undefined}
+                        />
                       </FormItem>
+                      <FormItem>
+                        <Label htmlFor="battery">Usable battery kWh</Label>
+                        <Input id="battery" value={battery} onChange={(ev) => setBattery(ev.target.value)} className="tabular" />
+                      </FormItem>
+                      <FormItem>
+                        <Label htmlFor="start">Starting charge %</Label>
+                        <Input id="start" value={start} onChange={(ev) => setStart(ev.target.value)} className="tabular" />
+                      </FormItem>
+                    </>
+                  ) : null}
+                  {propulsion === "phev" && catalogue ? (
+                    <>
                       <FormItem>
                         <Label htmlFor="battery">Usable battery kWh</Label>
                         <Input id="battery" value={battery} onChange={(ev) => setBattery(ev.target.value)} className="tabular" />
@@ -323,10 +375,16 @@ export function EstimatePage() {
                   ) : null}
                   {propulsion !== "bev" ? (
                     <>
-                      {propulsion !== "phev" ? (
+                      {propulsion !== "phev" || catalogue ? (
                         <FormItem>
-                          <Label htmlFor="mpg">mpg</Label>
-                          <Input id="mpg" value={mpg} onChange={(ev) => setMpg(ev.target.value)} className="tabular" />
+                          <Label htmlFor="mpg">{catalogue ? "Your mpg (optional)" : "mpg"}</Label>
+                          <Input
+                            id="mpg"
+                            value={catalogue ? overrideMpg : mpg}
+                            onChange={(ev) => (catalogue ? setOverrideMpg(ev.target.value) : setMpg(ev.target.value))}
+                            className="tabular"
+                            placeholder={catalogue ? "Leave blank to use the official figure" : undefined}
+                          />
                         </FormItem>
                       ) : null}
                       <FormItem>

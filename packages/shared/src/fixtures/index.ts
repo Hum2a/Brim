@@ -1,4 +1,6 @@
-export type FixtureName = "health" | "uk-places";
+import { VCA_VEHICLE_FIXTURES } from "./vca-vehicles.js";
+
+export type FixtureName = "health" | "uk-places" | "vca-vehicles";
 
 const registry: Record<FixtureName, unknown> = {
   health: {
@@ -21,6 +23,7 @@ const registry: Record<FixtureName, unknown> = {
     { label: "Newcastle", lat: 54.9783, lng: -1.6178 },
     { label: "York", lat: 53.96, lng: -1.0873 },
   ],
+  "vca-vehicles": VCA_VEHICLE_FIXTURES,
 };
 
 function envFlag(explicit: string | undefined): string | undefined {

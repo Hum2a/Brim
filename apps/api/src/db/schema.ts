@@ -6,6 +6,7 @@
 import {
   boolean,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -145,11 +146,24 @@ export const tolls = pgTable("tolls", {
   name: text("name").notNull(),
 });
 
-export const vcaVehicles = pgTable("vca_vehicles", {
-  id: text("id").primaryKey(),
-  make: text("make").notNull(),
-  model: text("model").notNull(),
-});
+export const vcaVehicles = pgTable(
+  "vca_vehicles",
+  {
+    id: text("id").primaryKey(),
+    make: text("make").notNull(),
+    model: text("model").notNull(),
+    derivative: text("derivative"),
+    fuel: text("fuel"),
+    engineCc: integer("engine_cc"),
+    transmission: text("transmission"),
+    co2Gkm: integer("co2_gkm"),
+    consumptionCombined: doublePrecision("consumption_combined"),
+    unit: text("unit"),
+    cycle: text("cycle"),
+    datasetVersion: text("dataset_version"),
+  },
+  (t) => ({ makeModelIdx: index("vca_vehicles_make_model").on(t.make, t.model) }),
+);
 
 export const gridIntensity = pgTable("grid_intensity", {
   region: text("region").notNull(),

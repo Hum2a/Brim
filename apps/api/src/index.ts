@@ -22,6 +22,7 @@ import {
   listVehiclesHandler,
   patchVehicleHandler,
 } from "./vehicles.js";
+import { getCatalogueHandler, listCatalogueHandler } from "./catalogue.js";
 import {
   deleteJourneyHandler,
   exportJourneysHandler,
@@ -73,6 +74,8 @@ app.post("/v1/auth/reset", resetHandler);
 app.get("/v1/auth/export", exportAccountHandler);
 app.delete("/v1/auth/account", deleteAccountHandler);
 
+app.get("/v1/vehicles/catalogue", listCatalogueHandler);
+app.get("/v1/vehicles/catalogue/:id", getCatalogueHandler);
 app.get("/v1/vehicles", listVehiclesHandler);
 app.post("/v1/vehicles", createVehicleHandler);
 app.patch("/v1/vehicles/:id", patchVehicleHandler);
