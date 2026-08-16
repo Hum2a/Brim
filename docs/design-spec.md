@@ -678,6 +678,9 @@ POST   /v1/estimate/from-maps-url    { url } → resolves, delegates
 
 GET    /v1/vehicles                  |  POST /v1/vehicles
 GET    /v1/vehicles/catalogue        ?q= → { vehicles[] }   make/model/derivative search, cap 20
+                                         ?make=&model= → { vehicles[] }   trims for that pair, cap 80
+GET    /v1/vehicles/catalogue/makes  → { makes: { name, count }[] }
+GET    /v1/vehicles/catalogue/models ?make= → { models: { name, count }[] }
 GET    /v1/vehicles/catalogue/:id    → official consumption fields for the estimate path
 POST   /v1/vehicles/resolve          { vrm } → { candidates[] }   ← never logged, never in URL
 PATCH  /v1/vehicles/:id              |  DELETE /v1/vehicles/:id

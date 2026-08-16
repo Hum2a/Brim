@@ -1,26 +1,41 @@
-import { AnimatePresence, m } from "motion/react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { PumpReadout, reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@brim/ui-kit/accordion";
-import { Badge } from "@brim/ui-kit/badge";
-import { Button } from "@brim/ui-kit/button";
-import { Card } from "@brim/ui-kit/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@brim/ui-kit/dialog";
-import { Form, FormItem } from "@brim/ui-kit/form";
-import { Input } from "@brim/ui-kit/input";
-import { Label } from "@brim/ui-kit/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
-import { Skeleton } from "@brim/ui-kit/skeleton";
-import { toast } from "@brim/ui-kit/toast";
-import { api } from "../api.js";
-import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
+import { AnimatePresence, m } from 'motion/react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { PumpReadout, reveal, staggerChildren, usePrefersReducedMotion } from '@brim/ui-kit';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@brim/ui-kit/accordion';
+import { Badge } from '@brim/ui-kit/badge';
+import { Button } from '@brim/ui-kit/button';
+import { Card } from '@brim/ui-kit/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@brim/ui-kit/dialog';
+import { Form, FormItem } from '@brim/ui-kit/form';
+import { Input } from '@brim/ui-kit/input';
+import { Label } from '@brim/ui-kit/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@brim/ui-kit/select';
+import { Skeleton } from '@brim/ui-kit/skeleton';
+import { toast } from '@brim/ui-kit/toast';
+import { api } from '../api.js';
+import { VehicleCatalogue, type CatalogueVehicle } from '../VehicleCatalogue.js';
 
 type Health = { status: string; fixtureMode: boolean };
 type Place = { label: string; lat: number; lng: number };
 type Vehicle = { id: string; nickname?: string; propulsion: string; make?: string; model?: string };
-type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
+type Propulsion = 'petrol' | 'diesel' | 'hybrid' | 'phev' | 'bev';
 type Estimate = {
-  cost: { totalPence: { point: number; low: number; high: number }; energyPence: { point: number }; chargesPence: number };
+  cost: {
+    totalPence: { point: number; low: number; high: number };
+    energyPence: { point: number };
+    chargesPence: number;
+  };
   consumption: { label: string; display: string };
   reasons: string[];
   warnings: Array<{ message: string }>;
@@ -40,43 +55,45 @@ const nowLocal = () => {
 export function EstimatePage() {
   const reduce = usePrefersReducedMotion();
   const [health, setHealth] = useState<Health | null>(null);
-  const [origin, setOrigin] = useState("Crawley");
-  const [destination, setDestination] = useState("London");
+  const [origin, setOrigin] = useState('Crawley');
+  const [destination, setDestination] = useState('London');
   const [originHits, setOriginHits] = useState<Place[]>([]);
-  const [propulsion, setPropulsion] = useState<Propulsion>("petrol");
+  const [propulsion, setPropulsion] = useState<Propulsion>('petrol');
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
-  const [mpg, setMpg] = useState("40");
-  const [tank, setTank] = useState("55");
-  const [miKwh, setMiKwh] = useState("3.8");
-  const [overrideMpg, setOverrideMpg] = useState("");
-  const [overrideMiKwh, setOverrideMiKwh] = useState("");
-  const [battery, setBattery] = useState("64");
-  const [start, setStart] = useState("80");
+  const [mpg, setMpg] = useState('40');
+  const [tank, setTank] = useState('55');
+  const [miKwh, setMiKwh] = useState('3.8');
+  const [overrideMpg, setOverrideMpg] = useState('');
+  const [overrideMiKwh, setOverrideMiKwh] = useState('');
+  const [battery, setBattery] = useState('64');
+  const [start, setStart] = useState('80');
   const [departsAt, setDepartsAt] = useState(nowLocal);
-  const [maps, setMaps] = useState("");
+  const [maps, setMaps] = useState('');
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehicleId, setVehicleId] = useState("inline");
+  const [vehicleId, setVehicleId] = useState('inline');
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [stale, setStale] = useState(false);
 
   useEffect(() => {
-    void api<Health>("/health").then(setHealth).catch(() => setHealth(null));
-    void api<{ vehicles: Vehicle[] }>("/v1/vehicles")
+    void api<Health>('/health')
+      .then(setHealth)
+      .catch(() => setHealth(null));
+    void api<{ vehicles: Vehicle[] }>('/v1/vehicles')
       .then((r) => setVehicles(r.vehicles))
       .catch(() => undefined);
-    const cached = localStorage.getItem("brim:last-estimate");
+    const cached = localStorage.getItem('brim:last-estimate');
     if (cached) {
       setEstimate(JSON.parse(cached) as Estimate);
       setStale(true);
     }
     const params = new URLSearchParams(window.location.search);
-    const shared = params.get("url") ?? params.get("text");
+    const shared = params.get('url') ?? params.get('text');
     if (shared) {
       setMaps(shared);
       void runMaps(shared);
@@ -87,12 +104,17 @@ export function EstimatePage() {
     setLoading(true);
     setError(null);
     try {
-      const json = await api<Estimate>("/v1/estimate", { method: "POST", body: JSON.stringify(body) });
+      const json = await api<Estimate>('/v1/estimate', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       setEstimate(json);
       setStale(false);
-      localStorage.setItem("brim:last-estimate", JSON.stringify(json));
+      localStorage.setItem('brim:last-estimate', JSON.stringify(json));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not estimate. Check the places and try again.");
+      setError(
+        err instanceof Error ? err.message : 'Could not estimate. Check the places and try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -102,15 +124,18 @@ export function EstimatePage() {
     setLoading(true);
     setError(null);
     try {
-      const json = await api<Estimate>("/v1/estimate/from-maps-url", { method: "POST", body: JSON.stringify({ url }) });
+      const json = await api<Estimate>('/v1/estimate/from-maps-url', {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      });
       setEstimate(json);
       setStale(false);
-      localStorage.setItem("brim:last-estimate", JSON.stringify(json));
+      localStorage.setItem('brim:last-estimate', JSON.stringify(json));
     } catch (err) {
       setError(
         err instanceof Error
           ? `${err.message}. Type the places instead.`
-          : "That Maps link could not be read. Type the places instead.",
+          : 'That Maps link could not be read. Type the places instead.',
       );
     } finally {
       setLoading(false);
@@ -125,13 +150,20 @@ export function EstimatePage() {
   }
 
   function vehicleInline() {
-    const useElectricFigure = propulsion === "bev" || (propulsion === "phev" && !catalogue);
-    const overrideRaw = useElectricFigure ? (catalogue ? overrideMiKwh : miKwh) : catalogue ? overrideMpg : mpg;
+    const useElectricFigure = propulsion === 'bev' || (propulsion === 'phev' && !catalogue);
+    const overrideRaw = useElectricFigure
+      ? catalogue
+        ? overrideMiKwh
+        : miKwh
+      : catalogue
+        ? overrideMpg
+        : mpg;
     const overrideNum = Number(overrideRaw);
-    const hasOverride = overrideRaw.trim() !== "" && Number.isFinite(overrideNum) && overrideNum > 0;
+    const hasOverride =
+      overrideRaw.trim() !== '' && Number.isFinite(overrideNum) && overrideNum > 0;
 
     const profile: Record<string, unknown> = {
-      kind: "car",
+      kind: 'car',
       propulsion,
     };
     if (catalogue) {
@@ -148,13 +180,13 @@ export function EstimatePage() {
     }
     if (hasOverride) {
       profile.userEnteredConsumption = overrideNum;
-      profile.userEnteredUnit = useElectricFigure ? "mi/kWh" : "mpg";
+      profile.userEnteredUnit = useElectricFigure ? 'mi/kWh' : 'mpg';
     }
-    if (propulsion !== "bev") {
+    if (propulsion !== 'bev') {
       const tankLitres = Number(tank);
       if (Number.isFinite(tankLitres) && tankLitres > 0) profile.tankLitres = tankLitres;
     }
-    if (propulsion === "bev" || propulsion === "phev") {
+    if (propulsion === 'bev' || propulsion === 'phev') {
       const batteryKwh = Number(battery);
       const startPct = Number(start);
       if (Number.isFinite(batteryKwh) && batteryKwh > 0) profile.batteryKwhUsable = batteryKwh;
@@ -166,8 +198,8 @@ export function EstimatePage() {
   function onPickCar(next: CatalogueVehicle | null) {
     setCatalogue(next);
     if (next) setPropulsion(next.propulsion);
-    setOverrideMpg("");
-    setOverrideMiKwh("");
+    setOverrideMpg('');
+    setOverrideMiKwh('');
   }
 
   function onSubmit(e: FormEvent) {
@@ -176,24 +208,24 @@ export function EstimatePage() {
       origin,
       destination,
       departsAt: new Date(departsAt).toISOString(),
-      vehicleInline: vehicleId === "inline" ? vehicleInline() : undefined,
-      vehicleId: vehicleId === "inline" ? undefined : vehicleId,
+      vehicleInline: vehicleId === 'inline' ? vehicleInline() : undefined,
+      vehicleId: vehicleId === 'inline' ? undefined : vehicleId,
       propulsion,
     });
   }
 
   async function saveVehicle() {
     try {
-      await api("/v1/vehicles", {
-        method: "POST",
+      await api('/v1/vehicles', {
+        method: 'POST',
         body: JSON.stringify({
           nickname: catalogue ? `${catalogue.make} ${catalogue.model}` : `${propulsion} car`,
           ...vehicleInline(),
         }),
       });
-      const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
+      const list = await api<{ vehicles: Vehicle[] }>('/v1/vehicles');
       setVehicles(list.vehicles);
-      toast("Saved. Your car is on this device.");
+      toast('Saved. Your car is on this device.');
     } catch {
       setAuthOpen(true);
     }
@@ -201,31 +233,31 @@ export function EstimatePage() {
 
   async function saveJourney() {
     if (!estimate) return;
-    await api("/v1/journeys", {
-      method: "POST",
+    await api('/v1/journeys', {
+      method: 'POST',
       body: JSON.stringify({
         origin,
         destination,
-        vehicleId: vehicleId === "inline" ? undefined : vehicleId,
+        vehicleId: vehicleId === 'inline' ? undefined : vehicleId,
         estimate,
         departsAt,
       }),
     });
-    toast("Journey stored as a snapshot.");
+    toast('Journey stored as a snapshot.');
   }
 
   async function onAuth(e: FormEvent) {
     e.preventDefault();
-    const path = authMode === "signup" ? "/v1/auth/signup" : "/v1/auth/login";
-    await api(path, { method: "POST", body: JSON.stringify({ email, password }) });
+    const path = authMode === 'signup' ? '/v1/auth/signup' : '/v1/auth/login';
+    await api(path, { method: 'POST', body: JSON.stringify({ email, password }) });
     setAuthOpen(false);
-    toast(authMode === "signup" ? "Account created." : "Signed in.");
+    toast(authMode === 'signup' ? 'Account created.' : 'Signed in.');
   }
 
   const pounds = estimate ? estimate.cost.totalPence.point / 100 : 0;
   const band = estimate
     ? `£${(estimate.cost.totalPence.low / 100).toFixed(0)}–£${(estimate.cost.totalPence.high / 100).toFixed(0)}`
-    : "";
+    : '';
   const hmrc = useMemo(() => {
     if (!estimate?.hmrc) return null;
     return `HMRC would allow £${(estimate.hmrc.approvedPence / 100).toFixed(2)} (${estimate.hmrc.ytdMiles.toFixed(0)} miles this tax year).`;
@@ -233,7 +265,12 @@ export function EstimatePage() {
 
   return (
     <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8">
-      <m.div variants={staggerChildren} initial={reduce ? false : "initial"} animate="animate" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      <m.div
+        variants={staggerChildren}
+        initial={reduce ? false : 'initial'}
+        animate="animate"
+        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]"
+      >
         <m.div variants={reveal}>
           <Card>
             <p className="mb-1 text-mist">True journey cost</p>
@@ -241,13 +278,17 @@ export function EstimatePage() {
             {health ? (
               <p className="tabular mb-4 text-xs text-mist">
                 API {health.status}
-                {health.fixtureMode ? " · fixtures" : ""}
+                {health.fixtureMode ? ' · fixtures' : ''}
               </p>
             ) : (
-              <p className="mb-4 text-sm text-warning">Could not reach the API — start it with npm run dev:fixtures, then retry.</p>
+              <p className="mb-4 text-sm text-warning">
+                Could not reach the API — start it with npm run dev:fixtures, then retry.
+              </p>
             )}
             {stale ? (
-              <p className="mb-4 text-sm text-warning">Showing the last estimate stored on this device. New estimates need a network.</p>
+              <p className="mb-4 text-sm text-warning">
+                Showing the last estimate stored on this device. New estimates need a network.
+              </p>
             ) : null}
 
             <Form
@@ -259,7 +300,12 @@ export function EstimatePage() {
             >
               <FormItem>
                 <Label htmlFor="maps">Paste a Maps link</Label>
-                <Input id="maps" value={maps} onChange={(ev) => setMaps(ev.target.value)} aria-describedby="maps-help" />
+                <Input
+                  id="maps"
+                  value={maps}
+                  onChange={(ev) => setMaps(ev.target.value)}
+                  aria-describedby="maps-help"
+                />
                 <p id="maps-help" className="text-xs text-mist">
                   A Google Maps directions link. If it cannot be read, type the places below.
                 </p>
@@ -278,10 +324,12 @@ export function EstimatePage() {
                       <SelectValue placeholder="Type details this time" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="inline">Type details this time</SelectItem>
+                      <SelectItem value="inline">Type details this time</SelectItem>
                       {vehicles.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
-                          {v.nickname ?? [v.make, v.model].filter(Boolean).join(" ") ?? v.propulsion}
+                          {v.nickname ??
+                            [v.make, v.model].filter(Boolean).join(' ') ??
+                            v.propulsion}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -306,96 +354,153 @@ export function EstimatePage() {
               </FormItem>
               <FormItem>
                 <Label htmlFor="destination">To</Label>
-                <Input id="destination" value={destination} onChange={(ev) => setDestination(ev.target.value)} required />
+                <Input
+                  id="destination"
+                  value={destination}
+                  onChange={(ev) => setDestination(ev.target.value)}
+                  required
+                />
               </FormItem>
               <FormItem>
                 <Label htmlFor="leave">Leave</Label>
-                <Input id="leave" type="datetime-local" value={departsAt} onChange={(ev) => setDepartsAt(ev.target.value)} />
+                <Input
+                  id="leave"
+                  type="datetime-local"
+                  value={departsAt}
+                  onChange={(ev) => setDepartsAt(ev.target.value)}
+                />
               </FormItem>
-              {vehicleId === "inline" ? (
+              {vehicleId === 'inline' ? (
                 <>
                   <FormItem>
                     <VehicleCatalogue selected={catalogue} onSelect={onPickCar} />
                   </FormItem>
                   <FormItem>
                     <Label>Propulsion</Label>
-                    <Select
-                      value={propulsion}
-                      onValueChange={(v) => {
-                        const next = v as Propulsion;
-                        setPropulsion(next);
-                        if (catalogue && catalogue.propulsion !== next) setCatalogue(null);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="petrol">Petrol</SelectItem>
-                        <SelectItem value="diesel">Diesel</SelectItem>
-                        <SelectItem value="hybrid">Hybrid</SelectItem>
-                        <SelectItem value="phev">Plug-in hybrid</SelectItem>
-                        <SelectItem value="bev">Electric</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {catalogue ? (
+                      <Badge>
+                        {catalogue.propulsion === 'bev'
+                          ? 'Electric'
+                          : catalogue.propulsion === 'phev'
+                            ? 'Plug-in hybrid'
+                            : catalogue.propulsion === 'hybrid'
+                              ? 'Hybrid'
+                              : catalogue.propulsion === 'diesel'
+                                ? 'Diesel'
+                                : 'Petrol'}
+                      </Badge>
+                    ) : (
+                      <Select
+                        value={propulsion}
+                        onValueChange={(v) => setPropulsion(v as Propulsion)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="petrol">Petrol</SelectItem>
+                          <SelectItem value="diesel">Diesel</SelectItem>
+                          <SelectItem value="hybrid">Hybrid</SelectItem>
+                          <SelectItem value="phev">Plug-in hybrid</SelectItem>
+                          <SelectItem value="bev">Electric</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </FormItem>
-                  {propulsion === "bev" || (propulsion === "phev" && !catalogue) ? (
+                  {propulsion === 'bev' || (propulsion === 'phev' && !catalogue) ? (
                     <>
                       <FormItem>
-                        <Label htmlFor="mikwh">{catalogue ? "Your mi/kWh (optional)" : "mi/kWh"}</Label>
+                        <Label htmlFor="mikwh">
+                          {catalogue ? 'Your mi/kWh (optional)' : 'mi/kWh'}
+                        </Label>
                         <Input
                           id="mikwh"
                           value={catalogue ? overrideMiKwh : miKwh}
-                          onChange={(ev) => (catalogue ? setOverrideMiKwh(ev.target.value) : setMiKwh(ev.target.value))}
+                          onChange={(ev) =>
+                            catalogue
+                              ? setOverrideMiKwh(ev.target.value)
+                              : setMiKwh(ev.target.value)
+                          }
                           className="tabular"
-                          placeholder={catalogue ? "Leave blank to use the official figure" : undefined}
+                          placeholder={
+                            catalogue ? 'Leave blank to use the official figure' : undefined
+                          }
                         />
                       </FormItem>
                       <FormItem>
                         <Label htmlFor="battery">Usable battery kWh</Label>
-                        <Input id="battery" value={battery} onChange={(ev) => setBattery(ev.target.value)} className="tabular" />
+                        <Input
+                          id="battery"
+                          value={battery}
+                          onChange={(ev) => setBattery(ev.target.value)}
+                          className="tabular"
+                        />
                       </FormItem>
                       <FormItem>
                         <Label htmlFor="start">Starting charge %</Label>
-                        <Input id="start" value={start} onChange={(ev) => setStart(ev.target.value)} className="tabular" />
+                        <Input
+                          id="start"
+                          value={start}
+                          onChange={(ev) => setStart(ev.target.value)}
+                          className="tabular"
+                        />
                       </FormItem>
                     </>
                   ) : null}
-                  {propulsion === "phev" && catalogue ? (
+                  {propulsion === 'phev' && catalogue ? (
                     <>
                       <FormItem>
                         <Label htmlFor="battery">Usable battery kWh</Label>
-                        <Input id="battery" value={battery} onChange={(ev) => setBattery(ev.target.value)} className="tabular" />
+                        <Input
+                          id="battery"
+                          value={battery}
+                          onChange={(ev) => setBattery(ev.target.value)}
+                          className="tabular"
+                        />
                       </FormItem>
                       <FormItem>
                         <Label htmlFor="start">Starting charge %</Label>
-                        <Input id="start" value={start} onChange={(ev) => setStart(ev.target.value)} className="tabular" />
+                        <Input
+                          id="start"
+                          value={start}
+                          onChange={(ev) => setStart(ev.target.value)}
+                          className="tabular"
+                        />
                       </FormItem>
                     </>
                   ) : null}
-                  {propulsion !== "bev" ? (
+                  {propulsion !== 'bev' ? (
                     <>
-                      {propulsion !== "phev" || catalogue ? (
+                      {propulsion !== 'phev' || catalogue ? (
                         <FormItem>
-                          <Label htmlFor="mpg">{catalogue ? "Your mpg (optional)" : "mpg"}</Label>
+                          <Label htmlFor="mpg">{catalogue ? 'Your mpg (optional)' : 'mpg'}</Label>
                           <Input
                             id="mpg"
                             value={catalogue ? overrideMpg : mpg}
-                            onChange={(ev) => (catalogue ? setOverrideMpg(ev.target.value) : setMpg(ev.target.value))}
+                            onChange={(ev) =>
+                              catalogue ? setOverrideMpg(ev.target.value) : setMpg(ev.target.value)
+                            }
                             className="tabular"
-                            placeholder={catalogue ? "Leave blank to use the official figure" : undefined}
+                            placeholder={
+                              catalogue ? 'Leave blank to use the official figure' : undefined
+                            }
                           />
                         </FormItem>
                       ) : null}
                       <FormItem>
                         <Label htmlFor="tank">Tank size (litres)</Label>
-                        <Input id="tank" value={tank} onChange={(ev) => setTank(ev.target.value)} className="tabular" />
+                        <Input
+                          id="tank"
+                          value={tank}
+                          onChange={(ev) => setTank(ev.target.value)}
+                          className="tabular"
+                        />
                       </FormItem>
                     </>
                   ) : null}
                 </>
               ) : null}
-              <Button type="submit">{loading ? "Working out the number…" : "Estimate"}</Button>
+              <Button type="submit">{loading ? 'Working out the number…' : 'Estimate'}</Button>
             </Form>
           </Card>
         </m.div>
@@ -413,7 +518,7 @@ export function EstimatePage() {
               <m.section
                 aria-live="polite"
                 variants={staggerChildren}
-                initial={reduce ? false : "initial"}
+                initial={reduce ? false : 'initial'}
                 animate="animate"
                 className="glass p-6"
               >
@@ -458,8 +563,8 @@ export function EstimatePage() {
                   </Accordion>
                 </m.div>
                 <m.p variants={reveal} className="mt-4 text-sm text-mist">
-                  Charges such as ULEZ and Dart Charge are not in this number yet. They will appear here when the
-                  charges layer ships.
+                  Charges such as ULEZ and Dart Charge are not in this number yet. They will appear
+                  here when the charges layer ships.
                 </m.p>
                 <m.div variants={reveal} className="mt-5 flex flex-wrap gap-2">
                   <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>
@@ -481,15 +586,22 @@ export function EstimatePage() {
       <Dialog open={authOpen} onOpenChange={setAuthOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{authMode === "signup" ? "Keep this car" : "Welcome back"}</DialogTitle>
+            <DialogTitle>{authMode === 'signup' ? 'Keep this car' : 'Welcome back'}</DialogTitle>
             <DialogDescription>
-              You can estimate without an account. Sign in only if you want this car on other devices.
+              You can estimate without an account. Sign in only if you want this car on other
+              devices.
             </DialogDescription>
           </DialogHeader>
           <Form onSubmit={(e) => void onAuth(e)}>
             <FormItem>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} required />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+                required
+              />
             </FormItem>
             <FormItem>
               <Label htmlFor="password">Password</Label>
@@ -502,13 +614,13 @@ export function EstimatePage() {
                 required
               />
             </FormItem>
-            <Button type="submit">{authMode === "signup" ? "Create account" : "Sign in"}</Button>
+            <Button type="submit">{authMode === 'signup' ? 'Create account' : 'Sign in'}</Button>
             <button
               type="button"
               className="ml-3 text-sm underline"
-              onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
+              onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}
             >
-              {authMode === "signup" ? "I already have an account" : "Create an account"}
+              {authMode === 'signup' ? 'I already have an account' : 'Create an account'}
             </button>
           </Form>
         </DialogContent>
