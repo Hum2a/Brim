@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { distanceMeters } from "../places.js";
 import { canonicalBrand } from "./brands.js";
-import { titleCaseAddress } from "./display.js";
+import { openingHoursSummary, titleCaseAddress } from "./display.js";
 import { mapFuelFinderGrade } from "./grades.js";
 import { DEDUPE_METERS, normaliseFuelFinder } from "./normalise.js";
 import { parsePriceToPpl, pplToTenths } from "./price.js";
@@ -70,6 +70,17 @@ describe("canonicalBrand", () => {
 describe("titleCaseAddress", () => {
   it("title-cases on display without touching postcode letters", () => {
     expect(titleCaseAddress("LONDON ROAD, CRAWLEY, RH10 1AA")).toBe("London Road, Crawley, RH10 1AA");
+  });
+});
+
+describe("openingHoursSummary", () => {
+  it("formats 24-hour and typical hours without filtering", () => {
+    expect(
+      openingHoursSummary({ usual_days: { monday: { open: "00:00:00", close: "00:00:00", is_24_hours: true } } }),
+    ).toBe("Open 24 hours");
+    expect(
+      openingHoursSummary({ usual_days: { monday: { open: "06:00:00", close: "22:00:00", is_24_hours: false } } }),
+    ).toBe("Typically 06:00-22:00");
   });
 });
 

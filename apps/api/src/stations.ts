@@ -12,6 +12,7 @@ import {
   nearbyFromObservations,
   radiusMetersFromQuery,
 } from './prices.js';
+import { handleStationsNearRoute } from './fill.js';
 
 function parseFuelGrade(raw: string | undefined) {
   if (raw === 'E10' || raw === 'E5' || raw === 'B7' || raw === 'SDV' || raw === 'LPG') return raw;
@@ -56,3 +57,5 @@ export async function handleMetaPrices(c: Context<{ Bindings: ApiBindings }>) {
   if (!persistLive(db)) return c.json({ grades: {} });
   return c.json({ grades: await liveNationalMedians(db) });
 }
+
+export { handleStationsNearRoute };

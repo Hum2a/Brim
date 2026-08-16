@@ -16,7 +16,7 @@ export { FUEL_FINDER_TYPES, FUEL_GRADES } from "./types.js";
 export { canonicalBrand } from "./brands.js";
 export { MAX_PPL, MIN_PPL, parsePriceToPpl, pplToTenths, tenthsToPpl } from "./price.js";
 export { gradeForPropulsion, mapFuelFinderGrade } from "./grades.js";
-export { titleCaseAddress } from "./display.js";
+export { openingHoursSummary, titleCaseAddress } from "./display.js";
 export { median, newestIso } from "./median.js";
 export { DEDUPE_METERS, STALE_AFTER_MS, isStaleAt, normaliseFuelFinder, normalisePfs, normalisePrices } from "./normalise.js";
 export {
@@ -24,6 +24,7 @@ export {
   HARDCODED_FALLBACK_PPL,
   HOME_AREA_METERS,
   observationsFromNormalised,
+  resolveFillBaseline,
   resolveIcePrice,
 } from "./resolve.js";
 export {

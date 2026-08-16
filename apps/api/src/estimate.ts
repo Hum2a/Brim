@@ -3,6 +3,7 @@ import { computeEstimate } from '@brim/engine';
 import {
   decodePolyline,
   findPlaceByLabel,
+  gradeForPropulsion,
   hmrcAmapPence,
   isFixtureMode,
   parseLatLngString,
@@ -30,6 +31,7 @@ import { NeonRouteCache } from './db/route-cache.js';
 import { ownerFromContext } from './session.js';
 import { getDefaultTariff, getCalibration, getVehicle, persistLive, ytdMiles } from './db/repo.js';
 import { resolveEstimatePrice } from './prices.js';
+import { attachCheapestFill } from './fill.js';
 import { loadGridIntensity, resolveEstimateEvPrice, resolveForecastTemp } from './ev.js';
 import { defaultDepartsAt, detectChargeHits, resolveRouteCharges } from './charges.js';
 import type { BrimDb } from './db/types.js';
@@ -51,7 +53,7 @@ const estimateBodySchema = z.object({
   vehicleInline: vehicleProfileSchema.optional(),
   propulsion: propulsionSchema.optional(),
   stationId: z.string().optional(),
-  priceStrategy: z.enum(['national-median', 'user-tariff', 'hardcoded-fallback']).optional(),
+  priceStrategy: z.enum(['national-median', 'user-tariff', 'hardcoded-fallback', 'cheapest-on-route']).optional(),
   pricePence: z.number().optional(),
   chargingLocation: z.enum(['home', 'public']).optional(),
   network: z.string().optional(),
@@ -257,10 +259,16 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
     if (resolved) {
       pricePence = resolved.pence;
       priceUnit = 'ppl';
-      priceSource = resolved.source;
+      priceSource =
+        body.priceStrategy === 'cheapest-on-route' && resolved.stationId
+          ? 'cheapest-on-route'
+          : resolved.source;
       priceObservedAt = resolved.observedAt;
       pickedStationId = resolved.stationId;
-      priceReason = resolved.reason;
+      priceReason =
+        priceSource === 'cheapest-on-route'
+          ? `Used the ${gradeForPropulsion(propulsion)} price at the cheapest fill you picked on this route.`
+          : resolved.reason;
       priceWarning = resolved.warning;
     }
   }
@@ -380,6 +388,16 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
     payload.durationTrafficSeconds = route.durationTrafficSeconds;
   }
   if (waypointPins.length > 0) payload.waypoints = waypointPins;
+  const cheapestFill = await attachCheapestFill({
+    env: c.env,
+    db,
+    propulsion,
+    encodedPolyline: route.encodedPolyline,
+    ...(originCoords ? { origin: originCoords } : {}),
+    ...(vehicleInline ? { vehicle: vehicleInline } : {}),
+    ...(estimate.consumption.unit === 'l/100km' ? { lPer100km: estimate.consumption.value } : {}),
+  });
+  if (cheapestFill) payload.cheapestFill = cheapestFill;
   return c.json(payload);
 }
 

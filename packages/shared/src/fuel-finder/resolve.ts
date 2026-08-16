@@ -85,6 +85,17 @@ export function resolveIcePrice(input: {
   return fallback();
 }
 
+/** Home-area or national median only. Never the 140 ppl fallback. */
+export function resolveFillBaseline(input: {
+  grade: FuelGrade;
+  observations: PriceObservation[];
+  origin?: { lat: number; lng: number };
+}): ResolvedFuelPrice | undefined {
+  const resolved = resolveIcePrice(input);
+  if (resolved.source === "hardcoded-fallback") return undefined;
+  return resolved;
+}
+
 export function observationsFromNormalised(
   stations: Array<{ id: string; lat: number; lng: number; isStale: boolean }>,
   prices: Array<{

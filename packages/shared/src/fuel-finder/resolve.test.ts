@@ -35,7 +35,7 @@ describe("resolveIcePrice", () => {
 
     const national = resolveIcePrice({ grade: "E10", observations, origin: EDINBURGH });
     expect(national.source).toBe("national-median");
-    expect(national.pence).toBe(134.5);
+    expect(national.pence).toBe(132.2);
 
     const missing = resolveIcePrice({ grade: "E10", observations: [] });
     expect(missing.source).toBe("hardcoded-fallback");
@@ -46,6 +46,6 @@ describe("resolveIcePrice", () => {
   it("does not use stale or closed sites in the median", () => {
     const observations = corpus();
     const national = resolveIcePrice({ grade: "E10", observations });
-    expect(national.pence).toBe(134.5);
+    expect(national.pence).toBe(132.2);
   });
 });

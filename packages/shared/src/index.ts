@@ -71,6 +71,11 @@ export {
   parseLatLngString,
   type LatLng,
 } from './polyline.js';
+export {
+  closestPointOnSegment,
+  observationsNearPolyline,
+  perpendicularMetersToPolyline,
+} from './geo/polyline-distance.js';
 export * from './zones/index.js';
 export {
   CHARGE_JOURNEY_SET,

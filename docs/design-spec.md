@@ -430,7 +430,8 @@ logging of any object typed with a `vrm` field.
 
 ### 9A.2 Deliberate simplifications
 - Straight-line proximity, not real detour routing (costs one routing call per candidate; not worth it until the feature is used)
-- Assumes filling the remaining tank capacity - tank size comes from the vehicle profile
+- Assumes filling the remaining tank capacity. Tank size comes from the vehicle profile (default 55 L). Remaining fuel defaults to 25% of the tank when the user has not said otherwise. The assumed litres are always reported.
+- Detour money uses `detour_km × pence_per_km + 80` pence. The 80 pence term is a documented hassle constant, not a wage model.
 - Opening hours shown, not filtered
 
 ### 9A.3 Trust rule

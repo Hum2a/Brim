@@ -47,7 +47,7 @@ import {
   listJourneysHandler,
   saveJourneyHandler,
 } from './journeys.js';
-import { handleMetaPrices, handleStationsNear } from './stations.js';
+import { handleMetaPrices, handleStationsNear, handleStationsNearRoute } from './stations.js';
 import { handleMetaEvTariffs } from './ev.js';
 import { handleChargesForRoute, handleVehicleCompliance, handleZones } from './charges.js';
 
@@ -78,6 +78,8 @@ app.post('/v1/places/reverse', handlePlaceReverse);
 app.post('/v1/estimate', handleEstimate);
 app.post('/v1/estimate/from-maps-url', handleFromMapsUrl);
 app.get('/v1/stations/near', handleStationsNear);
+app.get('/v1/stations/near-route', handleStationsNearRoute);
+app.post('/v1/stations/near-route', handleStationsNearRoute);
 app.get('/v1/meta/prices', handleMetaPrices);
 app.get('/v1/meta/ev-tariffs', handleMetaEvTariffs);
 app.get('/v1/zones', handleZones);

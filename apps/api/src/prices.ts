@@ -10,12 +10,15 @@ import {
   newestIso,
   normaliseFuelFinder,
   observationsFromNormalised,
+  observationsNearPolyline,
+  resolveFillBaseline,
   resolveIcePrice,
   tenthsToPpl,
   titleCaseAddress,
   type FuelFinderPfs,
   type FuelFinderPriceRow,
   type FuelGrade,
+  type LatLng,
   type PriceObservation,
   type Propulsion,
   type ResolvedFuelPrice,
@@ -37,6 +40,7 @@ export type NearStation = {
   grade?: FuelGrade;
   pence?: number;
   observedAt?: string;
+  openingHoursJson?: unknown;
 };
 
 type MedianRow = { median_tenths: number | string | null; observed_at: Date | string | null };
@@ -114,7 +118,14 @@ export function nearbyFromObservations(
 
 export function decorateNearby(
   hits: NearStation[],
-  stations: Array<{ id: string; name: string; brandCanonical: string; address?: string; postcode?: string }>,
+  stations: Array<{
+    id: string;
+    name: string;
+    brandCanonical: string;
+    address?: string;
+    postcode?: string;
+    openingHoursJson?: unknown;
+  }>,
 ): NearStation[] {
   const byId = new Map(stations.map((s) => [s.id, s]));
   return hits.map((hit) => {
@@ -123,6 +134,7 @@ export function decorateNearby(
     const next: NearStation = { ...hit, name: station.name, brand: station.brandCanonical };
     if (station.address) next.address = titleCaseAddress(station.address);
     if (station.postcode) next.postcode = station.postcode;
+    if (station.openingHoursJson !== undefined) next.openingHoursJson = station.openingHoursJson;
     return next;
   });
 }
@@ -374,4 +386,126 @@ export async function liveNationalMedians(db: BrimDb) {
     }
     return out;
   });
+}
+
+export function fixtureAlongRoute(
+  observations: PriceObservation[],
+  points: LatLng[],
+  radiusMeters: number,
+  grade: FuelGrade,
+): NearStation[] {
+  const hits = observationsNearPolyline(observations, points, radiusMeters, grade);
+  return hits.flatMap((row) => {
+    if (!(row.priceTenthsPence > 0)) return [];
+    const station: NearStation = {
+      id: row.stationId,
+      name: row.stationId,
+      lat: row.lat,
+      lng: row.lng,
+      distanceMeters: 0,
+      grade: row.grade,
+      pence: tenthsToPpl(row.priceTenthsPence),
+      observedAt: row.observedAt,
+    };
+    return [station];
+  });
+}
+
+export async function liveAlongRoute(
+  db: BrimDb,
+  input: { wkt: string; radiusMeters: number; grade: FuelGrade },
+): Promise<NearStation[]> {
+  return withRls(db, { serviceRole: true }, async (tx) => {
+    const result = await tx.execute(sql`
+      SELECT
+        s.id,
+        s.brand_canonical,
+        s.name,
+        s.address,
+        s.postcode,
+        s.opening_hours_json,
+        ST_Y(s.location::geometry) AS lat,
+        ST_X(s.location::geometry) AS lng,
+        sp.grade,
+        sp.price_tenths_pence,
+        sp.observed_at
+      FROM stations s
+      JOIN station_prices sp ON sp.station_id = s.id
+      WHERE s.is_stale = false
+        AND s.location IS NOT NULL
+        AND sp.grade = ${input.grade}
+        AND ST_DWithin(
+          s.location,
+          ST_GeomFromText(${input.wkt}, 4326)::geography,
+          ${input.radiusMeters}
+        )
+      LIMIT 80
+    `);
+    const rows = rowsOf<{
+      id: string;
+      brand_canonical: string | null;
+      name: string;
+      address: string | null;
+      postcode: string | null;
+      opening_hours_json: unknown;
+      lat: number | string;
+      lng: number | string;
+      grade: string;
+      price_tenths_pence: number | string;
+      observed_at: Date | string;
+    }>(result);
+    const seen = new Set<string>();
+    const hits: NearStation[] = [];
+    for (const row of rows) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      const lat = asNumber(row.lat);
+      const lng = asNumber(row.lng);
+      const pence = asNumber(row.price_tenths_pence);
+      if (lat === undefined || lng === undefined || pence === undefined) continue;
+      const station: NearStation = {
+        id: row.id,
+        name: row.name,
+        lat,
+        lng,
+        distanceMeters: 0,
+        pence: tenthsToPpl(pence),
+      };
+      if (row.brand_canonical) station.brand = row.brand_canonical;
+      if (row.address) station.address = titleCaseAddress(row.address);
+      if (row.postcode) station.postcode = row.postcode;
+      if (row.opening_hours_json !== undefined && row.opening_hours_json !== null) {
+        station.openingHoursJson = row.opening_hours_json;
+      }
+      const grade = parseGrade(row.grade);
+      if (grade) station.grade = grade;
+      const observedAt = asIso(row.observed_at);
+      if (observedAt) station.observedAt = observedAt;
+      hits.push(station);
+    }
+    return hits;
+  });
+}
+
+export async function resolveEstimateFillBaseline(
+  env: ApiBindings,
+  db: BrimDb,
+  input: { propulsion: Propulsion; origin?: { lat: number; lng: number } },
+): Promise<ResolvedFuelPrice | undefined> {
+  const grade = gradeForPropulsion(input.propulsion);
+  if (!grade) return undefined;
+  if (isFixtureMode(env.BRIM_FIXTURES)) {
+    const corpus = fixtureCorpus(env.BRIM_FIXTURES);
+    return resolveFillBaseline({
+      grade,
+      observations: corpus.observations,
+      ...(input.origin ? { origin: input.origin } : {}),
+    });
+  }
+  if (!persistLive(db)) return undefined;
+  if (input.origin) {
+    const area = await medianWithin(db, grade, input.origin, HOME_AREA_METERS, 'home-area-median');
+    if (area) return area;
+  }
+  return medianWithin(db, grade, undefined, undefined, 'national-median');
 }

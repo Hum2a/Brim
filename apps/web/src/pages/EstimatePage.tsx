@@ -106,6 +106,22 @@ type Estimate = {
     stationId?: string;
     observedAt: string;
   };
+  cheapestFill?: {
+    litresToFill: number;
+    baseline: { source: string; label: string };
+    stations: Array<{
+      stationId: string;
+      name: string;
+      lat: number;
+      lng: number;
+      pence: number;
+      observedAt: string;
+      detourKm: number;
+      savingPence: number;
+      brand?: string;
+      openingHours?: string;
+    }>;
+  };
   alternatives?: Array<{
     id: string;
     label: string;
@@ -130,7 +146,7 @@ function tripPlace(label: string, pin: Place | null) {
 function priceSourceLabel(source: string): string {
   if (source === "national-median") return "National median";
   if (source === "home-area-median") return "Near your start";
-  if (source === "user-picked-station") return "This forecourt";
+  if (source === "cheapest-on-route") return "Cheapest fill on this route";
   if (source === "hardcoded-fallback") return "Price data unavailable";
   if (source === "user-tariff") return "Your tariff";
   if (source === "network-table") return "Public network table";
@@ -208,6 +224,7 @@ export function EstimatePage() {
   const [stale, setStale] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
   const [stationId, setStationId] = useState<string | undefined>();
+  const [priceStrategy, setPriceStrategy] = useState<string | undefined>();
   const [nearbyStations, setNearbyStations] = useState<NearbyStation[]>([]);
   const [wide, setWide] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
@@ -247,6 +264,7 @@ export function EstimatePage() {
     hasHeatPump,
     start,
     stationId,
+    priceStrategy,
   });
   tripRef.current = {
     origin,
@@ -267,6 +285,7 @@ export function EstimatePage() {
     hasHeatPump,
     start,
     stationId,
+    priceStrategy,
   };
 
   useEffect(() => {
@@ -509,6 +528,7 @@ export function EstimatePage() {
     if (trip.vehicleId === "inline") body.vehicleInline = vehicleInline();
     else body.vehicleId = trip.vehicleId;
     if (trip.stationId && trip.propulsion !== "bev") body.stationId = trip.stationId;
+    if (trip.priceStrategy && trip.propulsion !== "bev") body.priceStrategy = trip.priceStrategy;
     if (trip.electricTrip) {
       body.chargingLocation = trip.chargingLocation;
       body.hasHeatPump = trip.hasHeatPump;
@@ -702,9 +722,21 @@ export function EstimatePage() {
 
   const viaPins = viaDrafts.map((v) => v.pin).filter((p): p is Place => Boolean(p));
   const stationOverlays = useMemo(() => {
-    if (nearbyStations.length === 0) return undefined;
+    const byId = new Map<string, NearbyStation>();
+    for (const s of nearbyStations) byId.set(s.id, s);
+    for (const s of estimate?.cheapestFill?.stations ?? []) {
+      byId.set(s.stationId, {
+        id: s.stationId,
+        lat: s.lat,
+        lng: s.lng,
+        name: s.name,
+        ...(s.brand ? { brand: s.brand } : {}),
+      });
+    }
+    const stations = [...byId.values()];
+    if (stations.length === 0) return undefined;
     return {
-      stations: nearbyStations.map((s) => ({
+      stations: stations.map((s) => ({
         id: s.id,
         lat: s.lat,
         lng: s.lng,
@@ -712,7 +744,7 @@ export function EstimatePage() {
       })),
       ...(stationId ? { selectedStationId: stationId } : {}),
     };
-  }, [nearbyStations, stationId]);
+  }, [nearbyStations, estimate?.cheapestFill, stationId]);
   const mapProps = {
     onMapClick,
     onOriginDrag,
@@ -735,6 +767,8 @@ export function EstimatePage() {
     ...(selectedRouteId ? { selectedRouteId } : {}),
     onSelectStation: (id: string) => {
       setStationId(id);
+      setPriceStrategy(undefined);
+      tripRef.current = { ...tripRef.current, stationId: id, priceStrategy: undefined };
       scheduleEstimate();
     },
     ...(stationOverlays ? { overlays: stationOverlays } : {}),
@@ -1230,6 +1264,45 @@ export function EstimatePage() {
               ? ` · ${formatObservedAt(estimate.price.observedAt)}`
               : null}
           </m.p>
+        ) : null}
+        {estimate.cheapestFill?.stations[0] ? (
+          <m.div variants={reveal} className="mt-3">
+            <button
+              type="button"
+              className="w-full rounded-[2px] border border-glass-border p-3 text-left"
+              onClick={() => {
+                const picked = estimate.cheapestFill?.stations[0];
+                if (!picked) return;
+                setStationId(picked.stationId);
+                setPriceStrategy("cheapest-on-route");
+                tripRef.current = {
+                  ...tripRef.current,
+                  stationId: picked.stationId,
+                  priceStrategy: "cheapest-on-route",
+                };
+                scheduleEstimate();
+              }}
+            >
+              <p className="text-sm">
+                {estimate.cheapestFill.stations[0].brand
+                  ? `${estimate.cheapestFill.stations[0].brand} · ${estimate.cheapestFill.stations[0].name}`
+                  : estimate.cheapestFill.stations[0].name}
+              </p>
+              <p className="tabular text-sm">
+                {estimate.cheapestFill.stations[0].pence.toFixed(1)} ppl
+                {" · "}
+                {formatObservedAt(estimate.cheapestFill.stations[0].observedAt)}
+              </p>
+              <p className="tabular mt-1 text-sm text-mist">
+                {estimate.cheapestFill.stations[0].detourKm.toFixed(1)} km assumed detour · save £
+                {(estimate.cheapestFill.stations[0].savingPence / 100).toFixed(2)} versus filling{" "}
+                {estimate.cheapestFill.baseline.label}
+              </p>
+              {estimate.cheapestFill.stations[0].openingHours ? (
+                <p className="mt-1 text-sm text-mist">{estimate.cheapestFill.stations[0].openingHours}</p>
+              ) : null}
+            </button>
+          </m.div>
         ) : null}
         <m.div variants={reveal} className="mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="diesel">{estimate.consumption.label}</Badge>

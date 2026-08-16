@@ -81,7 +81,7 @@ describe('api', () => {
     const json = (await res.json()) as {
       grades: Record<string, { pence: number; observedAt: string; sampleCount: number }>;
     };
-    expect(json.grades.E10?.pence).toBe(134.5);
+    expect(json.grades.E10?.pence).toBe(132.2);
     expect(json.grades.E10?.sampleCount).toBeGreaterThan(0);
     expect(json.grades.B7?.pence).toBeGreaterThan(0);
   });
@@ -99,6 +99,126 @@ describe('api', () => {
     expect(json.stations.some((s) => s.id === 'ff_shell_crawley')).toBe(true);
     expect(json.stations.some((s) => s.id === 'ff_shell_york_stale')).toBe(false);
     expect(json.stations.some((s) => s.id === 'ff_gulf_crawley_silent')).toBe(false);
+  });
+
+  it('ranks a cheap on-route fill without rewriting the journey price', async () => {
+    const res = await app.request(
+      '/v1/estimate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: 'Crawley',
+          destination: 'London',
+          propulsion: 'petrol',
+          vehicleInline: {
+            kind: 'car',
+            propulsion: 'petrol',
+            userEnteredConsumption: 40,
+            userEnteredUnit: 'mpg',
+            tankLitres: 55,
+          },
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      encodedPolyline: string;
+      price: { pence: number; source: string };
+      cheapestFill?: {
+        litresToFill: number;
+        baseline: { source: string; label: string };
+        stations: Array<{
+          stationId: string;
+          pence: number;
+          savingPence: number;
+          openingHours?: string;
+        }>;
+      };
+    };
+    expect(json.price.source).toBe('home-area-median');
+    expect(json.price.pence).toBe(132.2);
+    expect(json.cheapestFill?.stations[0]?.stationId).toBe('ff_asda_horley');
+    expect(json.cheapestFill?.stations[0]?.pence).toBe(125);
+    expect(json.cheapestFill?.stations[0]?.savingPence).toBeGreaterThanOrEqual(100);
+    expect(json.cheapestFill?.stations[0]?.openingHours).toBe('Typically 06:00-22:00');
+    expect(json.cheapestFill?.baseline.source).toBe('home-area-median');
+    expect(json.cheapestFill?.stations.some((s) => s.stationId === 'ff_shell_york_stale')).toBe(false);
+    expect(json.cheapestFill?.stations.some((s) => s.stationId === 'ff_closed_crawley')).toBe(false);
+
+    const near = await app.request(
+      '/v1/stations/near-route',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          polyline: json.encodedPolyline,
+          grade: 'E10',
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(near.status).toBe(200);
+    const ranked = (await near.json()) as { stations: Array<{ stationId: string }> };
+    expect(ranked.stations[0]?.stationId).toBe('ff_asda_horley');
+
+    const viaGet = await app.request(
+      `/v1/stations/near-route?grade=E10&polyline=${encodeURIComponent(json.encodedPolyline)}`,
+      {},
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(viaGet.status).toBe(200);
+    const got = (await viaGet.json()) as { stations: Array<{ stationId: string }> };
+    expect(got.stations[0]?.stationId).toBe('ff_asda_horley');
+  });
+
+  it('labels an opted-in cheapest fill as cheapest-on-route', async () => {
+    const res = await app.request(
+      '/v1/estimate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: 'Crawley',
+          destination: 'London',
+          propulsion: 'petrol',
+          stationId: 'ff_asda_horley',
+          priceStrategy: 'cheapest-on-route',
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { price: { pence: number; source: string; stationId?: string } };
+    expect(json.price.source).toBe('cheapest-on-route');
+    expect(json.price.pence).toBe(125);
+    expect(json.price.stationId).toBe('ff_asda_horley');
+  });
+
+  it('does not attach cheapestFill on BEV estimates', async () => {
+    const res = await app.request(
+      '/v1/estimate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: 'Crawley',
+          destination: 'London',
+          propulsion: 'bev',
+          vehicleInline: {
+            kind: 'car',
+            propulsion: 'bev',
+            userEnteredConsumption: 3.8,
+            userEnteredUnit: 'mi/kWh',
+          },
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { cheapestFill?: unknown };
+    expect(json.cheapestFill).toBeUndefined();
   });
 
   it('uses a picked station price when stationId is on the estimate body', async () => {
@@ -254,7 +374,7 @@ describe('api', () => {
       warnings: Array<{ code: string; message: string }>;
     };
     expect(json.price.source).toBe('national-median');
-    expect(json.price.pence).toBe(134.5);
+    expect(json.price.pence).toBe(132.2);
     expect(json.warnings.some((w) => w.code === 'price-data-unavailable')).toBe(false);
   });
 

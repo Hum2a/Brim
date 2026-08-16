@@ -48,6 +48,21 @@ export const FUEL_FINDER_PFS_FIXTURES: FuelFinderPfs[] = [
     fuel_types: ["E10", "B7_STANDARD"],
   },
   {
+    node_id: "ff_asda_horley",
+    trading_name: "Asda Horley",
+    brand_name: "Asda",
+    permanent_closure: false,
+    location: {
+      address_line_1: "REIGATE ROAD, HORLEY",
+      city: "HORLEY",
+      postcode: "RH6 0AT",
+      latitude: "51.3083",
+      longitude: "-0.1575",
+    },
+    opening_times: { usual_days: { monday: { open: "06:00:00", close: "22:00:00", is_24_hours: false } } },
+    fuel_types: ["E10", "B7_STANDARD"],
+  },
+  {
     node_id: "ff_gulf_crawley_silent",
     trading_name: "GULF CRAWLEY",
     brand_name: "Gulf",
@@ -118,6 +133,14 @@ export const FUEL_FINDER_PRICE_FIXTURES: FuelFinderPriceRow[] = [
     fuel_prices: [
       { price: 142.0, fuel_type: "E10", price_last_updated: "2026-08-16T10:00:00" },
       { price: 148.5, fuel_type: "B7_STANDARD", price_last_updated: "2026-08-16T10:00:00" },
+    ],
+  },
+  {
+    node_id: "ff_asda_horley",
+    trading_name: "Asda Horley",
+    fuel_prices: [
+      { price: 125.0, fuel_type: "E10", price_last_updated: "2026-08-16T11:00:00" },
+      { price: 132.0, fuel_type: "B7_STANDARD", price_last_updated: "2026-08-16T11:00:00" },
     ],
   },
   {
