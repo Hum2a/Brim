@@ -1,22 +1,61 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
+import type { ComponentPropsWithoutRef, ElementRef, HTMLAttributes } from "react";
+import { forwardRef } from "react";
+import { cn } from "../lib/utils.js";
 
-export function Dialog({ open, title, children, onClose }: { open: boolean; title: string; children: ReactNode; onClose: () => void }) {
-  if (!open) return null;
-  return (
-    <div role="dialog" aria-modal="true" aria-labelledby="dialog-title" className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-[2px] border border-[var(--pump)]/20 bg-[var(--forecourt)] p-4">
-        <h2 id="dialog-title" className="display mb-3 text-xl">
-          {title}
-        </h2>
-        {children}
-        <button type="button" className="mt-4 text-sm underline" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </div>
-  );
+export const Dialog = DialogPrimitive.Root;
+export const DialogTrigger = DialogPrimitive.Trigger;
+export const DialogClose = DialogPrimitive.Close;
+export const DialogPortal = DialogPrimitive.Portal;
+
+export const DialogOverlay = forwardRef<
+  ElementRef<typeof DialogPrimitive.Overlay>,
+  ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    className={cn("fixed inset-0 z-50 bg-night/70 backdrop-blur-md", className)}
+    {...props}
+  />
+));
+DialogOverlay.displayName = "DialogOverlay";
+
+export const DialogContent = forwardRef<
+  ElementRef<typeof DialogPrimitive.Content>,
+  ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-1/2 top-1/2 z-50 w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-[2px] border border-[var(--glass-border)] bg-[var(--glass)] p-6 text-pump shadow-glass backdrop-blur-2xl",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <DialogPrimitive.Close className="absolute right-3 top-3 opacity-70 hover:opacity-100">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
+DialogContent.displayName = "DialogContent";
+
+export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("mb-4 space-y-1", className)} {...props} />;
 }
 
-export function Popover({ children }: HTMLAttributes<HTMLDivElement>) {
-  return <div className="rounded-[2px] border border-[var(--pump)]/20 bg-[var(--forecourt)] p-2">{children}</div>;
+export function DialogTitle({ className, ...props }: ComponentPropsWithoutRef<typeof DialogPrimitive.Title>) {
+  return <DialogPrimitive.Title className={cn("display text-xl", className)} {...props} />;
+}
+
+export function DialogDescription({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) {
+  return <DialogPrimitive.Description className={cn("text-sm text-mist", className)} {...props} />;
 }

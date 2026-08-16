@@ -9,22 +9,24 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./button": {
-      "types": "./dist/components/button.d.ts",
-      "import": "./dist/components/button.js"
-    },
-    "./input": {
-      "types": "./dist/components/input.d.ts",
-      "import": "./dist/components/input.js"
-    },
-    "./select": {
-      "types": "./dist/components/select.d.ts",
-      "import": "./dist/components/select.js"
-    },
-    "./dialog": {
-      "types": "./dist/components/dialog.d.ts",
-      "import": "./dist/components/dialog.js"
-    },
+    "./button": { "types": "./dist/components/button.d.ts", "import": "./dist/components/button.js" },
+    "./input": { "types": "./dist/components/input.d.ts", "import": "./dist/components/input.js" },
+    "./label": { "types": "./dist/components/label.d.ts", "import": "./dist/components/label.js" },
+    "./select": { "types": "./dist/components/select.d.ts", "import": "./dist/components/select.js" },
+    "./dialog": { "types": "./dist/components/dialog.d.ts", "import": "./dist/components/dialog.js" },
+    "./popover": { "types": "./dist/components/popover.d.ts", "import": "./dist/components/popover.js" },
+    "./command": { "types": "./dist/components/command.d.ts", "import": "./dist/components/command.js" },
+    "./tabs": { "types": "./dist/components/tabs.d.ts", "import": "./dist/components/tabs.js" },
+    "./tooltip": { "types": "./dist/components/tooltip.d.ts", "import": "./dist/components/tooltip.js" },
+    "./skeleton": { "types": "./dist/components/skeleton.d.ts", "import": "./dist/components/skeleton.js" },
+    "./drawer": { "types": "./dist/components/drawer.d.ts", "import": "./dist/components/drawer.js" },
+    "./toast": { "types": "./dist/components/toast.d.ts", "import": "./dist/components/toast.js" },
+    "./form": { "types": "./dist/components/form.d.ts", "import": "./dist/components/form.js" },
+    "./accordion": { "types": "./dist/components/accordion.d.ts", "import": "./dist/components/accordion.js" },
+    "./separator": { "types": "./dist/components/separator.d.ts", "import": "./dist/components/separator.js" },
+    "./badge": { "types": "./dist/components/badge.d.ts", "import": "./dist/components/badge.js" },
+    "./card": { "types": "./dist/components/card.d.ts", "import": "./dist/components/card.js" },
+    "./sheet": { "types": "./dist/components/sheet.d.ts", "import": "./dist/components/sheet.js" },
     "./tokens.css": "./src/tokens.css",
     "./tailwind-preset": "./tailwind-preset.js"
   },
@@ -39,16 +41,32 @@
     "@fontsource/archivo": "^5.2.7",
     "@fontsource/inter-tight": "^5.2.7",
     "@fontsource/jetbrains-mono": "^5.2.7",
+    "@radix-ui/react-accordion": "^1.2.11",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-popover": "^1.1.14",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-tooltip": "^1.2.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^3.3.1"
+    "cmdk": "^1.1.1",
+    "lucide-react": "^0.539.0",
+    "motion": "^12.23.12",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.3.1",
+    "vaul": "^1.1.2"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@brim/config": "*",
     "@types/react": "^19.1.10",
-    "react": "^19.1.1"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   }
 }

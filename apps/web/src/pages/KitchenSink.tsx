@@ -1,60 +1,203 @@
-import { useState } from "react";
+import { AnimatePresence, m } from "motion/react";
+import { useEffect, useState } from "react";
+import {
+  PumpReadout,
+  ReducedMotionProvider,
+  pageTransition,
+  usePrefersReducedMotion,
+} from "@brim/ui-kit";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@brim/ui-kit/accordion";
+import { Badge } from "@brim/ui-kit/badge";
 import { Button } from "@brim/ui-kit/button";
+import { Card } from "@brim/ui-kit/card";
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@brim/ui-kit/command";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@brim/ui-kit/dialog";
+import { Drawer, DrawerContent, DrawerTrigger } from "@brim/ui-kit/drawer";
+import { Form, FormItem } from "@brim/ui-kit/form";
 import { Input } from "@brim/ui-kit/input";
-import { Select } from "@brim/ui-kit/select";
-import { Dialog, Popover } from "@brim/ui-kit/dialog";
-import { PumpReadout } from "@brim/ui-kit";
-import { Command, Drawer, Form, Skeleton, Tabs, Toast, Tooltip } from "@brim/ui-kit";
+import { Label } from "@brim/ui-kit/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@brim/ui-kit/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
+import { Separator } from "@brim/ui-kit/separator";
+import { Sheet, SheetContent, SheetTrigger } from "@brim/ui-kit/sheet";
+import { Skeleton } from "@brim/ui-kit/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@brim/ui-kit/tabs";
+import { toast } from "@brim/ui-kit/toast";
+import { Hint } from "@brim/ui-kit/tooltip";
+
+function MotionLab() {
+  const reduce = usePrefersReducedMotion();
+  const [scene, setScene] = useState<"estimate" | "history">("estimate");
+  const transition = reduce
+    ? { initial: { opacity: 1 }, animate: { opacity: 1 }, exit: { opacity: 1 } }
+    : pageTransition;
+
+  return (
+    <div className="grid gap-6">
+      <Card>
+        <p className="mb-3 text-sm text-mist">
+          Cross-fade between two scenes. With reduced motion this snaps; otherwise it blurs and slides.
+        </p>
+        <Button type="button" variant="ghost" onClick={() => setScene((s) => (s === "estimate" ? "history" : "estimate"))}>
+          Swap scene
+        </Button>
+        <div className="relative mt-4 min-h-32">
+          <AnimatePresence mode="wait">
+            <m.div key={scene} {...transition} className="glass p-5">
+              {scene === "estimate" ? (
+                <p className="display text-2xl">Estimate scene</p>
+              ) : (
+                <p className="display text-2xl">History scene</p>
+              )}
+              <p className="mt-2 text-sm text-mist">Shared wordmark and pump use layoutId on the real routes.</p>
+            </m.div>
+          </AnimatePresence>
+        </div>
+      </Card>
+      <Card className="grid gap-8 md:grid-cols-3">
+        <PumpReadout value={4} />
+        <PumpReadout value={47} />
+        <PumpReadout value={412} />
+      </Card>
+    </div>
+  );
+}
 
 export function KitchenSink() {
-  const [tab, setTab] = useState("Readout");
   const [open, setOpen] = useState(false);
+  const [fuel, setFuel] = useState("petrol");
+  const [snap, setSnap] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("reduce-motion", snap);
+    return () => document.documentElement.classList.remove("reduce-motion");
+  }, [snap]);
+
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <h1 className="display mb-2 text-3xl">Kitchen sink</h1>
-      <p className="mb-6 opacity-80">If this looks like a stock shadcn demo, the tokens failed.</p>
-      <Tabs tabs={["Readout", "Controls"]} value={tab} onChange={setTab} />
-      <div className="grid gap-8">
-        <section>
-          <h2 className="mb-2">Pump readout magnitudes</h2>
-          <PumpReadout value={4} />
-          <PumpReadout value={47} />
-          <PumpReadout value={412} />
-        </section>
-        <Form className="max-w-sm">
-          <label>
-            Origin
-            <Input defaultValue="Crawley" />
-          </label>
-          <label>
-            Propulsion
-            <Select defaultValue="petrol">
-              <option value="petrol">Petrol</option>
-              <option value="diesel">Diesel</option>
-            </Select>
-          </label>
-          <Tooltip label="Amber is reserved for the total">
-            <Button type="button">Primary control</Button>
-          </Tooltip>
-          <Button type="button" variant="ghost" className="ml-2" onClick={() => setOpen(true)}>
-            Open dialog
-          </Button>
-        </Form>
-        <Popover>Popover surface — 2px corners, no shadow.</Popover>
-        <Command>Command list placeholder</Command>
-        <Skeleton className="w-48" />
-        <Toast message="Saved. Your car is on this device." />
-        <Drawer open={false}>Drawer</Drawer>
-        <Dialog open={open} title="Not a template" onClose={() => setOpen(false)}>
-          <p>Sharp corners, five colours, dark only.</p>
+    <ReducedMotionProvider value={snap ? true : null}>
+      <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8">
+        <h1 className="display mb-2 text-4xl">Kitchen sink</h1>
+        <p className="mb-6 max-w-xl text-mist">
+          Sharp glass, extra cinematic hues, Motion on the pump. If this looks like a stock shadcn + Framer landing
+          page, restyle it.
+        </p>
+        <label className="mb-8 flex max-w-md flex-row items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={snap}
+            onChange={(e) => setSnap(e.target.checked)}
+            className="size-4 rounded-[2px] accent-[var(--gauge)]"
+          />
+          Snap motion (lab override of prefers-reduced-motion)
+        </label>
+        <Tabs defaultValue="readout">
+          <TabsList>
+            <TabsTrigger value="readout">Readout</TabsTrigger>
+            <TabsTrigger value="motion">Motion</TabsTrigger>
+            <TabsTrigger value="controls">Controls</TabsTrigger>
+          </TabsList>
+          <TabsContent value="readout">
+            <Card className="grid gap-8 md:grid-cols-3">
+              <PumpReadout value={4} />
+              <PumpReadout value={47} />
+              <PumpReadout value={412} />
+            </Card>
+          </TabsContent>
+          <TabsContent value="motion">
+            <MotionLab />
+          </TabsContent>
+          <TabsContent value="controls">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <Form>
+                  <FormItem>
+                    <Label>Origin</Label>
+                    <Input defaultValue="Crawley" />
+                  </FormItem>
+                  <FormItem>
+                    <Label>Propulsion</Label>
+                    <Select value={fuel} onValueChange={setFuel}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="petrol">Petrol</SelectItem>
+                        <SelectItem value="diesel">Diesel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                  <Hint label="Amber is reserved for the total">
+                    <Button type="button">Primary control</Button>
+                  </Hint>
+                  <Button type="button" variant="ghost" className="ml-2" onClick={() => setOpen(true)}>
+                    Open dialog
+                  </Button>
+                </Form>
+              </Card>
+              <Card>
+                <Command>
+                  <CommandInput placeholder="Filter places" />
+                  <CommandList>
+                    <CommandEmpty>No place.</CommandEmpty>
+                    <CommandItem>Crawley</CommandItem>
+                    <CommandItem>London</CommandItem>
+                  </CommandList>
+                </Command>
+                <Separator className="my-4" />
+                <div className="flex flex-wrap gap-2">
+                  <Badge>Quiet</Badge>
+                  <Badge variant="diesel">Compliant</Badge>
+                  <Badge variant="warning">Stale</Badge>
+                </div>
+                <Skeleton className="mt-4 h-4 w-48" />
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" type="button">
+                        Popover
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent>Popover surface — 2px corners, glass, glow shadow.</PopoverContent>
+                  </Popover>
+                  <Drawer>
+                    <DrawerTrigger asChild>
+                      <Button variant="ghost" type="button">
+                        Drawer
+                      </Button>
+                    </DrawerTrigger>
+                    <DrawerContent>Night-shift drawer. Sharp top edge.</DrawerContent>
+                  </Drawer>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" type="button">
+                        Sheet
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent>Side glass.</SheetContent>
+                  </Sheet>
+                  <Button type="button" variant="secondary" onClick={() => toast("Saved. Your car is on this device.")}>
+                    Toast
+                  </Button>
+                </div>
+                <Accordion type="single" collapsible className="mt-4">
+                  <AccordionItem value="a">
+                    <AccordionTrigger>How we got there</AccordionTrigger>
+                    <AccordionContent>Used the consumption figure you entered.</AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Not a template</DialogTitle>
+            </DialogHeader>
+            <p>Sharp corners, cinematic glass, dark only.</p>
+          </DialogContent>
         </Dialog>
-        <p className="tabular">£38–£47</p>
-      </div>
-      <p className="mt-8">
-        <a href="/" className="underline">
-          Back to estimate
-        </a>
-      </p>
-    </main>
+      </main>
+    </ReducedMotionProvider>
   );
 }

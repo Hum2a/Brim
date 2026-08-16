@@ -1,10 +1,17 @@
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { PumpReadout } from "@brim/ui-kit";
+import { PumpReadout, reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@brim/ui-kit/accordion";
+import { Badge } from "@brim/ui-kit/badge";
 import { Button } from "@brim/ui-kit/button";
+import { Card } from "@brim/ui-kit/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@brim/ui-kit/dialog";
+import { Form, FormItem } from "@brim/ui-kit/form";
 import { Input } from "@brim/ui-kit/input";
-import { Select } from "@brim/ui-kit/select";
-import { Dialog } from "@brim/ui-kit/dialog";
-import { Skeleton } from "@brim/ui-kit";
+import { Label } from "@brim/ui-kit/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
+import { Skeleton } from "@brim/ui-kit/skeleton";
+import { toast } from "@brim/ui-kit/toast";
 import { api } from "../api.js";
 
 type Health = { status: string; fixtureMode: boolean };
@@ -29,6 +36,7 @@ const nowLocal = () => {
 };
 
 export function EstimatePage() {
+  const reduce = usePrefersReducedMotion();
   const [health, setHealth] = useState<Health | null>(null);
   const [origin, setOrigin] = useState("Crawley");
   const [destination, setDestination] = useState("London");
@@ -45,7 +53,7 @@ export function EstimatePage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehicleId, setVehicleId] = useState("");
+  const [vehicleId, setVehicleId] = useState("inline");
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
   const [email, setEmail] = useState("");
@@ -148,8 +156,8 @@ export function EstimatePage() {
       origin,
       destination,
       departsAt: new Date(departsAt).toISOString(),
-      vehicleInline: vehicleId ? undefined : vehicleInline(),
-      vehicleId: vehicleId || undefined,
+      vehicleInline: vehicleId === "inline" ? vehicleInline() : undefined,
+      vehicleId: vehicleId === "inline" ? undefined : vehicleId,
       propulsion,
     });
   }
@@ -162,6 +170,7 @@ export function EstimatePage() {
       });
       const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
       setVehicles(list.vehicles);
+      toast("Saved. Your car is on this device.");
     } catch {
       setAuthOpen(true);
     }
@@ -171,8 +180,15 @@ export function EstimatePage() {
     if (!estimate) return;
     await api("/v1/journeys", {
       method: "POST",
-      body: JSON.stringify({ origin, destination, vehicleId: vehicleId || undefined, estimate, departsAt }),
+      body: JSON.stringify({
+        origin,
+        destination,
+        vehicleId: vehicleId === "inline" ? undefined : vehicleId,
+        estimate,
+        departsAt,
+      }),
     });
+    toast("Journey stored as a snapshot.");
   }
 
   async function onAuth(e: FormEvent) {
@@ -180,6 +196,7 @@ export function EstimatePage() {
     const path = authMode === "signup" ? "/v1/auth/signup" : "/v1/auth/login";
     await api(path, { method: "POST", body: JSON.stringify({ email, password }) });
     setAuthOpen(false);
+    toast(authMode === "signup" ? "Account created." : "Signed in.");
   }
 
   const pounds = estimate ? estimate.cost.totalPence.point / 100 : 0;
@@ -192,198 +209,251 @@ export function EstimatePage() {
   }, [estimate]);
 
   return (
-    <main className="mx-auto max-w-xl p-4">
-      <header className="mb-6 flex items-baseline justify-between">
-        <h1 className="display text-4xl">Brim</h1>
-        <nav className="flex gap-3 text-sm">
-          <a href="/history">History</a>
-          <a href="/account">Account</a>
-          {import.meta.env.DEV ? <a href="/kitchen-sink">Kitchen sink</a> : null}
-        </nav>
-      </header>
-      <p className="mb-4">Add your car and we will stop guessing.</p>
-      {health ? (
-        <p className="tabular mb-4 opacity-70">
-          API {health.status}
-          {health.fixtureMode ? " · fixtures" : ""}
-        </p>
-      ) : (
-        <p className="mb-4">Could not reach the API — start it with npm run dev:fixtures, then retry.</p>
-      )}
-      {stale ? <p className="mb-4 text-[var(--warning)]">Showing the last estimate stored on this device. New estimates need a network.</p> : null}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void runMaps(maps);
-        }}
-        className="mb-6"
-      >
-        <label>
-          Paste a Maps link
-          <Input value={maps} onChange={(ev) => setMaps(ev.target.value)} aria-describedby="maps-help" />
-        </label>
-        <p id="maps-help" className="mb-2 text-sm opacity-70">
-          A Google Maps directions link. If it cannot be read, type the places below.
-        </p>
-        <Button type="submit">Estimate from link</Button>
-      </form>
-
-      <form onSubmit={onSubmit}>
-        {vehicles.length > 0 ? (
-          <label>
-            Saved vehicle
-            <Select value={vehicleId} onChange={(ev) => setVehicleId(ev.target.value)}>
-              <option value="">Type details this time</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nickname ?? v.propulsion}
-                </option>
-              ))}
-            </Select>
-          </label>
-        ) : null}
-        <label>
-          From
-          <Input
-            value={origin}
-            onChange={(ev) => void onPlaces(ev.target.value)}
-            required
-            list="origin-places"
-            autoComplete="off"
-          />
-          <datalist id="origin-places">
-            {originHits.map((p) => (
-              <option key={p.label} value={p.label} />
-            ))}
-          </datalist>
-        </label>
-        <label>
-          To
-          <Input value={destination} onChange={(ev) => setDestination(ev.target.value)} required />
-        </label>
-        <label>
-          Leave
-          <Input type="datetime-local" value={departsAt} onChange={(ev) => setDepartsAt(ev.target.value)} />
-        </label>
-        {vehicleId ? null : (
-          <>
-            <label>
-              Propulsion
-              <Select value={propulsion} onChange={(ev) => setPropulsion(ev.target.value as typeof propulsion)}>
-                <option value="petrol">Petrol</option>
-                <option value="diesel">Diesel</option>
-                <option value="phev">Plug-in hybrid</option>
-                <option value="bev">Electric</option>
-              </Select>
-            </label>
-            {propulsion === "bev" || propulsion === "phev" ? (
-              <>
-                <label>
-                  mi/kWh
-                  <Input value={miKwh} onChange={(ev) => setMiKwh(ev.target.value)} className="tabular" />
-                </label>
-                <label>
-                  Usable battery kWh
-                  <Input value={battery} onChange={(ev) => setBattery(ev.target.value)} className="tabular" />
-                </label>
-                <label>
-                  Starting charge %
-                  <Input value={start} onChange={(ev) => setStart(ev.target.value)} className="tabular" />
-                </label>
-              </>
+    <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8">
+      <m.div variants={staggerChildren} initial={reduce ? false : "initial"} animate="animate" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+        <m.div variants={reveal}>
+          <Card>
+            <p className="mb-1 text-mist">True journey cost</p>
+            <h1 className="display mb-4 text-3xl">Add your car and we will stop guessing.</h1>
+            {health ? (
+              <p className="tabular mb-4 text-xs text-mist">
+                API {health.status}
+                {health.fixtureMode ? " · fixtures" : ""}
+              </p>
+            ) : (
+              <p className="mb-4 text-sm text-warning">Could not reach the API — start it with npm run dev:fixtures, then retry.</p>
+            )}
+            {stale ? (
+              <p className="mb-4 text-sm text-warning">Showing the last estimate stored on this device. New estimates need a network.</p>
             ) : null}
-            {propulsion !== "bev" ? (
-              <>
-                {propulsion !== "phev" ? (
-                  <label>
-                    mpg
-                    <Input value={mpg} onChange={(ev) => setMpg(ev.target.value)} className="tabular" />
-                  </label>
-                ) : null}
-                <label>
-                  Tank size (litres)
-                  <Input value={tank} onChange={(ev) => setTank(ev.target.value)} className="tabular" />
-                </label>
-              </>
-            ) : null}
-          </>
-        )}
-        <Button type="submit">{loading ? "Working out the number…" : "Estimate"}</Button>
-      </form>
 
-      {error ? <p className="mt-4 text-[var(--warning)]">{error}</p> : null}
-      {loading ? (
-        <div className="mt-6" aria-busy="true">
-          <Skeleton className="mb-2 w-40" />
-          <Skeleton className="w-24" />
-        </div>
-      ) : null}
+            <Form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void runMaps(maps);
+              }}
+              className="mb-6"
+            >
+              <FormItem>
+                <Label htmlFor="maps">Paste a Maps link</Label>
+                <Input id="maps" value={maps} onChange={(ev) => setMaps(ev.target.value)} aria-describedby="maps-help" />
+                <p id="maps-help" className="text-xs text-mist">
+                  A Google Maps directions link. If it cannot be read, type the places below.
+                </p>
+              </FormItem>
+              <Button type="submit" variant="ghost">
+                Estimate from link
+              </Button>
+            </Form>
 
-      {estimate ? (
-        <section className="mt-8" aria-live="polite">
-          <PumpReadout value={pounds} />
-          <p className="tabular mt-2 opacity-80">{band}</p>
-          <p className="mt-3">{estimate.consumption.label}</p>
-          <p className="tabular">{estimate.consumption.display}</p>
-          {estimate.energy.arrivalStateOfCharge ? (
-            <p>
-              Arrival about {estimate.energy.arrivalStateOfCharge.percent.toFixed(0)}% (
-              {estimate.energy.arrivalStateOfCharge.verdict})
-            </p>
+            <Form onSubmit={onSubmit}>
+              {vehicles.length > 0 ? (
+                <FormItem>
+                  <Label>Saved vehicle</Label>
+                  <Select value={vehicleId} onValueChange={setVehicleId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Type details this time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inline">Type details this time</SelectItem>
+                      {vehicles.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.nickname ?? v.propulsion}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              ) : null}
+              <FormItem>
+                <Label htmlFor="origin">From</Label>
+                <Input
+                  id="origin"
+                  value={origin}
+                  onChange={(ev) => void onPlaces(ev.target.value)}
+                  required
+                  list="origin-places"
+                  autoComplete="off"
+                />
+                <datalist id="origin-places">
+                  {originHits.map((p) => (
+                    <option key={p.label} value={p.label} />
+                  ))}
+                </datalist>
+              </FormItem>
+              <FormItem>
+                <Label htmlFor="destination">To</Label>
+                <Input id="destination" value={destination} onChange={(ev) => setDestination(ev.target.value)} required />
+              </FormItem>
+              <FormItem>
+                <Label htmlFor="leave">Leave</Label>
+                <Input id="leave" type="datetime-local" value={departsAt} onChange={(ev) => setDepartsAt(ev.target.value)} />
+              </FormItem>
+              {vehicleId === "inline" ? (
+                <>
+                  <FormItem>
+                    <Label>Propulsion</Label>
+                    <Select value={propulsion} onValueChange={(v) => setPropulsion(v as typeof propulsion)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="petrol">Petrol</SelectItem>
+                        <SelectItem value="diesel">Diesel</SelectItem>
+                        <SelectItem value="phev">Plug-in hybrid</SelectItem>
+                        <SelectItem value="bev">Electric</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                  {propulsion === "bev" || propulsion === "phev" ? (
+                    <>
+                      <FormItem>
+                        <Label htmlFor="mikwh">mi/kWh</Label>
+                        <Input id="mikwh" value={miKwh} onChange={(ev) => setMiKwh(ev.target.value)} className="tabular" />
+                      </FormItem>
+                      <FormItem>
+                        <Label htmlFor="battery">Usable battery kWh</Label>
+                        <Input id="battery" value={battery} onChange={(ev) => setBattery(ev.target.value)} className="tabular" />
+                      </FormItem>
+                      <FormItem>
+                        <Label htmlFor="start">Starting charge %</Label>
+                        <Input id="start" value={start} onChange={(ev) => setStart(ev.target.value)} className="tabular" />
+                      </FormItem>
+                    </>
+                  ) : null}
+                  {propulsion !== "bev" ? (
+                    <>
+                      {propulsion !== "phev" ? (
+                        <FormItem>
+                          <Label htmlFor="mpg">mpg</Label>
+                          <Input id="mpg" value={mpg} onChange={(ev) => setMpg(ev.target.value)} className="tabular" />
+                        </FormItem>
+                      ) : null}
+                      <FormItem>
+                        <Label htmlFor="tank">Tank size (litres)</Label>
+                        <Input id="tank" value={tank} onChange={(ev) => setTank(ev.target.value)} className="tabular" />
+                      </FormItem>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+              <Button type="submit">{loading ? "Working out the number…" : "Estimate"}</Button>
+            </Form>
+          </Card>
+        </m.div>
+
+        <m.div variants={reveal}>
+          {error ? <p className="mb-4 text-warning">{error}</p> : null}
+          {loading ? (
+            <Card aria-busy="true">
+              <Skeleton className="mb-3 h-16 w-48" />
+              <Skeleton className="h-4 w-24" />
+            </Card>
           ) : null}
-          {hmrc ? <p className="tabular mt-2 text-sm opacity-80">{hmrc}</p> : null}
-          {estimate.warnings.map((w) => (
-            <p key={w.message} className="mt-2 text-[var(--warning)]">
-              {w.message}
-            </p>
-          ))}
-          <details className="mt-4">
-            <summary>How we got there</summary>
-            <ul>
-              {estimate.reasons.map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-          </details>
-          <p className="mt-4 text-sm opacity-70">
-            Charges such as ULEZ and Dart Charge are not in this number yet. They will appear here when the charges
-            layer ships.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>
-              Save this car
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => void saveJourney()}>
-              Save journey
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
-              Sign in to sync
-            </Button>
-          </div>
-        </section>
-      ) : null}
+          <AnimatePresence>
+            {estimate && !loading ? (
+              <m.section
+                aria-live="polite"
+                variants={staggerChildren}
+                initial={reduce ? false : "initial"}
+                animate="animate"
+                className="glass p-6"
+              >
+                <m.div variants={reveal}>
+                  <PumpReadout value={pounds} layoutId="pump-readout" />
+                </m.div>
+                <m.p variants={reveal} className="tabular mt-3 text-mist">
+                  {band}
+                </m.p>
+                <m.div variants={reveal} className="mt-4 flex flex-wrap items-center gap-2">
+                  <Badge variant="diesel">{estimate.consumption.label}</Badge>
+                  <span className="tabular text-sm">{estimate.consumption.display}</span>
+                </m.div>
+                {estimate.energy.arrivalStateOfCharge ? (
+                  <m.p variants={reveal} className="mt-3 text-sm">
+                    Arrival about {estimate.energy.arrivalStateOfCharge.percent.toFixed(0)}% (
+                    {estimate.energy.arrivalStateOfCharge.verdict})
+                  </m.p>
+                ) : null}
+                {hmrc ? (
+                  <m.p variants={reveal} className="tabular mt-2 text-sm text-mist">
+                    {hmrc}
+                  </m.p>
+                ) : null}
+                {estimate.warnings.map((w) => (
+                  <m.p key={w.message} variants={reveal} className="mt-3 text-warning">
+                    {w.message}
+                  </m.p>
+                ))}
+                <m.div variants={reveal}>
+                  <Accordion type="single" collapsible className="mt-4">
+                    <AccordionItem value="reasons">
+                      <AccordionTrigger>How we got there</AccordionTrigger>
+                      <AccordionContent>
+                        <ul className="list-disc space-y-1 pl-4">
+                          {estimate.reasons.map((r) => (
+                            <li key={r}>{r}</li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </m.div>
+                <m.p variants={reveal} className="mt-4 text-sm text-mist">
+                  Charges such as ULEZ and Dart Charge are not in this number yet. They will appear here when the
+                  charges layer ships.
+                </m.p>
+                <m.div variants={reveal} className="mt-5 flex flex-wrap gap-2">
+                  <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>
+                    Save this car
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => void saveJourney()}>
+                    Save journey
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
+                    Sign in to sync
+                  </Button>
+                </m.div>
+              </m.section>
+            ) : null}
+          </AnimatePresence>
+        </m.div>
+      </m.div>
 
-      <Dialog open={authOpen} title={authMode === "signup" ? "Keep this car" : "Welcome back"} onClose={() => setAuthOpen(false)}>
-        <p className="mb-3 text-sm opacity-80">You can estimate without an account. Sign in only if you want this car on other devices.</p>
-        <form onSubmit={(e) => void onAuth(e)}>
-          <label>
-            Email
-            <Input type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} required />
-          </label>
-          <label>
-            Password
-            <Input type="password" value={password} onChange={(ev) => setPassword(ev.target.value)} minLength={8} required />
-          </label>
-          <Button type="submit">{authMode === "signup" ? "Create account" : "Sign in"}</Button>
-          <button
-            type="button"
-            className="ml-3 underline"
-            onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
-          >
-            {authMode === "signup" ? "I already have an account" : "Create an account"}
-          </button>
-        </form>
+      <Dialog open={authOpen} onOpenChange={setAuthOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{authMode === "signup" ? "Keep this car" : "Welcome back"}</DialogTitle>
+            <DialogDescription>
+              You can estimate without an account. Sign in only if you want this car on other devices.
+            </DialogDescription>
+          </DialogHeader>
+          <Form onSubmit={(e) => void onAuth(e)}>
+            <FormItem>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} required />
+            </FormItem>
+            <FormItem>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(ev) => setPassword(ev.target.value)}
+                minLength={8}
+                required
+              />
+            </FormItem>
+            <Button type="submit">{authMode === "signup" ? "Create account" : "Sign in"}</Button>
+            <button
+              type="button"
+              className="ml-3 text-sm underline"
+              onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}
+            >
+              {authMode === "signup" ? "I already have an account" : "Create an account"}
+            </button>
+          </Form>
+        </DialogContent>
       </Dialog>
     </main>
   );

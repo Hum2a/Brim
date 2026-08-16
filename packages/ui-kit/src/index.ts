@@ -1,7 +1,14 @@
 export { PumpReadout } from "./PumpReadout.js";
-export { Button } from "./components/button.js";
-export { Input } from "./components/input.js";
-export { Select } from "./components/select.js";
-export { Dialog, Popover } from "./components/dialog.js";
-export { Command, Drawer, Form, Skeleton, Tabs, Toast, Tooltip } from "./components/misc.js";
+export { MotionRoot } from "./MotionRoot.js";
 export { cn } from "./lib/utils.js";
+export {
+  pageTransition,
+  reveal,
+  staggerChildren,
+  stiff,
+  soft,
+  pumpGlow,
+  usePrefersReducedMotion,
+  motionSafe,
+  ReducedMotionProvider,
+} from "./motion.js";
