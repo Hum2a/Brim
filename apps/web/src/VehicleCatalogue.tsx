@@ -97,7 +97,7 @@ function FacetButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-11 w-full items-center justify-between rounded-[2px] px-3 text-left text-sm hover:bg-white/5"
+      className="flex h-11 w-full items-center justify-between rounded-[2px] px-3 text-left text-sm hover:bg-lift"
     >
       <span>{name}</span>
       <span className="tabular text-xs text-mist">{count}</span>
@@ -116,7 +116,7 @@ function TrimButton({
     <button
       type="button"
       onClick={() => onPick(vehicle)}
-      className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] px-3 py-2 text-left text-sm hover:bg-white/5"
+      className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] px-3 py-2 text-left text-sm hover:bg-lift"
     >
       <span>{vehicle.derivative ?? `${vehicle.make} ${vehicle.model}`}</span>
       <span className="tabular text-xs text-mist">
@@ -243,7 +243,7 @@ export function VehicleCatalogue({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] border border-input bg-black/25 px-3 py-2 text-left text-sm text-pump"
+        className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] border border-input bg-card px-3 py-2 text-left text-sm text-pump"
       >
         {selected ? (
           <>

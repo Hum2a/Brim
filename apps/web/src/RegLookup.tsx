@@ -119,7 +119,7 @@ export function RegLookup({
             <button
               key={vehicle.id}
               type="button"
-              className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] border border-border px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] border border-border px-3 py-2 text-left text-sm hover:bg-lift"
               onClick={() => ves && onPick(vehicle, lookedUp, ves)}
             >
               <span>

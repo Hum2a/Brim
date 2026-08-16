@@ -1,6 +1,6 @@
 import { AnimatePresence, m } from 'motion/react';
 import { useCallback, useEffect, useState } from 'react';
-import { fade, usePrefersReducedMotion } from '@brim/ui-kit';
+import { fade, readStoredTheme, themeById, usePrefersReducedMotion } from '@brim/ui-kit';
 import { Button } from '@brim/ui-kit/button';
 import { Card } from '@brim/ui-kit/card';
 import { Skeleton } from '@brim/ui-kit/skeleton';
@@ -11,6 +11,7 @@ import { AuthPanel } from '../AuthPanel.js';
 import { AddressField } from '../AddressField.js';
 import { Link } from '../router.js';
 import { openHerald } from '../whats-new.js';
+import { ThemePicker } from '../ThemePicker.js';
 
 type BrimSession = { kind: 'anon' | 'user'; ownerId: string; email?: string };
 type Place = { id: string; kind: 'home' | 'work' | 'favourite'; label: string; lat: number; lng: number };
@@ -210,6 +211,7 @@ export function AccountPage() {
           </AnimatePresence>
         </div>
       </Card>
+      <ThemePicker initialId={themeById(readStoredTheme()).id} />
       <div className="mt-4 flex flex-col items-start gap-2">
         <Button type="button" variant="ghost" onClick={openHerald}>
           What's new

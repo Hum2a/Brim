@@ -45,7 +45,7 @@ export const CommandItem = forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "flex min-h-11 cursor-pointer items-center rounded-[2px] px-2 py-2 text-sm outline-none aria-selected:bg-white/10",
+      "flex min-h-11 cursor-pointer items-center rounded-[2px] px-2 py-2 text-sm outline-none aria-selected:bg-lift",
       className,
     )}
     {...props}

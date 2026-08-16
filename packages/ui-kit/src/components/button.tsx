@@ -9,7 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-pump text-forecourt hover:bg-pump/90",
-        ghost: "border border-border bg-transparent text-pump hover:bg-white/5",
+        ghost: "border border-border bg-transparent text-pump hover:bg-lift",
         warning: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90",
       },

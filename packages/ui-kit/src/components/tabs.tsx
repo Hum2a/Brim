@@ -108,7 +108,7 @@ export const TabsList = forwardRef<
     >
       {reduce ? (
         <span
-          className="pointer-events-none absolute top-1 bottom-1 left-0 z-0 w-px rounded-[2px] bg-white/10"
+          className="pointer-events-none absolute top-1 bottom-1 left-0 z-0 w-px rounded-[2px] bg-lift"
           style={{
             transform: `translateX(${ink.x}px) scaleX(${ink.width})`,
             transformOrigin: "left center",
@@ -116,7 +116,7 @@ export const TabsList = forwardRef<
         />
       ) : (
         <m.span
-          className="pointer-events-none absolute top-1 bottom-1 left-0 z-0 w-px rounded-[2px] bg-white/10"
+          className="pointer-events-none absolute top-1 bottom-1 left-0 z-0 w-px rounded-[2px] bg-lift"
           style={{ originX: 0 }}
           animate={{ x: ink.x, scaleX: ink.width }}
           transition={stiff}
