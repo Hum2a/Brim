@@ -6,7 +6,7 @@
 
 ## Engine purity
 
-`packages/engine` is a pure calculator. No `fetch`, no `Date.now()`, no environment reads, no filesystem, no Cloudflare bindings. If a change seems to need I/O, stop and ask — the design is wrong. Pass time, prices, routes, and charges in as arguments.
+`packages/engine` is a pure calculator. No `fetch`, no `Date.now()`, no environment reads, no filesystem, no Cloudflare bindings. If a change seems to need I/O, stop and ask - the design is wrong. Pass time, prices, routes, and charges in as arguments.
 
 ## Fixture mode
 

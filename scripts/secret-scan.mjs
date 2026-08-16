@@ -35,7 +35,7 @@ try {
   });
 } catch (err) {
   if (err && typeof err === "object" && "status" in err && err.status === 127) {
-    console.warn("gitleaks not on PATH — node secret-scan ran; CI will still run gitleaks");
+    console.warn("gitleaks not on PATH - node secret-scan ran; CI will still run gitleaks");
     process.exit(0);
   }
   process.exit(1);

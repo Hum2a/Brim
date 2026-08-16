@@ -39,7 +39,7 @@
     "observedAt": "2026-01-15T12:00:00Z"
   },
   "reasons": [
-    "Estimated from similar vehicles — we only know the fuel type.",
+    "Estimated from similar vehicles - we only know the fuel type.",
     "No road mix available, so we left consumption unadjusted and widened the range.",
     "No forecast temperature, so we skipped the cold-weather adjustment.",
     "Cost is billed on energy drawn from the grid, not energy in the battery."

@@ -39,7 +39,7 @@
   },
   "reasons": [
     "No starting charge for the plug-in hybrid, so we used a combined figure and kept confidence low.",
-    "Estimated from similar vehicles — we only know the fuel type.",
+    "Estimated from similar vehicles - we only know the fuel type.",
     "No road mix available, so we left consumption unadjusted and widened the range."
   ],
   "warnings": [

@@ -279,7 +279,7 @@ export function EstimatePage() {
       setGeoError(null);
       return place;
     } catch {
-      setGeoError("Could not name that street — type the address.");
+      setGeoError("Could not name that street - type the address.");
       return { label: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng };
     }
   }
@@ -330,7 +330,7 @@ export function EstimatePage() {
   function useMyLocation() {
     setGeoError(null);
     if (!navigator.geolocation) {
-      setGeoError("This browser cannot share a location — type a place or tap the map.");
+      setGeoError("This browser cannot share a location - type a place or tap the map.");
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -342,7 +342,7 @@ export function EstimatePage() {
         });
       },
       () => {
-        setGeoError("Location was blocked — type a place or tap the map.");
+        setGeoError("Location was blocked - type a place or tap the map.");
       },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
     );
@@ -559,7 +559,7 @@ export function EstimatePage() {
         </p>
       ) : (
         <p className="mb-4 text-sm text-warning">
-          Could not reach the API — start it with npm run dev:fixtures, then retry.
+          Could not reach the API - start it with npm run dev:fixtures, then retry.
         </p>
       )}
       {stale ? (

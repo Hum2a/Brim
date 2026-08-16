@@ -1,5 +1,5 @@
 /**
- * DEFRA/DESNZ GHG conversion factors 2025 — direct (Scope 1) tailpipe kg CO₂e per litre,
+ * DEFRA/DESNZ GHG conversion factors 2025 - direct (Scope 1) tailpipe kg CO₂e per litre,
  * 100% mineral fuel (not average biofuel blend), matching spec §5.1 "direct tailpipe".
  *
  * Source: https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025

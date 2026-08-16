@@ -1,4 +1,4 @@
-# ADR 0001 — Engine purity
+# ADR 0001 - Engine purity
 
 Date: 2026-08-15
 

@@ -190,7 +190,7 @@ export function KitchenSink() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent>
-                      Popover surface — 2px corners, glass, glow shadow.
+                      Popover surface - 2px corners, glass, glow shadow.
                     </PopoverContent>
                   </Popover>
                   <Drawer>

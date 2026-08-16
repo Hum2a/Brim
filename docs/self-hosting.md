@@ -1,6 +1,6 @@
 # Self-hosting Brim
 
-Stub — fill in as the stack lands.
+Stub - fill in as the stack lands.
 
 ## Intended sections
 

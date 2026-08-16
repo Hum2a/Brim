@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Create gitignored env / .dev.vars files from committed examples.
- *   setup  — copy examples into place when the dest file is missing (never overwrite)
- *   merge  — same, plus append example keys that the dest file does not yet have
+ *   setup  - copy examples into place when the dest file is missing (never overwrite)
+ *   merge  - same, plus append example keys that the dest file does not yet have
  * Usage: node scripts/env-from-examples.mjs <setup|merge> [--env dev|staging|prod]
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

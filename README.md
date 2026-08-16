@@ -1,6 +1,6 @@
 # Brim
 
-True journey cost for UK drivers — fuel or energy, tolls, and clean-air charges, for the vehicle on your driveway, at the prices you will actually pay.
+True journey cost for UK drivers - fuel or energy, tolls, and clean-air charges, for the vehicle on your driveway, at the prices you will actually pay.
 
 ![Screenshot placeholder](docs/screenshot-placeholder.svg)
 

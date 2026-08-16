@@ -72,7 +72,7 @@ export function resolveConsumption(inputs: ResolveConsumptionInput): ResolvedCon
     return { ...c, tier: 0, label: TIER_LABEL[0], reasons };
   }
   if (inputs.calibration && inputs.calibration.sampleCount < 3) {
-    reasons.push("Not enough fill-ups yet for a personal figure — need at least 3.");
+    reasons.push("Not enough fill-ups yet for a personal figure - need at least 3.");
   }
 
   if (inputs.userEntered) {
@@ -86,7 +86,7 @@ export function resolveConsumption(inputs: ResolveConsumptionInput): ResolvedCon
     const factor = correctionFor(inputs.official.cycle, inputs.kind);
     const pct = Math.round((factor - 1) * 100);
     reasons.push(
-      `Adjusted the official figure up ${pct}% — official tests run optimistic.`,
+      `Adjusted the official figure up ${pct}% - official tests run optimistic.`,
     );
     return {
       value: c.value * factor,
@@ -116,6 +116,6 @@ export function resolveConsumption(inputs: ResolveConsumptionInput): ResolvedCon
   }
 
   const fallback = classFallback(inputs.kind, inputs.propulsion);
-  reasons.push("Estimated from similar vehicles — we only know the fuel type.");
+  reasons.push("Estimated from similar vehicles - we only know the fuel type.");
   return { value: fallback, unit, tier: 3, label: TIER_LABEL[3], reasons };
 }

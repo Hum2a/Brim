@@ -1,10 +1,10 @@
-# Brim — Design Specification
+# Brim - Design Specification
 
-> **True journey cost for UK drivers** — fuel or energy, tolls, and clean-air charges,
+> **True journey cost for UK drivers** - fuel or energy, tolls, and clean-air charges,
 > accurate to *your* vehicle and *the forecourt you'll actually stop at*.
 > Aligned to Project Scaffold Template v0.4.
 
-**Status:** v0.2 — decisions closed, pre-build
+**Status:** v0.2 - decisions closed, pre-build
 **Owner:** Humza
 **Licence:** open source (see §20)
 **Companion doc:** `brim-build-prompts.md` (phased Cursor prompt kit, P0–P4)
@@ -18,7 +18,7 @@ built as a real product.
 
 ## 1. One-liner and thesis
 
-Type where you're going, get the whole number — energy, tolls and charges — for the vehicle on
+Type where you're going, get the whole number - energy, tolls and charges - for the vehicle on
 your driveway, at the prices you'll actually pay.
 
 The arithmetic is worthless; the inputs are everything. Four inputs decide whether this beats
@@ -29,7 +29,7 @@ what people already have:
 | Distance | Same | Same (pluggable routing provider) |
 | Consumption | Generic per engine type, or user-typed | Reg-resolved official figure, then **corrected by the user's own fill-up history** |
 | Price | National average, or user-typed | Live per-forecourt price from the statutory Fuel Finder feed |
-| Charges | Ignored entirely | Tolls, ULEZ, CAZ, Dart Charge — resolved against the vehicle's Euro standard |
+| Charges | Ignored entirely | Tolls, ULEZ, CAZ, Dart Charge - resolved against the vehicle's Euro standard |
 
 Google Maps estimates fuel off *regionally representative vehicles per engine type*. It does not
 know your car, and it says nothing about the £12.50 you'll pay to enter Birmingham. That gap is
@@ -37,7 +37,7 @@ the product.
 
 **Positioning consequence of the charges scope:** for a Crawley-to-central-London journey, the
 charges exceed the fuel. Brim is the only tool that gives the driver the whole figure in one
-place, and that — not the mpg precision — is the headline.
+place, and that - not the mpg precision - is the headline.
 
 ---
 
@@ -45,7 +45,7 @@ place, and that — not the mpg precision — is the headline.
 
 ### 2.1 What the user is actually asking
 1. *What will this trip cost me, all in?* (drive vs train, budgeting)
-2. *Should I fill up before I go, or on the way — and where?*
+2. *Should I fill up before I go, or on the way - and where?*
 3. *Am I even allowed in, and what does it cost if I am?* (ULEZ/CAZ compliance)
 4. *What do I charge for this?* (mileage claims, splitting with passengers)
 5. *Is my car as thirsty as they said?* (curiosity that becomes retention)
@@ -64,7 +64,7 @@ fill-ups, is data only Brim holds.
 ### 2.3 What Brim is not
 - Not a navigation app. No turn-by-turn, ever.
 - Not a fuel-price map. Prices appear only in the context of a route.
-- Not authoritative on charge liability (§9B.6 — this is a legal position, not modesty).
+- Not authoritative on charge liability (§9B.6 - this is a legal position, not modesty).
 - Not a fleet product in v1.
 
 ---
@@ -78,7 +78,7 @@ long trips. Wants a number before setting off.
 mileage (45p/mile to 10,000 miles, 25p thereafter) plus a record afterwards.
 
 **Tertiary: the EV driver planning a long trip.** Wants cost and, more urgently, *will I get
-there* — arrival state of charge.
+there* - arrival state of charge.
 
 Not targeted in v1: fleet managers, delivery operators, HGV/PSV operators.
 
@@ -97,7 +97,7 @@ Not targeted in v1: fleet managers, delivery operators, HGV/PSV operators.
 - Route distance and shape via a pluggable routing provider
 - Vehicle profile: manual entry, or reg lookup with derivative disambiguation
 - **ICE and EV** energy estimation with litres/kWh, £, kg CO₂e, and a confidence band
-- **EV arrival state of charge** — will you make it
+- **EV arrival state of charge** - will you make it
 - Live per-forecourt prices from Fuel Finder
 - **Tolls, London Congestion Charge, ULEZ, CAZs, Scottish LEZs, Dart Charge**
 - Cheapest-fill-on-route with detour cost accounted for
@@ -108,12 +108,12 @@ Not targeted in v1: fleet managers, delivery operators, HGV/PSV operators.
 
 ### 4.2 Explicitly out of scope for v1
 - Turn-by-turn navigation
-- **EV charging-stop routing** — we say whether you'll make it, not where to stop (§5.7)
+- **EV charging-stop routing** - we say whether you'll make it, not where to stop (§5.7)
 - Live charge-point availability
 - Multi-vehicle fleet views, driver assignment, reporting
 - Real-time re-estimation mid-journey
 - Native mobile apps (PWA only)
-- HGV, PSV, taxi and private-hire charge classes — **cars, vans and motorcycles only**, stated plainly in the UI
+- HGV, PSV, taxi and private-hire charge classes - **cars, vans and motorcycles only**, stated plainly in the UI
 - Ferries, Eurotunnel, airport drop-off charges
 - Parking
 
@@ -121,7 +121,7 @@ Not targeted in v1: fleet managers, delivery operators, HGV/PSV operators.
 
 ## 5. The estimation engine
 
-`packages/engine` — pure, no I/O, no clock reads, exhaustively tested. All inputs passed in.
+`packages/engine` - pure, no I/O, no clock reads, exhaustively tested. All inputs passed in.
 
 ### 5.1 Base calculation (ICE)
 
@@ -139,10 +139,10 @@ mpg_imperial  = 282.481 / l_per_100km
 ```
 
 Emission factors from the current DEFRA/DESNZ greenhouse-gas conversion factors (direct
-tailpipe, kg CO₂e per litre — approx. 2.31 petrol / 2.68 diesel). Published annually, so they
+tailpipe, kg CO₂e per litre - approx. 2.31 petrol / 2.68 diesel). Published annually, so they
 live in a **dated constants file** with the publication year recorded, never inline.
 
-### 5.2 Effective consumption — the important part
+### 5.2 Effective consumption - the important part
 
 Official figures are optimistic. Resolve through a precedence chain, and **always report which
 tier was used**:
@@ -155,7 +155,7 @@ tier was used**:
 | 3 | Class average by fuel type + capacity/battery band | ±20% | *Estimated from similar vehicles* |
 | 4 | Routing provider's own fuel estimate | ±25% | *Rough estimate* |
 
-**Correction factors (tier 2)** — by test cycle, since provenance matters more than the car:
+**Correction factors (tier 2)** - by test cycle, since provenance matters more than the car:
 
 ```
 WLTP  (2017 →)    × 1.12
@@ -169,7 +169,7 @@ anonymised fill-up data once there is any (§13.4).
 ### 5.3 Route-shape adjustment
 
 A motorway run and a town crawl at equal distance burn very differently, and **EVs invert the
-ICE relationship** — speed hurts them.
+ICE relationship** - speed hurts them.
 
 ```
              ICE      EV
@@ -179,7 +179,7 @@ motorway   × 0.95   × 1.20     (aero drag dominates above ~60 mph)
 ```
 
 Without a road-class breakdown, fall back to the combined figure unmodified and drop one
-confidence level. **Never fake precision the inputs don't support** — that principle governs
+confidence level. **Never fake precision the inputs don't support** - that principle governs
 every fallback in this document.
 
 ### 5.4 Confidence band
@@ -199,7 +199,7 @@ co2_kg            = battery_kwh_used × grid_intensity_g_per_kwh / 1000
 ```
 
 **Charging efficiency** defaults: AC home 0.88, DC rapid 0.94. Billing is on energy *drawn from
-the grid*, not delivered to the battery — a detail nearly every EV cost calculator gets wrong,
+the grid*, not delivered to the battery - a detail nearly every EV cost calculator gets wrong,
 and worth roughly 12% on a home charge.
 
 **Temperature derating.** Cold weather is the dominant real-world EV variable, and we know the
@@ -214,24 +214,24 @@ Applied only when a forecast temperature is available for the journey window; ot
 with a reason string. Heat-pump-equipped vehicles get a reduced penalty (halve the uplift) where
 the VCA/derivative data indicates one.
 
-**Grid carbon intensity** comes from the National Grid ESO Carbon Intensity API — free, no key,
+**Grid carbon intensity** comes from the National Grid ESO Carbon Intensity API - free, no key,
 regional and forecast gCO₂/kWh. This makes Brim's EV carbon figure materially better than the
 flat national average everyone else uses.
 
-### 5.6 EV price sources — the honest gap
+### 5.6 EV price sources - the honest gap
 
 There is **no statutory open feed for EV charging prices**. Fuel Finder covers motor fuel only.
 So:
 
-1. Home tariff — user-entered p/kWh, with an off-peak rate and window (Octopus Go, Intelligent, Economy 7 patterns are the common shapes)
-2. Public network averages — a hand-maintained, dated table in the repo per network and speed tier, user-editable
+1. Home tariff - user-entered p/kWh, with an off-peak rate and window (Octopus Go, Intelligent, Economy 7 patterns are the common shapes)
+2. Public network averages - a hand-maintained, dated table in the repo per network and speed tier, user-editable
 3. Fallback national average with a loud low-confidence reason
 
 Say this plainly in the UI. "Petrol prices are live from the government feed. EV charging prices
 are estimates you can correct." Users forgive a stated limitation and punish a hidden one.
 
 The **National Chargepoint Registry** (DfT, open data) gives charge-point locations and connector
-types but not live prices or availability — used for context only in v1, never for routing.
+types but not live prices or availability - used for context only in v1, never for routing.
 
 ### 5.7 Arrival state of charge
 
@@ -243,7 +243,7 @@ arrival_pct = start_pct − (battery_kwh_used / usable_battery_kwh × 100)
 
 Three outcomes, and the copy matters:
 - `> 20%` → "You'll arrive with about 34%."
-- `10–20%` → "Tight — about 14% on arrival. Worth a top-up."
+- `10–20%` → "Tight - about 14% on arrival. Worth a top-up."
 - `< 10%` → "You won't make it without charging. You'll need roughly 18 kWh on the way."
 
 We do **not** tell them where to charge (§4.2). Being honest about the shortfall without
@@ -290,7 +290,7 @@ type Estimate = {
 | **National Grid ESO Carbon Intensity** | gCO₂/kWh, regional + forecast | Free, no key | EV carbon accuracy |
 | **NCR (DfT)** | charge-point locations, connectors | OGL, free | Context only in v1 |
 | **London Datastore** | ULEZ / CC / LEZ boundary geometry | OGL | Best-maintained zone source |
-| **Individual councils / data.gov.uk** | CAZ boundaries | Mixed | **No single national dataset** — assembled by hand (§9B.4) |
+| **Individual councils / data.gov.uk** | CAZ boundaries | Mixed | **No single national dataset** - assembled by hand (§9B.4) |
 | **DEFRA/DESNZ GHG factors** | kg CO₂e per litre | OGL, free | Annual, dated constants |
 
 ### 6.1 Routes API request shape
@@ -310,7 +310,7 @@ X-Goog-FieldMask: routes.distanceMeters,routes.duration,routes.polyline.encodedP
 }
 ```
 
-**Verify field names against current docs in P2** — the fuel and toll fields moved during the
+**Verify field names against current docs in P2** - the fuel and toll fields moved during the
 Preview period and this spec is written from secondary sources. Verify UK toll coverage
 specifically; if it's thin, the UK toll table (§9B.2) carries the feature and the API's toll
 computation is dropped to save SKU cost.
@@ -332,8 +332,8 @@ request path.
 | Prices submitted as `1.339`, `133.9`, `1339` for the same value | Heuristic normaliser to tenths-of-a-penny integer, plausibility bounds 60–300 ppl. Out of range → reject and flag |
 | Inconsistent brand strings (`SHELL`, `Shell`, `Shell UK Oil Products Ltd`) | Canonicalisation table, hand-maintained, in the repo |
 | Addresses in all-caps | Title-case on display only; never mutate stored source data |
-| Zombie sites — closed forecourts still reporting | `observedAt` unchanged 14 days → `stale`, excluded from cheapest-fill |
-| Silent sites — in scope, not reporting | Keep station, `price: null`, show "price unknown", never as expensive |
+| Zombie sites - closed forecourts still reporting | `observedAt` unchanged 14 days → `stale`, excluded from cheapest-fill |
+| Silent sites - in scope, not reporting | Keep station, `price: null`, show "price unknown", never as expensive |
 | Duplicate sites across submissions | Dedupe on (lat/lng within 50 m) + brand |
 
 **Store raw, serve normalised.** Persist the untouched payload beside the parsed row so
@@ -361,7 +361,7 @@ VCA:       make, model, derivative, transmission, capacity, fuel, CO₂, mpg/kWh
 ```
 
 Match on `make` + `fuelType` + `engineCapacity` (±50cc) + `co2Emissions` (±5 g/km) +
-registration-year window. CO₂ is the strong discriminator — it separates derivatives sharing a
+registration-year window. CO₂ is the strong discriminator - it separates derivatives sharing a
 block, which capacity alone cannot.
 
 `euroStatus` is separately load-bearing for §9B compliance and must be captured even when the
@@ -374,20 +374,20 @@ VCA join fails.
 | Exactly 1 | "We think this is your car", with a Change link. **Never assume silently** |
 | 2–6 | Disambiguation list, most likely first, one tap |
 | 0 | Tier 3 fallback + manual entry offered |
-| >6 | Treat as 0 — not informative |
+| >6 | Treat as 0 - not informative |
 
 User confirmation is stored and never re-derived. A corrected match must never silently revert
 on a later dataset sync.
 
-### 8.3 Privacy — this matters legally
+### 8.3 Privacy - this matters legally
 
 **A registration mark is personal data under UK GDPR** when linkable to an individual.
 Non-negotiable:
 
 - Never in a URL path or query string
-- Never in application logs, analytics, or error reports — redaction filter in the logger, with a test asserting it
+- Never in application logs, analytics, or error reports - redaction filter in the logger, with a test asserting it
 - Stored only where the user has an account and chose to save the vehicle; anonymous users' regs are resolved and discarded, keeping only the derived profile in local storage
-- DVLA VES terms constrain use and caching — read before P9, record retention in an ADR
+- DVLA VES terms constrain use and caching - read before P9, record retention in an ADR
 - Make/model entry is a **first-class path**, not a fallback, so a reg is never required
 
 **Open-source consequence:** the redaction filter and its test are part of the public repo, and
@@ -398,22 +398,22 @@ logging of any object typed with a `vrm` field.
 
 ## 9A. Cheapest fill on route
 
-### 9A.1 Algorithm (v1 — deliberately simple)
+### 9A.1 Algorithm (v1 - deliberately simple)
 1. Decode the route polyline
 2. Simplify with Ramer–Douglas–Peucker
 3. Query stations within ~1.5 km using PostGIS `ST_DWithin` on geography
 4. Detour penalty: `detour_km ≈ 2 × perpendicular_distance`, `detour_cost = detour_km × cost_per_km + fixed_time_penalty`
 5. `total = (litres_to_fill × price) + detour_cost` versus filling at the user's home-area median
-6. Rank by saving; **suppress anything under £1** — noise damages trust
+6. Rank by saving; **suppress anything under £1** - noise damages trust
 
 ### 9A.2 Deliberate simplifications
 - Straight-line proximity, not real detour routing (costs one routing call per candidate; not worth it until the feature is used)
-- Assumes filling the remaining tank capacity — tank size comes from the vehicle profile
+- Assumes filling the remaining tank capacity - tank size comes from the vehicle profile
 - Opening hours shown, not filtered
 
 ### 9A.3 Trust rule
 Every recommendation shows price, observation time, and assumed detour. A wrong price
-discovered at the pump is the fastest way to lose a user, so the freshness stamp is not chrome —
+discovered at the pump is the fastest way to lose a user, so the freshness stamp is not chrome -
 it is the product's honesty.
 
 ---
@@ -431,22 +431,22 @@ asymmetry.
 | `toll` | Per crossing/use | M6 Toll, Mersey Gateway, Tyne Tunnel, Dartford (Dart Charge) | Per crossing |
 | `zone_charge` | Per day, if non-compliant | ULEZ, Birmingham CAZ D, Bath CAZ C, Bristol CAZ D, Bradford, Sheffield, Tyneside, Portsmouth | **Per calendar day, per zone** |
 | `zone_charge` | Per day, all vehicles | London Congestion Charge | Per day, time-windowed |
-| `restriction` | **Not a charge — a prohibition** | Scottish LEZs (Glasgow, Edinburgh, Dundee, Aberdeen) | Penalty, not payment |
+| `restriction` | **Not a charge - a prohibition** | Scottish LEZs (Glasgow, Edinburgh, Dundee, Aberdeen) | Penalty, not payment |
 
 **The `restriction` distinction is critical.** Scottish LEZs do not charge non-compliant
-vehicles — they fine them. Presenting a Glasgow LEZ as a £X cost would be actively harmful. The
+vehicles - they fine them. Presenting a Glasgow LEZ as a £X cost would be actively harmful. The
 UI must say *"Your vehicle cannot enter this zone"*, and the engine models it as a blocking
 warning with no price.
 
 ### 9B.2 Time and day windows
-- **London Congestion Charge** — applies within its operating hours, not 24/7, and not on the Christmas exemption period
-- **ULEZ** — 24/7 except the Christmas exemption
-- **Dart Charge** — applies within its charging window; free outside it
-- **CAZs** — generally 24/7, but per-zone
+- **London Congestion Charge** - applies within its operating hours, not 24/7, and not on the Christmas exemption period
+- **ULEZ** - 24/7 except the Christmas exemption
+- **Dart Charge** - applies within its charging window; free outside it
+- **CAZs** - generally 24/7, but per-zone
 
 Journey time therefore changes the answer. The engine takes the journey's start time and
 duration, derives which local days the route touches, and applies each charge **once per
-calendar day** — so a same-day return trip through the ULEZ is one charge, not two. Get this
+calendar day** - so a same-day return trip through the ULEZ is one charge, not two. Get this
 wrong and the product looks careless in exactly the case people check most.
 
 **Rule:** all window logic in Europe/London local time with correct BST handling, in the pure
@@ -460,9 +460,9 @@ Compliance depends on vehicle **class** and **Euro standard**:
 - Class comes from the vehicle profile; Euro standard from DVLA `euroStatus`, or derived from fuel type plus registration date when absent
 
 Derivation is a **fallback, not a fact**. When Euro standard is derived rather than stated, the
-result is downgraded to "likely compliant — check with the operator" and never asserted.
+result is downgraded to "likely compliant - check with the operator" and never asserted.
 
-### 9B.4 Zone geometry — the maintenance problem
+### 9B.4 Zone geometry - the maintenance problem
 
 There is no single national dataset. London Datastore publishes ULEZ/CC/LEZ boundaries well;
 CAZ boundaries come from individual councils in inconsistent formats. Consequences:
@@ -470,11 +470,11 @@ CAZ boundaries come from individual councils in inconsistent formats. Consequenc
 - Zone polygons live in the repo as versioned, **dated** GeoJSON with a `source_url` and `verified_on` per zone
 - A `data:verify-zones` script checks the age of every zone record and **fails CI when any zone hasn't been re-verified in 180 days**
 - Zones near a boundary get a buffer test: if the route passes within 500 m of a zone edge without entering, surface it as "passes close to" rather than staying silent
-- Being open source helps here — zone boundary corrections are exactly the contribution a local user can make, and the versioned-GeoJSON structure is designed for a PR
+- Being open source helps here - zone boundary corrections are exactly the contribution a local user can make, and the versioned-GeoJSON structure is designed for a PR
 
 ### 9B.5 Detection
 Route polyline vs. zone polygon intersection in PostGIS. A charge triggers on any intersection,
-however brief — clipping a ULEZ corner for 200 m still costs the full daily rate, which is
+however brief - clipping a ULEZ corner for 200 m still costs the full daily rate, which is
 precisely the case a driver wants warned about.
 
 ### 9B.6 Liability position
@@ -493,11 +493,11 @@ This is a legal position, not modesty. Write it into the UI copy in P7, not into
 ## 10. Product surfaces
 
 ### 10.1 Web app (primary)
-React 19 + Vite + Tailwind + shadcn/ui, deployed to Cloudflare Pages. Installable PWA — this is
+React 19 + Vite + Tailwind + shadcn/ui, deployed to Cloudflare Pages. Installable PWA - this is
 a phone-in-the-car use case and a PWA avoids app-store overhead. Offline: last estimate and
 saved vehicles readable; new estimates need network.
 
-### 10.2 Chrome extension — context-menu first (decision closed)
+### 10.2 Chrome extension - context-menu first (decision closed)
 
 **Resolved: ship the context-menu and share-target paths first. Treat DOM injection as a later
 experiment, if at all.**
@@ -506,7 +506,7 @@ Reasoning: injecting into and re-deriving from Google Maps sits awkwardly with t
 extensions doing it have been removed from the Web Store before. Since Brim is free and open
 source, a takedown costs the project its distribution with no revenue to justify the risk.
 
-**Primary path — context menu.** Right-click on a Maps directions page → "Estimate journey cost
+**Primary path - context menu.** Right-click on a Maps directions page → "Estimate journey cost
 with Brim" → opens the web app with origin and destination pre-filled. No injection, no DOM
 dependency, works on any maps provider.
 
@@ -516,20 +516,20 @@ parses:
 https://www.google.com/maps/dir/<origin>/<destination>/@<lat>,<lng>,<zoom>z/data=...
 ```
 Origin, destination and waypoints are path segments; travel mode is in the `data` blob
-(`!3e0` = driving). The DOM is obfuscated and changes without notice — anything read from it
+(`!3e0` = driving). The DOM is obfuscated and changes without notice - anything read from it
 will break.
 
 Manifest V3, minimal permissions: `contextMenus`, `activeTab`, host permission for the Brim API
 origin only. No `tabs`, no `<all_urls>`.
 
 ### 10.3 Share target / paste
-Web Share Target API on the PWA plus a paste field — share a Maps link from the phone, get an
+Web Share Target API on the PWA plus a paste field - share a Maps link from the phone, get an
 estimate. Same `maps-url.ts` parser. This is the mobile path and needs no extension at all.
 
 ### 10.4 Accounts (decision closed)
 **Better Auth enabled at launch**, but **anonymous-first**: a first-time visitor gets an
 estimate without signing up, on a signed anon session. The account prompt appears at the point
-it buys something — saving a vehicle, logging a fill-up, syncing across devices — and the anon
+it buys something - saving a vehicle, logging a fill-up, syncing across devices - and the anon
 profile is claimed into the account on signup, losing nothing.
 
 Rationale: accounts at launch is right (calibration and journey history are the retention loop
@@ -548,7 +548,7 @@ brim/
 │   ├── api/                    Hono on Cloudflare Workers
 │   └── extension/              MV3, TS, React popup, Vite build
 ├── packages/
-│   ├── engine/                 pure domain — consumption, charges, bands. No I/O, no clock
+│   ├── engine/                 pure domain - consumption, charges, bands. No I/O, no clock
 │   ├── routing/                RoutingProvider interface + Google/OSRM adapters
 │   ├── shared/                 types, zod schemas, maps-url parser, unit conversions
 │   ├── ui-kit/                 Tailwind preset, shadcn theme tokens, Brim-specific components
@@ -561,7 +561,7 @@ brim/
 │   └── sync/                   cron ingestion: Fuel Finder, VCA, carbon intensity
 ├── docs/
 │   ├── design-spec.md          this document
-│   ├── self-hosting.md         required — the project is open source
+│   ├── self-hosting.md         required - the project is open source
 │   └── adr/
 ├── scripts/
 ├── AGENTS.md
@@ -569,13 +569,13 @@ brim/
 └── LICENSE
 ```
 
-npm workspaces + Turborepo. **npm only — never pnpm or yarn.** TypeScript project references.
+npm workspaces + Turborepo. **npm only - never pnpm or yarn.** TypeScript project references.
 
 ### 11.1 Boundaries that must not be violated
 - `packages/engine` imports only `packages/shared`. If it ever needs `fetch`, the design is wrong
 - `apps/api` is the only holder of third-party keys. Web and extension never call Google, DVLA or Fuel Finder directly
 - Database access confined to `apps/api` and `workers/sync`
-- Per-request factories throughout: `createDb(c.env.DATABASE_URL)`, `createAuth(env)` — never a module-scope client. Workers bindings exist only per request, and a module-load `process.env` read crashes in production
+- Per-request factories throughout: `createDb(c.env.DATABASE_URL)`, `createAuth(env)` - never a module-scope client. Workers bindings exist only per request, and a module-load `process.env` read crashes in production
 
 ### 11.2 Routing provider abstraction (required, not optional)
 
@@ -589,8 +589,8 @@ interface RoutingProvider {
 }
 ```
 
-- `GoogleRoutesProvider` — primary, full capabilities
-- `OsrmProvider` — self-hostable fallback: distance, duration, polyline only
+- `GoogleRoutesProvider` - primary, full capabilities
+- `OsrmProvider` - self-hostable fallback: distance, duration, polyline only
 
 The engine already degrades gracefully when road composition or a provider fuel estimate is
 missing (§5.3, tier 4), so the fallback is a confidence downgrade, not a broken product.
@@ -699,7 +699,7 @@ GET    /health
 ### 13.4 Aggregate learning (privacy-preserving)
 Once fill-up volume allows, recompute §5.2 correction factors from anonymised aggregates by
 (make, model, year, cycle). **Minimum cohort of 30 vehicles** before any aggregate is used or
-displayed, never exposing a figure that could identify one user's car. This compounds — estimates
+displayed, never exposing a figure that could identify one user's car. This compounds - estimates
 improve the longer the product runs, and being open source means the methodology is auditable,
 which is a feature.
 
@@ -710,25 +710,25 @@ which is a feature.
 **With no revenue, this is the subsystem that decides whether the project survives.** Controls in
 order of impact:
 
-1. **Two-tier provider strategy.** A distance-only route is enough for consumption tiers 0–3 — which is every user with a vehicle profile. The expensive Advanced SKU is called only for tolls, or for tier 4 when there's no profile at all. **Most estimates should never touch the Advanced SKU.**
+1. **Two-tier provider strategy.** A distance-only route is enough for consumption tiers 0–3 - which is every user with a vehicle profile. The expensive Advanced SKU is called only for tolls, or for tier 4 when there's no profile at all. **Most estimates should never touch the Advanced SKU.**
 2. **Route cache** keyed on `hash(origin_rounded, dest_rounded, mode, time_bucket, provider)`. Coordinates rounded to ~100 m, time bucket = hour-of-week. TTL 6 h traffic-aware, 30 d distance-only. KV hot, Neon durable.
-3. **Charges are computed locally** from our own zone and toll tables against the cached polyline — zero marginal cost, which is a strong argument for dropping the API's toll computation entirely (§6.1).
+3. **Charges are computed locally** from our own zone and toll tables against the cached polyline - zero marginal cost, which is a strong argument for dropping the API's toll computation entirely (§6.1).
 4. **Fuel Finder** free but rate-limited: sync job only, 20-min cron, never on a request path.
 5. Per-IP and per-session rate limits via the Workers rate-limiting binding.
 6. **Hard monthly ceiling with automatic failover to OSRM** (§11.2) rather than errors or a surprise bill. Alert at 60% and 85%.
-7. Cost per estimate tracked as a first-class metric on a public dashboard — open source means the running costs can be honest, which also makes a sponsorship ask credible if it ever becomes necessary.
+7. Cost per estimate tracked as a first-class metric on a public dashboard - open source means the running costs can be honest, which also makes a sponsorship ask credible if it ever becomes necessary.
 
 ---
 
 ## 15. Visual direction
 
 **Subject:** the forecourt and the trip computer. The vernacular to steal is the pump display and
-the dashboard readout — segmented numerals, litres to two decimals, the amber of a low-fuel
-warning — not the generic SaaS dashboard.
+the dashboard readout - segmented numerals, litres to two decimals, the amber of a low-fuel
+warning - not the generic SaaS dashboard.
 
 ### 15.1 Tailwind + shadcn/ui, with the defaults overridden
 
-shadcn is the right call for velocity and for the Radix accessibility underneath it — dialogs,
+shadcn is the right call for velocity and for the Radix accessibility underneath it - dialogs,
 combobox, select, tabs, form, toast and drawer are all things worth not hand-building. The risk
 is that **stock shadcn is instantly recognisable**: `--radius: 0.5rem`, the default neutral
 palette, `border-border` everywhere. Shipped untouched it reads as a template, which undercuts
@@ -737,60 +737,60 @@ the one thing the design is for.
 So: **shadcn for behaviour, Brim tokens for appearance.** Non-negotiables in `packages/ui-kit`:
 
 ```css
---radius: 2px;              /* stock 0.5rem is the tell — instruments have sharp corners */
+--radius: 2px;              /* stock 0.5rem is the tell - instruments have sharp corners */
 --background: 20 10% 9%;    /* forecourt   #14171A */
 --foreground: 40 20% 94%;   /* pump        #F2F0EB */
---primary:   41 82% 58%;    /* gauge       #E8B33C — amber, once per screen */
---secondary: 170 56% 28%;   /* diesel      #1F6F63 — savings, positive states */
---destructive: 12 62% 47%;  /* warning     #C4472F — stale data, non-compliance */
+--primary:   41 82% 58%;    /* gauge       #E8B33C - amber, once per screen */
+--secondary: 170 56% 28%;   /* diesel      #1F6F63 - savings, positive states */
+--destructive: 12 62% 47%;  /* warning     #C4472F - stale data, non-compliance */
 ```
 
 Palette (5 values, and no sixth):
 ```
 --forecourt   #14171A   near-black, the ground
 --pump        #F2F0EB   warm off-white, panels
---gauge       #E8B33C   amber — the primary number and nothing else
---diesel      #1F6F63   deep petrol green — savings, compliance
---warning     #C4472F   burnt red — stale prices, low confidence, restrictions
+--gauge       #E8B33C   amber - the primary number and nothing else
+--diesel      #1F6F63   deep petrol green - savings, compliance
+--warning     #C4472F   burnt red - stale prices, low confidence, restrictions
 ```
 
 **Type:**
-- Display / the number: a wide grotesque with presence at size — Archivo Expanded or similar. The estimate should read like a pump total
+- Display / the number: a wide grotesque with presence at size - Archivo Expanded or similar. The estimate should read like a pump total
 - Body: Inter Tight
 - Data: JetBrains Mono, **tabular figures**. Every number in the product is mono and tabular so columns of prices actually align. This is a Tailwind theme extension, applied via a `.tabular` utility, not sprinkled ad hoc
 
-**Signature element:** the total renders as a **pump readout** — the pounds counting up from zero
+**Signature element:** the total renders as a **pump readout** - the pounds counting up from zero
 in segmented mono, exactly as a forecourt pump does while filling. Roughly 600 ms, the only
 motion in the product, snapping straight to the final value under `prefers-reduced-motion`.
 This is hand-built, not a shadcn component, and it is where the design's one risk is spent.
 
 **Restraint:** amber appears once per screen. Confidence bands, freshness stamps and caveats sit
-quiet in small mono — present and honest, never shouty. No gradients, no glass, no card shadows.
+quiet in small mono - present and honest, never shouty. No gradients, no glass, no card shadows.
 Before shipping any screen, remove one element.
 
 ### 15.2 Copy voice
 Plain and specific. "Based on your last 4 fill-ups", not "AI-powered accuracy". Empty states
 invite: "Add your car and we'll stop guessing." Errors say what happened and what to do:
-"Couldn't reach the price feed — showing prices from 14:20." Charge warnings are unambiguous:
+"Couldn't reach the price feed - showing prices from 14:20." Charge warnings are unambiguous:
 "Your vehicle cannot enter Glasgow's LEZ" beats any softer phrasing.
 
 ---
 
 ## 16. Non-functional requirements
 
-**Performance** — Lighthouse ≥ 90 mobile on the estimate route. Estimate p95 < 800 ms warm,
+**Performance** - Lighthouse ≥ 90 mobile on the estimate route. Estimate p95 < 800 ms warm,
 < 2.5 s cold. Initial JS < 150 kB gzipped; map rendering lazy and route-split. shadcn components
 imported individually, never barrel-imported.
 
-**Accessibility** — WCAG 2.2 AA. Amber on near-black verified at 4.5:1 for the display numeral.
+**Accessibility** - WCAG 2.2 AA. Amber on near-black verified at 4.5:1 for the display numeral.
 `:focus-visible` ring everywhere. The pump readout announces its final value once via a polite
 live region, not per tick. Full keyboard path through estimate → station → save.
 
-**Privacy** — location only on explicit action, never background. Reg redaction filter, tested.
+**Privacy** - location only on explicit action, never background. Reg redaction filter, tested.
 No fingerprinting analytics; self-hosted and privacy-preserving only. Export and account deletion
 in the UI, not by email request.
 
-**Resilience** — every third-party source has a defined degraded mode and none can take the
+**Resilience** - every third-party source has a defined degraded mode and none can take the
 product down. The product must produce an honest answer given only a distance and a fuel type.
 
 ---
@@ -801,14 +801,14 @@ product down. The product must produce an honest answer given only a distance an
 |---|---|---|
 | Engine | Vitest | Exhaustive. Conversions, every tier, every fallback, band widths, EV temperature and efficiency paths, known-vehicle fixtures with hand-verified outputs |
 | **Charges** | Vitest | **Highest bar in the codebase.** Day-boundary dedup, BST transitions, Christmas exemption, operating-hour edges, restriction-vs-charge, class/Euro matrices |
-| Normalisation | Vitest | Fixture corpus of real dirty Fuel Finder rows — `1.339`/`133.9`/`1339`, out-of-range, missing grades |
+| Normalisation | Vitest | Fixture corpus of real dirty Fuel Finder rows - `1.339`/`133.9`/`1339`, out-of-range, missing grades |
 | Vehicle join | Vitest | 50 real reg→derivative cases with known answers, asserting match-count buckets |
 | Zone geometry | Vitest + PostGIS | Known points inside/outside/on-boundary for every zone; corner-clipping cases |
 | API | Vitest + Miniflare | Contracts, zod rejection, auth, rate limits, provider failover |
 | RLS | `test:rls` | Cross-tenant attempts must fail. Gated in CI |
 | E2E | Playwright | Estimate, vehicle add, fill-up, anon→account claim, extension URL parse |
 
-**Golden rule:** correctness lives in `packages/engine` — ≥95% lines, **100% on tier selection
+**Golden rule:** correctness lives in `packages/engine` - ≥95% lines, **100% on tier selection
 and on all charge-window logic**.
 
 ---
@@ -836,7 +836,7 @@ Code/Windsurf/Aider/Copilot rule files are generated by `rules:sync` and drift-c
 
 ## 19. CI/CD and environments
 
-Three environments — dev (local + Neon branch), staging, production. Three workflows: PR checks
+Three environments - dev (local + Neon branch), staging, production. Three workflows: PR checks
 (lint, typecheck, `test:ci`, RLS, `data:verify-zones`, drift, Conventional Commits), staging
 deploy on merge to main, guarded production release on version tag. Changesets for versioning.
 Neon branching per PR.
@@ -854,8 +854,8 @@ goes public; forked PRs run against fixtures only and never touch real secrets; 
 ## 20. Open source and funding
 
 **Licence (recommended split):**
-- `packages/engine`, `packages/shared`, `packages/routing` — **MIT**. The conversions, correction factors, charge-window logic and unit handling are genuinely useful to other people, and permissive licensing maximises both adoption and portfolio value
-- `apps/*` — **AGPL-3.0**. Free to self-host and modify; a hosted commercial clone must publish its changes
+- `packages/engine`, `packages/shared`, `packages/routing` - **MIT**. The conversions, correction factors, charge-window logic and unit handling are genuinely useful to other people, and permissive licensing maximises both adoption and portfolio value
+- `apps/*` - **AGPL-3.0**. Free to self-host and modify; a hosted commercial clone must publish its changes
 
 **Required from day one, not retrofitted:** `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
 `SECURITY.md`, issue and PR templates, `docs/self-hosting.md`, and fixture mode (§11.3) so a
@@ -875,10 +875,10 @@ so a local user can fix their own city.
 
 ## 21. Stack defaults deliberately N/A for v1
 
-- **Stripe / LemonSqueezy** — no paid surface, by decision. Not deferred; excluded.
-- **Bunny CDN** — no user media; static assets via Pages edge.
-- **Durable Objects / PartyKit** — no realtime surface.
-- **Sanity or any CMS** — marketing copy is small and lives in the repo.
+- **Stripe / LemonSqueezy** - no paid surface, by decision. Not deferred; excluded.
+- **Bunny CDN** - no user media; static assets via Pages edge.
+- **Durable Objects / PartyKit** - no realtime surface.
+- **Sanity or any CMS** - marketing copy is small and lives in the repo.
 
 Now **in** scope, having been N/A in v0.1: **Resend** (auth emails, arriving with Better Auth at
 P4) and **Tailwind + shadcn/ui** (§15).
@@ -889,9 +889,9 @@ P4) and **Tailwind + shadcn/ui** (§15).
 
 | Phase | Deliverable |
 |---|---|
-| **P0** | Workspaces, tooling, quality floor. `check`/`ship-it`/`doctor`/`clean`/`reset`. Hello-world web + api deployed. `AGENTS.md` + `rules:sync`. **Licence, CONTRIBUTING, fixture-mode skeleton — the repo is public from commit one** |
-| **P1** | `packages/engine` — conversions, tiers, bands, ICE + EV consumption, correction factors, full unit suite. No I/O. **This is where correctness is decided; do not rush it** |
-| **P2** | `packages/routing` — provider interface, Google adapter, OSRM adapter, route cache, two-tier strategy, spend-ceiling failover. Estimate endpoint live with manual consumption input |
+| **P0** | Workspaces, tooling, quality floor. `check`/`ship-it`/`doctor`/`clean`/`reset`. Hello-world web + api deployed. `AGENTS.md` + `rules:sync`. **Licence, CONTRIBUTING, fixture-mode skeleton - the repo is public from commit one** |
+| **P1** | `packages/engine` - conversions, tiers, bands, ICE + EV consumption, correction factors, full unit suite. No I/O. **This is where correctness is decided; do not rush it** |
+| **P2** | `packages/routing` - provider interface, Google adapter, OSRM adapter, route cache, two-tier strategy, spend-ceiling failover. Estimate endpoint live with manual consumption input |
 | **P3** | Web app v1: Tailwind + shadcn theme, estimate flow, manual vehicle entry, pump-readout hero. **Shippable here** |
 | **P4** | Persistence + Better Auth + RLS + anon sessions + claim-on-signup. Journeys saved, history, CSV export |
 | **P5** | Fuel Finder ingestion, normalisation, station model, price precedence. Real prices replace medians |
@@ -905,7 +905,7 @@ P4) and **Tailwind + shadcn/ui** (§15).
 `brim-build-prompts.md` implements P0–P4. Later phases get their own kits.
 
 **Ship gates.** P3 is a product. P5 makes it better than the alternatives. **P7 is what makes it
-unlike anything else** — if you can only build one thing after P5, build charges, not reg lookup.
+unlike anything else** - if you can only build one thing after P5, build charges, not reg lookup.
 P9–P10 are weeks of fiddly work and should be paid for by demonstrated demand.
 
 ---
@@ -938,21 +938,21 @@ P9–P10 are weeks of fiddly work and should be paid for by demonstrated demand.
 
 ## 25. Decisions taken (v0.2)
 
-1. **Name** — Brim. Confirmed.
-2. **Styling** — Tailwind + shadcn/ui, with mandatory token overrides (§15.1). The pump readout stays bespoke.
-3. **Accounts** — enabled at launch (P4), anonymous-first with claim-on-signup (§10.4).
-4. **Extension** — context menu + share target. DOM injection not shipped (§10.2).
-5. **EV** — modelled in v1 including arrival state of charge. Charging-stop routing remains out (§5.5–5.7).
-6. **Tolls and zones** — in scope, own phase (P7), highest test bar (§9B).
-7. **Licence** — open source: MIT for engine/shared/routing, AGPL-3.0 for apps (§20).
-8. **Monetisation** — free, no ads, no paid tier, no data sale. Cost controlled rather than offset (§14, §20).
-9. **Posture** — real product, not a portfolio piece. This is why §9B.6, §16 privacy and §24 exist in this form.
+1. **Name** - Brim. Confirmed.
+2. **Styling** - Tailwind + shadcn/ui, with mandatory token overrides (§15.1). The pump readout stays bespoke.
+3. **Accounts** - enabled at launch (P4), anonymous-first with claim-on-signup (§10.4).
+4. **Extension** - context menu + share target. DOM injection not shipped (§10.2).
+5. **EV** - modelled in v1 including arrival state of charge. Charging-stop routing remains out (§5.5–5.7).
+6. **Tolls and zones** - in scope, own phase (P7), highest test bar (§9B).
+7. **Licence** - open source: MIT for engine/shared/routing, AGPL-3.0 for apps (§20).
+8. **Monetisation** - free, no ads, no paid tier, no data sale. Cost controlled rather than offset (§14, §20).
+9. **Posture** - real product, not a portfolio piece. This is why §9B.6, §16 privacy and §24 exist in this form.
 
 ## 26. Remaining open questions
 
-1. **Domain and Web Store name availability** for Brim — check before P0, since the repo goes public immediately.
-2. **Confirm the MIT/AGPL split** — a single MIT licence across everything is simpler and better portfolio surface; AGPL on the apps is better protection. Pick before the first public commit; relicensing after contributions arrive is painful.
-3. **Who owns zone data maintenance** once schemes change — is `data:verify-zones` failing CI enough, or does this need a calendar reminder and a named owner?
-4. **EV public charging price table** — hand-maintain per network, or drop public charging in v1 and support home tariffs only? Home-only is more honest and much less maintenance.
-5. **OSRM hosting** — self-host on a small VPS, or use a public demo endpoint for the fallback? Public endpoints have no availability guarantee, which undermines the point of a failover.
-6. **Vans and motorcycles** — CAZ classes treat them differently from cars, and supporting them roughly doubles the compliance matrix. In for v1, or cars only with a clear "cars only" statement?
+1. **Domain and Web Store name availability** for Brim - check before P0, since the repo goes public immediately.
+2. **Confirm the MIT/AGPL split** - a single MIT licence across everything is simpler and better portfolio surface; AGPL on the apps is better protection. Pick before the first public commit; relicensing after contributions arrive is painful.
+3. **Who owns zone data maintenance** once schemes change - is `data:verify-zones` failing CI enough, or does this need a calendar reminder and a named owner?
+4. **EV public charging price table** - hand-maintain per network, or drop public charging in v1 and support home tariffs only? Home-only is more honest and much less maintenance.
+5. **OSRM hosting** - self-host on a small VPS, or use a public demo endpoint for the fallback? Public endpoints have no availability guarantee, which undermines the point of a failover.
+6. **Vans and motorcycles** - CAZ classes treat them differently from cars, and supporting them roughly doubles the compliance matrix. In for v1, or cars only with a clear "cars only" statement?

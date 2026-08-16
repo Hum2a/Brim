@@ -11,7 +11,7 @@ import {
   ukTaxYearStartUtc,
   vehicleProfileSchema,
 } from '@brim/shared';
-import type { RoutePlace } from '@brim/routing';
+import type { RoutePlace, RouteRequest } from '@brim/routing';
 import {
   KvCache,
   MemoryCache,
@@ -135,12 +135,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   const ttl = chosen.mode === 'advanced' ? 6 * 3600 : 30 * 24 * 3600;
   const { value: route, hit } = await cachedRoute(cache, key, ttl, () => {
     providerCalls += 1;
-    const req: {
-      origin: RoutePlace;
-      destination: RoutePlace;
-      mode: 'basic' | 'advanced';
-      waypoints?: RoutePlace[];
-    } = {
+    const req: RouteRequest = {
       origin: origin.route,
       destination: destination.route,
       mode: chosen.mode,
@@ -211,7 +206,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
 
   if (chosen.exceeded) {
     estimate.reasons.push(
-      'Routing spend ceiling hit — used the free provider and widened the range.',
+      'Routing spend ceiling hit - used the free provider and widened the range.',
     );
   }
 

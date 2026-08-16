@@ -53,10 +53,10 @@ All complaints will be reviewed and investigated promptly and fairly.
 
 Community leaders will follow these guidelines:
 
-1. **Correction** — private warning for unprofessional behaviour.
-2. **Warning** — consequences for continued behaviour, including a no-interaction period.
-3. **Temporary ban** — temporary ban from community interaction.
-4. **Permanent ban** — permanent ban for pattern of violation or aggression.
+1. **Correction** - private warning for unprofessional behaviour.
+2. **Warning** - consequences for continued behaviour, including a no-interaction period.
+3. **Temporary ban** - temporary ban from community interaction.
+4. **Permanent ban** - permanent ban for pattern of violation or aggression.
 
 ## Attribution
 

@@ -10,7 +10,7 @@ function check(name, ok, detail) {
   if (ok) {
     console.log(`ok    ${name}${detail ? ` (${detail})` : ""}`);
   } else {
-    console.error(`FAIL  ${name}${detail ? ` — ${detail}` : ""}`);
+    console.error(`FAIL  ${name}${detail ? ` - ${detail}` : ""}`);
     failures.push(name);
   }
 }

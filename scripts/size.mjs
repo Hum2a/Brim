@@ -16,7 +16,7 @@ function walk(dir, acc = []) {
 
 const assets = walk("apps/web/dist").filter((f) => f.endsWith(".js") || f.endsWith(".css"));
 if (assets.length === 0) {
-  console.log("size: no apps/web/dist assets yet — run `npm run build` first");
+  console.log("size: no apps/web/dist assets yet - run `npm run build` first");
   process.exit(0);
 }
 
@@ -41,7 +41,7 @@ if (initialJs > 0) {
   const verdict = delta <= 0 ? "PASS" : "MISS";
   const deltaKb = Math.abs(delta / 1024).toFixed(1);
   console.log(
-    `initial JS gzip ${initialJs} B (${kb.toFixed(1)} kB) vs ${BUDGET_KB} kB budget — ${verdict}${
+    `initial JS gzip ${initialJs} B (${kb.toFixed(1)} kB) vs ${BUDGET_KB} kB budget - ${verdict}${
       delta === 0 ? "" : ` by ${deltaKb} kB`
     }`,
   );

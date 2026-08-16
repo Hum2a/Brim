@@ -25,7 +25,7 @@ const SECTION_MAP = [
     ],
     file: "00_core.mdc",
     frontmatter: {
-      description: "Brim core agent rules — purity, factories, privacy, public repo",
+      description: "Brim core agent rules: purity, factories, privacy, public repo",
     },
   },
   {
@@ -108,8 +108,7 @@ function buildTargets(markdown) {
     cursorRules[spec.file] = `${yamlFrontmatter(spec.frontmatter)}${parts.join("\n\n")}\n`;
   }
 
-  const header =
-    "# Generated from AGENTS.md — do not edit. Run `npm run rules:sync`.\n\n";
+  const header = "# Generated from AGENTS.md. Do not edit. Run `npm run rules:sync`.\n\n";
   return {
     ".cursor/rules/00_core.mdc": cursorRules["00_core.mdc"],
     ".cursor/rules/10_engine.mdc": cursorRules["10_engine.mdc"],
@@ -119,7 +118,7 @@ function buildTargets(markdown) {
     "CLAUDE.md": `${header}${markdown}`,
     ".windsurfrules": `${header}${markdown}`,
     ".github/copilot-instructions.md": `${header}${markdown}`,
-    ".aider.conf.yml": `# Generated from AGENTS.md — do not edit. Run \`npm run rules:sync\`.\nread: AGENTS.md\n`,
+    ".aider.conf.yml": `# Generated from AGENTS.md. Do not edit. Run \`npm run rules:sync\`.\nread: AGENTS.md\n`,
   };
 }
 
@@ -155,7 +154,7 @@ if (checkMode) {
       if (actual !== expected) drifts.push(rel);
     }
     if (drifts.length > 0) {
-      console.error("rules:check failed — AGENTS.md is out of sync with:");
+      console.error("rules:check failed - AGENTS.md is out of sync with:");
       for (const d of drifts) console.error(`  - ${d}`);
       console.error("Run `npm run rules:sync` and commit the result.");
       process.exit(1);

@@ -1,4 +1,4 @@
-# ADR 0002 — Google Routes API fields
+# ADR 0002 - Google Routes API fields
 
 Date checked: 2026-08-15
 Source: https://developers.google.com/maps/documentation/routes/reference/rest/v2/TopLevel/computeRoutes

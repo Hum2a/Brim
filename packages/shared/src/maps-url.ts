@@ -36,7 +36,7 @@ function travelModeFromData(data: string | null): MapsParseOk["travelMode"] {
 }
 
 /**
- * Parse a Google Maps directions URL. URL only — never the DOM. Spec §10.2.
+ * Parse a Google Maps directions URL. URL only - never the DOM. Spec §10.2.
  * Never throws; malformed input returns `{ ok: false, reason }`.
  */
 export function parseMapsUrl(input: string): MapsParseResult {
