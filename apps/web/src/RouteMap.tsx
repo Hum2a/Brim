@@ -156,10 +156,24 @@ export default function RouteMap(props: RouteMapProps) {
       bounds: ukBounds(),
       fitBoundsOptions: { padding: 24, duration: 0 },
       attributionControl: { compact: true },
+      trackResize: true,
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    map.on("load", () => ensureRouteLayers(map));
+    const resize = () => {
+      if (!mapRef.current) return;
+      const w = node.clientWidth;
+      const h = node.clientHeight;
+      if (w < 2 || h < 2) return;
+      map.resize();
+    };
+    map.on("load", () => {
+      resize();
+      ensureRouteLayers(map);
+    });
+    const ro = new ResizeObserver(resize);
+    ro.observe(node);
+    const frame = window.requestAnimationFrame(resize);
     map.on("click", (ev) => {
       if (dragging.current) return;
       const hits = map.queryRenderedFeatures(ev.point, {
@@ -173,6 +187,8 @@ export default function RouteMap(props: RouteMapProps) {
       clickRef.current({ lat: ev.lngLat.lat, lng: ev.lngLat.lng });
     });
     return () => {
+      window.cancelAnimationFrame(frame);
+      ro.disconnect();
       originMarker.current?.remove();
       destMarker.current?.remove();
       for (const m of viaMarkers.current) m.remove();

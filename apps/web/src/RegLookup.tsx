@@ -89,7 +89,9 @@ export function RegLookup({
           onChange={(ev) => setVrm(ev.target.value.toUpperCase())}
           placeholder="AB12 CDE"
           autoComplete="off"
+          autoCapitalize="characters"
           spellCheck={false}
+          enterKeyHint="go"
           className="tabular"
         />
         <Button type="button" variant="ghost" disabled={busy || vrm.trim().length < 5} onClick={() => void lookup()}>
@@ -117,7 +119,7 @@ export function RegLookup({
             <button
               key={vehicle.id}
               type="button"
-              className="flex min-h-10 w-full flex-col items-start justify-center rounded-[2px] border border-border px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] border border-border px-3 py-2 text-left text-sm hover:bg-white/5"
               onClick={() => ves && onPick(vehicle, lookedUp, ves)}
             >
               <span>

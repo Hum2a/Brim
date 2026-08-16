@@ -125,18 +125,23 @@ export function AppShell() {
               </div>
             }
           >
-            <AnimatePresence initial={false}>
-              <m.div
-                key={path}
-                {...(estimateRoute ? { className: "flex min-h-0 flex-1 flex-col" } : {})}
-                initial={transition.initial}
-                animate={transition.animate}
-                exit={{ ...transition.exit, position: "absolute", width: "100%" }}
-                transition={transition.transition}
-              >
-                <RouteBody path={path} />
-              </m.div>
-            </AnimatePresence>
+            {estimateRoute ? (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <EstimatePage />
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                <m.div
+                  key={path}
+                  initial={transition.initial}
+                  animate={transition.animate}
+                  exit={{ ...transition.exit, position: "absolute", width: "100%" }}
+                  transition={transition.transition}
+                >
+                  <RouteBody path={path} />
+                </m.div>
+              </AnimatePresence>
+            )}
           </Suspense>
         </div>
         <HeraldDialog />

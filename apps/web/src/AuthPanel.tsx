@@ -168,6 +168,8 @@ export function AuthPanel({
         id={`${idPrefix}-email`}
         type="email"
         autoComplete="email"
+        inputMode="email"
+        enterKeyHint="next"
         value={email}
         onChange={(ev) => setEmail(ev.target.value)}
         required
@@ -252,14 +254,16 @@ export function AuthPanel({
           id={`${idPrefix}-email`}
           type="email"
           autoComplete="email"
+          inputMode="email"
+          enterKeyHint="next"
           value={email}
           onChange={(ev) => setEmail(ev.target.value)}
         />
       </FormItem>
       <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
-        <TabsList>
-          <TabsTrigger value="signin">Sign in</TabsTrigger>
-          <TabsTrigger value="signup">Create account</TabsTrigger>
+        <TabsList className="w-full">
+          <TabsTrigger className="flex-1" value="signin">Sign in</TabsTrigger>
+          <TabsTrigger className="flex-1" value="signup">Create account</TabsTrigger>
         </TabsList>
         <TabsContent value="signin">
           <Form onSubmit={(e) => void onSignIn(e)}>
@@ -269,6 +273,7 @@ export function AuthPanel({
                 id={`${idPrefix}-password`}
                 type="password"
                 autoComplete="current-password"
+                enterKeyHint="done"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 minLength={8}
@@ -280,7 +285,7 @@ export function AuthPanel({
               <Button type="submit" disabled={pending}>
                 {pending ? 'Signing in…' : 'Sign in'}
               </Button>
-              <button type="button" className="text-sm underline" onClick={() => setView('forgot')}>
+              <button type="button" className="min-h-11 text-sm underline" onClick={() => setView('forgot')}>
                 Forgot password?
               </button>
             </div>
@@ -294,6 +299,7 @@ export function AuthPanel({
                 id={`${idPrefix}-new-password-signup`}
                 type="password"
                 autoComplete="new-password"
+                enterKeyHint="done"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 minLength={8}

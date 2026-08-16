@@ -96,13 +96,13 @@ export function KitchenSink() {
 
   return (
     <ReducedMotionProvider value={snap ? true : null}>
-      <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8">
-        <h1 className="display mb-2 text-4xl">Kitchen sink</h1>
+      <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <h1 className="display mb-2 text-3xl md:text-4xl">Kitchen sink</h1>
         <p className="mb-6 max-w-xl text-mist">
           Motion lab. Solid panels, 2px corners, pump count-up. If this looks like a stock animated
           dashboard, restyle it.
         </p>
-        <label className="mb-8 flex max-w-md flex-row items-center gap-3 text-sm">
+        <label className="mb-8 flex min-h-11 max-w-md flex-row items-center gap-3 text-sm">
           <input
             type="checkbox"
             checked={snap}
