@@ -1,0 +1,67 @@
+---
+description: Brim core agent rules — purity, factories, privacy, public repo
+---
+## Hard rules
+
+These are not preferences. Violating them fails review.
+
+1. `packages/engine` is PURE. No `fetch`, no `Date.now()`, no env reads, no I/O of any kind. Every input is passed in, including the current time. If it needs a network call, the design is wrong — stop and ask.
+2. Per-request factories in Workers: `createDb(c.env.DATABASE_URL)`, `createAuth(c.env)`. NEVER a module-scope database or auth client, and never read `process.env` at module load — Workers bindings only exist per request and this crashes in production.
+3. Vehicle registration marks are personal data under UK GDPR. A reg never appears in a URL path, a query string, a log line, an analytics event, or an error report. See spec §8.3.
+4. This repo is PUBLIC from the first commit. No secrets in code, in fixtures, in tests, or in commit messages. Ever.
+5. Script naming is `<domain>:<action>` — `dev:web`, `db:migrate`, `data:sync-fuel`, `test:rls`.
+6. Never fake precision the inputs don't support. Every fallback in the estimate chain reports which tier it used and widens the confidence band. See spec §5.2 and §5.4.
+
+## Engine purity
+
+`packages/engine` is a calculator, not a service. It imports only `packages/shared`. Time, temperature, prices, routes, and charges are inputs. The purity boundary exists so every conversion, tier, and charge-window decision can be tested without I/O, and so a Worker isolate cannot accidentally bake in a clock or a secret.
+
+If a calculation seems to need `fetch`, `Date.now()`, `process.env`, `fs`, or a Cloudflare binding, stop. The caller should gather that data and pass it in.
+
+## Workers factories
+
+On Cloudflare Workers, `env` exists only for the current request. Create database and auth clients inside the request handler from `c.env`. A module-level singleton, or `process.env` at import time, will look fine locally and fail in production.
+
+```ts
+// correct
+app.post('/v1/estimate', async (c) => {
+  const db = createDb(c.env.DATABASE_URL);
+  const auth = createAuth(c.env);
+});
+
+// forbidden
+const db = createDb(process.env.DATABASE_URL);
+```
+
+## Registration-mark privacy
+
+A VRM is personal data under UK GDPR when linkable to an individual.
+
+- Never in a URL path or query string (`POST /v1/vehicles/resolve` with `{ vrm }` in the body only).
+- Never in application logs, analytics, or error reports. All logging goes through the redacting logger.
+- Stored only when the user has an account and chose to save the vehicle. Anonymous users' regs are resolved and discarded.
+- Make/model entry is a first-class path, not a fallback. A reg is never required.
+- Do not `console.log` objects typed with a `vrm` field.
+
+## Public repository
+
+No secrets in source, fixtures, tests, or commit messages. Forked PRs run against fixtures only. Fuel Finder, DVLA, Google, Neon, Better Auth, and Resend credentials live in Wrangler secrets and GitHub environments.
+
+## Scripts
+
+`<domain>:<action>` throughout. Data and database commands go through `scripts/with-env.mjs` so the target environment is explicit, never inferred:
+
+```
+node scripts/with-env.mjs <dev|staging|prod> -- <command>
+```
+
+The wrapper MUST fail loudly if no environment is given.
+
+## Stack
+
+- npm workspaces + Turborepo. npm ONLY — never pnpm or yarn.
+- React 19 + Vite (`apps/web`), Hono on Cloudflare Workers (`apps/api`)
+- Neon Postgres + Drizzle ORM, PostGIS, RLS-first
+- Better Auth, Resend
+- Tailwind + shadcn/ui with mandatory token overrides (spec §15.1)
+- TypeScript, project references, strict mode

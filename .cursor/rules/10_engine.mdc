@@ -1,0 +1,12 @@
+---
+description: packages/engine purity and estimate rules
+globs: packages/engine/**
+---
+## Engine (packages/engine)
+
+Glob: `packages/engine/**`
+
+- Zero runtime I/O. Lint must fail on `fetch`, `Date.now`, `process.env`, `fs`, and Cloudflare bindings.
+- Consumption tier chain is strictly 0→4. Always return the tier label from spec §5.2.
+- Missing optional inputs degrade a tier, append a reason, and still return a result. Never throw for missing optionals.
+- Charges are accepted as an input array; this package does not resolve them.

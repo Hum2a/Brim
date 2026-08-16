@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "Brim",
+  "version": "0.0.0",
+  "description": "Estimate UK journey cost from a maps directions page.",
+  "permissions": ["contextMenus", "activeTab"]
+}

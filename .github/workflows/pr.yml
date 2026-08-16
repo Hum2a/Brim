@@ -1,0 +1,76 @@
+{
+  "name": "pr",
+  "on": {
+    "pull_request": {
+      "branches": ["main"]
+    }
+  },
+  "jobs": {
+    "check": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@v4"
+        },
+        {
+          "uses": "actions/setup-node@v4",
+          "with": {
+            "node-version": "22",
+            "cache": "npm"
+          }
+        },
+        {
+          "name": "Install",
+          "run": "npm ci"
+        },
+        {
+          "name": "Check",
+          "run": "npm run check"
+        },
+        {
+          "name": "Rules drift",
+          "run": "npm run rules:check"
+        },
+        {
+          "name": "RLS gate",
+          "run": "npm run db:force-rls && npm run test:rls"
+        },
+        {
+          "name": "Build",
+          "run": "npm run build"
+        },
+        {
+          "name": "Gitleaks",
+          "uses": "gitleaks/gitleaks-action@v2",
+          "env": {
+            "GITHUB_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+          }
+        }
+      ]
+    },
+    "commitlint": {
+      "runs-on": "ubuntu-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@v4",
+          "with": {
+            "fetch-depth": 0
+          }
+        },
+        {
+          "uses": "actions/setup-node@v4",
+          "with": {
+            "node-version": "22"
+          }
+        },
+        {
+          "run": "npm ci"
+        },
+        {
+          "name": "Lint PR commits",
+          "run": "npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose"
+        }
+      ]
+    }
+  }
+}

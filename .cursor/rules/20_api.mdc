@@ -1,0 +1,12 @@
+---
+description: Workers API factories, keys, logging, fixtures
+globs: apps/api/**,workers/sync/**
+---
+## API (apps/api, workers/sync)
+
+Glob: `apps/api/**`, `workers/sync/**`
+
+- Per-request factories only.
+- Third-party keys live only here. Web and extension never call Google, DVLA, or Fuel Finder.
+- Structured logging with mandatory VRM redaction.
+- `BRIM_FIXTURES=1` is read at this boundary, never inside `packages/engine`.

@@ -1,0 +1,17 @@
+name: Feature
+description: A product change
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This report contains no registration marks, API keys, or personal data
+          required: true

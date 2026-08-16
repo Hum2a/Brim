@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "e6d408ebc85e159e6e22ee963641d342",
+  "name": "brim-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "BRIM_FIXTURES": "0"
+  },
+  "env": {
+    "staging": {
+      "name": "brim-api-staging",
+      "vars": {
+        "BRIM_FIXTURES": "1"
+      }
+    },
+    "production": {
+      "name": "brim-api-production",
+      "vars": {
+        "BRIM_FIXTURES": "0"
+      }
+    }
+  }
+}

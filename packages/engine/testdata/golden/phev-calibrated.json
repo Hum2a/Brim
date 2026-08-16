@@ -1,0 +1,52 @@
+{
+  "distanceMeters": 80000,
+  "durationSeconds": 0,
+  "energy": {
+    "kind": "liquid",
+    "litres": {
+      "point": 1.2272727272727275,
+      "low": 1.1413636363636366,
+      "high": 1.3131818181818184
+    },
+    "kwh": {
+      "battery": 14,
+      "grid": 15.909090909090908,
+      "low": 14.795454545454545,
+      "high": 17.022727272727273
+    }
+  },
+  "cost": {
+    "energyPence": {
+      "point": 290,
+      "low": 270,
+      "high": 310
+    },
+    "chargesPence": 0,
+    "totalPence": {
+      "point": 290,
+      "low": 270,
+      "high": 310
+    }
+  },
+  "charges": [],
+  "co2Kg": 4.9715727272727275,
+  "consumption": {
+    "value": 3.2,
+    "unit": "l/100km",
+    "display": "88 mpg",
+    "tier": 0,
+    "label": "Based on your fill-ups"
+  },
+  "price": {
+    "pence": 7.5,
+    "unit": "p/kWh",
+    "source": "user-tariff",
+    "observedAt": "2026-01-15T12:00:00Z"
+  },
+  "reasons": [
+    "Used your logged fill-ups rather than the brochure figure.",
+    "No road mix available, so we left consumption unadjusted and widened the range.",
+    "Treated the plug-in hybrid as electric until the battery is empty, then petrol."
+  ],
+  "warnings": []
+}

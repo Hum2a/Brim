@@ -1,0 +1,30 @@
+{
+  "name": "@brim/api",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env=\"\"",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:prod": "wrangler deploy --env production",
+    "deploy:preview": "wrangler versions upload --env=\"\"",
+    "build": "wrangler deploy --dry-run --outdir dist --env=\"\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --config vitest.config.ts",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@brim/engine": "*",
+    "@brim/routing": "*",
+    "@brim/shared": "*",
+    "drizzle-orm": "^0.44.4",
+    "hono": "^4.9.4"
+  },
+  "devDependencies": {
+    "@brim/config": "*",
+    "@cloudflare/workers-types": "^5.20260815.1",
+    "wrangler": "^4.28.0"
+  }
+}

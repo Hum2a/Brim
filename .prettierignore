@@ -1,0 +1,9 @@
+node_modules
+dist
+.turbo
+.wrangler
+coverage
+package-lock.json
+*.md
+LICENSE
+data

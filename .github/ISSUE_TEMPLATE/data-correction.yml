@@ -1,0 +1,28 @@
+name: Data correction
+description: Zone boundary, brand name, or EV tariff
+labels: ["data"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Zone boundary
+        - Brand canonicalisation
+        - EV tariff
+        - Toll table
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source URL and verified-on date
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This report contains no registration marks, API keys, or personal data
+          required: true

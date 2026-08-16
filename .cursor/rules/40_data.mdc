@@ -1,0 +1,12 @@
+---
+description: Data, zones, and with-env command rules
+globs: data/**,scripts/**
+---
+## Data (data, scripts)
+
+Glob: `data/**`, `scripts/**`
+
+- Zone GeoJSON is versioned and dated with `source_url` and `verified_on`.
+- Store raw Fuel Finder payloads beside normalised rows.
+- `data:verify-zones` fails CI when a zone has not been re-verified in 180 days.
+- All `db:*` and `data:*` commands use `with-env.mjs`.

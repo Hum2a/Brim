@@ -1,0 +1,9 @@
+{
+  "extends": "@brim/config/tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

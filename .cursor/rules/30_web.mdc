@@ -1,0 +1,12 @@
+---
+description: Web, ui-kit, and extension UI rules
+globs: apps/web/**,packages/ui-kit/**,apps/extension/**
+---
+## Web (apps/web, packages/ui-kit, apps/extension)
+
+Glob: `apps/web/**`, `packages/ui-kit/**`, `apps/extension/**`
+
+- Browser never calls Google, DVLA, or Fuel Finder directly.
+- shadcn for behaviour, Brim tokens for appearance. `--radius: 2px`. Amber (`--gauge`) once per screen.
+- Numbers use `.tabular`. No gradients, no glass, no card shadows.
+- Extension: URL parsing only, never DOM scraping. Manifest V3, minimal permissions.

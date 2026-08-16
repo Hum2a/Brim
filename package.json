@@ -1,0 +1,72 @@
+{
+  "name": "brim",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "UK journey-cost estimator: fuel or EV energy, tolls, and clean-air charges",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.18.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:all": "turbo run dev",
+    "dev:fixtures": "node scripts/dev-fixtures.mjs",
+    "deploy:staging": "npm run deploy:staging -w @brim/api && npm run deploy:staging -w @brim/web",
+    "deploy:prod": "npm run deploy:prod -w @brim/api && npm run deploy:prod -w @brim/web",
+    "deploy:preview": "npm run deploy:preview -w @brim/api && npm run deploy:preview -w @brim/web",
+    "db:force-rls": "node scripts/db-force-rls.mjs",
+    "db:generate": "node scripts/with-env.mjs dev -- npx drizzle-kit generate",
+    "db:migrate": "node scripts/with-env.mjs dev -- npx drizzle-kit migrate",
+    "db:studio": "node scripts/with-env.mjs dev -- npx drizzle-kit studio",
+    "db:seed": "node scripts/with-env.mjs dev -- echo db-seed-requires-neon",
+    "test:rls": "node scripts/test-rls.mjs",
+    "dev:web": "npm run dev -w @brim/web",
+    "dev:api": "npm run dev -w @brim/api",
+    "dev:ext": "npm run dev -w @brim/extension",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "format": "prettier --write .",
+    "test": "turbo run test",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "clean": "turbo run clean && node --eval \"import('node:fs').then((fs)=>fs.rmSync('node_modules',{recursive:true,force:true}))\"",
+    "reset": "npm run clean && npm install",
+    "rules:sync": "node scripts/rules-sync.mjs",
+    "rules:check": "node scripts/rules-sync.mjs --check",
+    "doctor": "node scripts/doctor.mjs",
+    "size": "node scripts/size.mjs",
+    "ship-it": "npm run check && npm run build",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs,json,yml,yaml,css,html}": "prettier --write",
+    "*.{ts,tsx,js,mjs}": "eslint --fix"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@eslint/js": "^9.33.0",
+    "eslint": "^9.33.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.5",
+    "prettier": "^3.6.2",
+    "wrangler": "^4.28.0",
+    "@changesets/cli": "^2.29.5",
+    "drizzle-kit": "^0.31.4",
+    "turbo": "^2.5.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.39.1",
+    "vitest": "^3.2.4"
+  },
+  "allowScripts": {
+    "esbuild@0.18.20": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.28.1": true,
+    "workerd@1.20260811.1": true
+  }
+}
