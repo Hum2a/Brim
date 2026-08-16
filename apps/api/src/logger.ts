@@ -1,5 +1,5 @@
 const VRM = /\b[A-Z]{2}[0-9]{2}\s?[A-Z]{3}\b/i;
-const VRM_KEYS = new Set(["vrm", "reg", "registration", "plate"]);
+const VRM_KEYS = new Set(["vrm", "reg", "registration", "plate", "registrationnumber", "registration_number"]);
 const ADDRESS_KEYS = new Set(["address", "formattedaddress", "formatted_address"]);
 
 export function redact(value: unknown): unknown {

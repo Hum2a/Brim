@@ -4,6 +4,8 @@ export type ApiBindings = {
   ROUTING_SPENT_USD?: string;
   ROUTING_CEILING_USD?: string;
   GOOGLE_MAPS_API_KEY?: string;
+  DVLA_VES_API_KEY?: string;
+  VRM_ENCRYPTION_KEY?: string;
   DATABASE_URL?: string;
   BETTER_AUTH_SECRET?: string;
   RESEND_API_KEY?: string;

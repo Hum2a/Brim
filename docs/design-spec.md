@@ -382,9 +382,10 @@ DVLA VES:  make, fuelType, engineCapacity, co2Emissions, yearOfManufacture, euro
 VCA:       make, model, derivative, transmission, capacity, fuel, CO₂, mpg/kWh, cycle
 ```
 
-Match on `make` + `fuelType` + `engineCapacity` (±50cc) + `co2Emissions` (±5 g/km) +
-registration-year window. CO₂ is the strong discriminator - it separates derivatives sharing a
-block, which capacity alone cannot.
+Match on `make` + `fuelType` + `engineCapacity` (±50cc) + `co2Emissions` (±5 g/km).
+CO₂ is the strong discriminator - it separates derivatives sharing a
+block, which capacity alone cannot. `yearOfManufacture` is copied onto the vehicle profile from
+VES. It is not a VCA join key until the catalogue has years ([ADR 0004](adr/0004-dvla-ves-retention.md)).
 
 `euroStatus` is separately load-bearing for §9B compliance and must be captured even when the
 VCA join fails.
@@ -409,7 +410,7 @@ Non-negotiable:
 - Never in a URL path or query string
 - Never in application logs, analytics, or error reports - redaction filter in the logger, with a test asserting it
 - Stored only where the user has an account and chose to save the vehicle; anonymous users' regs are resolved and discarded, keeping only the derived profile in local storage
-- DVLA VES terms constrain use and caching - read before P9, record retention in an ADR
+- DVLA VES terms constrain use and caching. Retention is recorded in [ADR 0004](adr/0004-dvla-ves-retention.md).
 - Make/model entry is a **first-class path**, not a fallback, so a reg is never required. The picker is `GET /v1/vehicles/catalogue` against the ingested VCA dataset, not a live car API.
 
 **Open-source consequence:** the redaction filter and its test are part of the public repo, and

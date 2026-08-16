@@ -21,6 +21,7 @@ export type VehicleRow = {
   has_heat_pump?: boolean;
   vca_match_id?: string;
   vrm_hash?: string;
+  vrm_encrypted?: string;
   created_at: string;
 };
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   consumptionUnitSchema,
+  normaliseVrm,
   propulsionSchema,
   testCycleSchema,
   vehicleKindSchema,
@@ -19,6 +20,7 @@ import {
   saveVehicle,
 } from './db/repo.js';
 import type { VehicleRow } from './db/memory.js';
+import { decodeVrmKey, encryptVrm, hashVrm } from './vrm-crypto.js';
 
 const vehicleBody = z.object({
   nickname: z.string().optional(),
@@ -40,6 +42,7 @@ const vehicleBody = z.object({
   officialCycle: testCycleSchema.optional(),
   vcaMatchId: z.string().optional(),
   hasHeatPump: z.boolean().optional(),
+  vrm: z.string().optional(),
 });
 
 const tariffBody = z.object({
@@ -73,6 +76,31 @@ type VehicleFields = {
   vcaMatchId?: string | undefined;
   hasHeatPump?: boolean | undefined;
 };
+
+function publicVehicle(row: VehicleRow, isDefault?: boolean) {
+  const rest = { ...row };
+  delete rest.vrm_hash;
+  delete rest.vrm_encrypted;
+  return isDefault === undefined ? rest : { ...rest, is_default: isDefault };
+}
+
+async function attachVrm(
+  env: ApiBindings,
+  kind: 'anon' | 'user',
+  row: VehicleRow,
+  vrm: string | undefined,
+): Promise<VehicleRow | { error: 'invalid_vrm' }> {
+  if (vrm === undefined) return row;
+  const normalised = normaliseVrm(vrm);
+  if (!normalised) return { error: 'invalid_vrm' };
+  if (kind !== 'user') return row;
+  const key = env.VRM_ENCRYPTION_KEY ? decodeVrmKey(env.VRM_ENCRYPTION_KEY) : undefined;
+  if (!key) return row;
+  const next = { ...row };
+  next.vrm_hash = await hashVrm(key, normalised);
+  next.vrm_encrypted = await encryptVrm(key, normalised);
+  return next;
+}
 
 function applyVehicleFields(row: VehicleRow, data: VehicleFields): VehicleRow {
   const next: VehicleRow = { ...row };
@@ -108,10 +136,7 @@ export async function listVehiclesHandler(c: Context<{ Bindings: ApiBindings }>)
   const settings = await getSettings(db, session.ownerId);
   const vehicles = await listVehicles(db, session.ownerId);
   return c.json({
-    vehicles: vehicles.map((v) => ({
-      ...v,
-      is_default: settings?.default_vehicle_id === v.id,
-    })),
+    vehicles: vehicles.map((v) => publicVehicle(v, settings?.default_vehicle_id === v.id)),
   });
 }
 
@@ -119,6 +144,7 @@ export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>
   const session = await owner(c);
   const parsed = vehicleBody.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
+  const { vrm, ...fields } = parsed.data;
   const row = applyVehicleFields(
     {
       id: crypto.randomUUID(),
@@ -127,9 +153,11 @@ export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>
       propulsion: parsed.data.propulsion,
       created_at: new Date().toISOString(),
     },
-    parsed.data,
+    fields,
   );
-  return c.json(await saveVehicle(createDb(c.env), row), 201);
+  const stored = await attachVrm(c.env, session.kind, row, vrm);
+  if ('error' in stored) return c.json({ error: 'invalid_vrm' }, 400);
+  return c.json(publicVehicle(await saveVehicle(createDb(c.env), stored)), 201);
 }
 
 export async function patchVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {
@@ -139,7 +167,11 @@ export async function patchVehicleHandler(c: Context<{ Bindings: ApiBindings }>)
   if (!existing) return c.json({ error: 'not_found' }, 404);
   const parsed = vehicleBody.partial().safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
-  return c.json(await saveVehicle(db, applyVehicleFields(existing, parsed.data)));
+  const { vrm, ...fields } = parsed.data;
+  const next = applyVehicleFields(existing, fields);
+  const stored = await attachVrm(c.env, session.kind, next, vrm);
+  if ('error' in stored) return c.json({ error: 'invalid_vrm' }, 400);
+  return c.json(publicVehicle(await saveVehicle(db, stored)));
 }
 
 export async function deleteVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {

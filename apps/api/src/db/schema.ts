@@ -5,7 +5,7 @@
  *
  * Geography columns (origin_point, dest_point, zone geometry) stay off the
  * object mapper. Station points are written and read with ST_MakePoint / ST_DWithin.
- * vrm_encrypted is stored but never written in P4.
+ * vrm_encrypted is written only on a signed-in save when VRM_ENCRYPTION_KEY is set.
  */
 import { sql } from 'drizzle-orm';
 import {

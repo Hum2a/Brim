@@ -136,11 +136,20 @@ function TrimButton({
 export function VehicleCatalogue({
   selected,
   onSelect,
+  open: openProp,
+  onOpenChange,
 }: {
   selected: CatalogueVehicle | null;
   onSelect: (vehicle: CatalogueVehicle | null) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  function setOpen(next: boolean) {
+    onOpenChange?.(next);
+    if (openProp === undefined) setUncontrolledOpen(next);
+  }
   const [q, setQ] = useState('');
   const [make, setMake] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);

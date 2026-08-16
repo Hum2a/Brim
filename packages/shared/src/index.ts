@@ -10,6 +10,15 @@ export {
   CARBON_INTENSITY_FIXTURES,
   CARBON_INTENSITY_FIXTURE_NOW,
 } from './fixtures/carbon-intensity.js';
+export {
+  DVLA_FIXTURES,
+  DVLA_FIXTURE_BEV,
+  DVLA_FIXTURE_FEW,
+  DVLA_FIXTURE_NONE,
+  DVLA_FIXTURE_NOT_FOUND,
+  DVLA_FIXTURE_SINGLE,
+  DVLA_VES_FIXTURES,
+} from './fixtures/dvla.js';
 export * from './fuel-finder/index.js';
 export * from './carbon/index.js';
 export * from './tariffs/index.js';
@@ -20,6 +29,7 @@ export {
   openMeteoForecastUrl,
   pickHourlyTemperature,
 } from './weather/open-meteo.js';
+export * from './dvla/index.js';
 export * from './vca/types.js';
 export { parseCsv, parseCsvRows, normHeader } from './vca/csv.js';
 export {

@@ -110,6 +110,8 @@ export function fromVehicle(row: typeof vehicles.$inferSelect): VehicleRow {
   if (vca) mapped.vca_match_id = vca;
   const vrmHash = optString(row.vrmHash);
   if (vrmHash) mapped.vrm_hash = vrmHash;
+  const vrmEncrypted = optString(row.vrmEncrypted);
+  if (vrmEncrypted) mapped.vrm_encrypted = vrmEncrypted;
   return mapped;
 }
 
@@ -137,6 +139,7 @@ function vehicleValues(row: VehicleRow) {
     hasHeatPump: row.has_heat_pump ?? null,
     vcaMatchId: row.vca_match_id ?? null,
     vrmHash: row.vrm_hash ?? null,
+    vrmEncrypted: row.vrm_encrypted ?? null,
     createdAt: new Date(row.created_at),
   };
 }
@@ -327,6 +330,7 @@ export async function neonSaveVehicle(db: BrimDb, row: VehicleRow): Promise<Vehi
           hasHeatPump: values.hasHeatPump,
           vcaMatchId: values.vcaMatchId,
           vrmHash: values.vrmHash,
+          vrmEncrypted: values.vrmEncrypted,
         },
       });
   });

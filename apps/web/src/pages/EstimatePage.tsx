@@ -38,6 +38,7 @@ import { api } from "../api.js";
 import { AddressField } from "../AddressField.js";
 import { AuthPanel } from "../AuthPanel.js";
 import { reversePlace } from "../places-client.js";
+import { euroFromVes, RegLookup, type VesSummary } from "../RegLookup.js";
 import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
 
 const RouteMap = lazy(() => import("../RouteMap.js"));
@@ -190,7 +191,10 @@ export function EstimatePage() {
   const [vehicleKind, setVehicleKind] = useState<VehicleKind>("car");
   const [vehicleYear, setVehicleYear] = useState("");
   const [euroStatus, setEuroStatus] = useState("");
+  const [euroFromDvla, setEuroFromDvla] = useState(false);
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
+  const [catalogueOpen, setCatalogueOpen] = useState(false);
+  const [resolvedVrm, setResolvedVrm] = useState<string | undefined>();
   const [mpg, setMpg] = useState("40");
   const [tank, setTank] = useState("55");
   const [miKwh, setMiKwh] = useState("3.8");
@@ -600,7 +604,7 @@ export function EstimatePage() {
     if (Number.isFinite(year) && year >= 1970) profile.year = year;
     if (euroStatus) {
       profile.euroStatus = euroStatus;
-      profile.euroStatusSource = "derived";
+      profile.euroStatusSource = euroFromDvla ? "dvla" : "derived";
     }
     if (catalogue) {
       profile.make = catalogue.make;
@@ -639,6 +643,22 @@ export function EstimatePage() {
     setOverrideMiKwh("");
   }
 
+  function applyVes(ves: VesSummary, vrm: string) {
+    setResolvedVrm(vrm);
+    if (ves.year !== undefined) setVehicleYear(String(ves.year));
+    const euro = euroFromVes(ves.euroStatus);
+    if (euro) {
+      setEuroStatus(euro);
+      setEuroFromDvla(true);
+    }
+    setPropulsion(ves.propulsion);
+  }
+
+  function onPickFromReg(vehicle: CatalogueVehicle, vrm: string, ves: VesSummary) {
+    onPickCar(vehicle);
+    applyVes(ves, vrm);
+  }
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const body = buildEstimateBody();
@@ -669,6 +689,7 @@ export function EstimatePage() {
         body: JSON.stringify({
           nickname: catalogue ? `${catalogue.make} ${catalogue.model}` : `${propulsion} car`,
           ...vehicleInline(),
+          ...(resolvedVrm ? { vrm: resolvedVrm } : {}),
         }),
       });
       const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
@@ -1068,7 +1089,19 @@ export function EstimatePage() {
         {vehicleId === "inline" ? (
           <>
             <FormItem>
-              <VehicleCatalogue selected={catalogue} onSelect={onPickCar} />
+              <RegLookup
+                onPick={onPickFromReg}
+                onChangeCar={() => setCatalogueOpen(true)}
+                onVesOnly={applyVes}
+              />
+            </FormItem>
+            <FormItem>
+              <VehicleCatalogue
+                selected={catalogue}
+                onSelect={onPickCar}
+                open={catalogueOpen}
+                onOpenChange={setCatalogueOpen}
+              />
             </FormItem>
             <FormItem>
               <Label>Propulsion</Label>
@@ -1127,7 +1160,10 @@ export function EstimatePage() {
               <Label>Euro standard</Label>
               <Select
                 value={euroStatus || "unknown"}
-                onValueChange={(v) => setEuroStatus(v === "unknown" ? "" : v)}
+                onValueChange={(v) => {
+                  setEuroStatus(v === "unknown" ? "" : v);
+                  setEuroFromDvla(false);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Unknown" />

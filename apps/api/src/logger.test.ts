@@ -12,8 +12,18 @@ describe("redaction", () => {
     expect(joined).toMatch(/REDACTED_VRM/);
   });
 
-  it("redact helper is the unit under test for the gate", () => {
-    const out = redact({ plate: "AB12CDE" }) as { plate: string };
+  it("strips VES registrationNumber as well", () => {
+    const out = redact({
+      registrationNumber: "AB12CDE",
+      registration_number: "XY98ZAB",
+      plate: "AB12CDE",
+    }) as {
+      registrationNumber: string;
+      registration_number: string;
+      plate: string;
+    };
+    expect(out.registrationNumber).toBe("[REDACTED_VRM]");
+    expect(out.registration_number).toBe("[REDACTED_VRM]");
     expect(out.plate).toBe("[REDACTED_VRM]");
   });
 

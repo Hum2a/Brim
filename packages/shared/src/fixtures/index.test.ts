@@ -24,4 +24,11 @@ describe("loadFixture", () => {
     );
     expect(rows.some((r) => r.region === "GB" && r.intensityGPerKwh === 190)).toBe(true);
   });
+
+  it("returns dummy DVLA VES bodies when enabled", () => {
+    const dvla = loadFixture<{ ves: Record<string, { make: string; euroStatus: string }> }>("dvla", "1");
+    expect(dvla.ves.AB12CDE?.make).toBe("VOLKSWAGEN");
+    expect(dvla.ves.ZZ99ZZZ?.euroStatus).toBe("EURO 5");
+    expect(JSON.stringify(dvla)).not.toMatch(/registrationNumber/i);
+  });
 });

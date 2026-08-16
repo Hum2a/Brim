@@ -20,6 +20,7 @@ import {
   listVehiclesHandler,
   patchVehicleHandler,
 } from './vehicles.js';
+import { handleVehiclesResolve } from './vehicles-resolve.js';
 import {
   getCatalogueHandler,
   listCatalogueHandler,
@@ -96,6 +97,7 @@ app.get('/v1/vehicles/catalogue/makes', listMakesHandler);
 app.get('/v1/vehicles/catalogue/models', listModelsHandler);
 app.get('/v1/vehicles/catalogue', listCatalogueHandler);
 app.get('/v1/vehicles/catalogue/:id', getCatalogueHandler);
+app.post('/v1/vehicles/resolve', handleVehiclesResolve);
 app.get('/v1/vehicles', listVehiclesHandler);
 app.post('/v1/vehicles', createVehicleHandler);
 app.patch('/v1/vehicles/:id', patchVehicleHandler);

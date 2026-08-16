@@ -26,7 +26,7 @@ function fixtureVehicles(flag: string | undefined): VcaVehicle[] {
   return loadFixture<VcaVehicle[]>('vca-vehicles', flag);
 }
 
-function rowToVca(row: typeof vcaVehicles.$inferSelect): VcaVehicle | undefined {
+export function rowToVca(row: typeof vcaVehicles.$inferSelect): VcaVehicle | undefined {
   const fuel = propulsionSchema.safeParse(row.fuel);
   const unit = consumptionUnitSchema.safeParse(row.unit);
   const cycle = testCycleSchema.safeParse(row.cycle);

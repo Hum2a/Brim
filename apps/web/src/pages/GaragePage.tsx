@@ -11,6 +11,8 @@ import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
 import { api } from "../api.js";
 import { AuthPanel } from "../AuthPanel.js";
+import { euroFromVes, RegLookup, type VesSummary } from "../RegLookup.js";
+import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +88,10 @@ export function GaragePage() {
   const [price, setPrice] = useState("");
   const [brim, setBrim] = useState(true);
   const [note, setNote] = useState("");
+  const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
+  const [catalogueOpen, setCatalogueOpen] = useState(false);
+  const [pendingVrm, setPendingVrm] = useState<string | undefined>();
+  const [pendingVes, setPendingVes] = useState<VesSummary | undefined>();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -228,7 +234,71 @@ export function GaragePage() {
     }
   }
 
+  async function addFromCatalogue(vehicle: CatalogueVehicle, vrm?: string, ves?: VesSummary) {
+    try {
+      const euro = euroFromVes(ves?.euroStatus);
+      await api("/v1/vehicles", {
+        method: "POST",
+        body: JSON.stringify({
+          nickname: `${vehicle.make} ${vehicle.model}`,
+          kind: "car",
+          propulsion: vehicle.propulsion,
+          make: vehicle.make,
+          model: vehicle.model,
+          ...(vehicle.derivative ? { derivative: vehicle.derivative } : {}),
+          ...(vehicle.transmission ? { transmission: vehicle.transmission } : {}),
+          ...(vehicle.engineCc !== undefined ? { engineCc: vehicle.engineCc } : {}),
+          ...(vehicle.co2Gkm !== undefined ? { co2Gkm: vehicle.co2Gkm } : {}),
+          officialConsumption: vehicle.officialConsumption,
+          officialUnit: vehicle.officialUnit,
+          officialCycle: vehicle.officialCycle,
+          vcaMatchId: vehicle.id,
+          ...(ves?.year !== undefined ? { year: ves.year } : {}),
+          ...(euro ? { euroStatus: euro, euroStatusSource: ves?.euroStatus ? "dvla" : "derived" } : {}),
+          ...(vrm ? { vrm } : {}),
+        }),
+      });
+      setCatalogue(null);
+      setPendingVrm(undefined);
+      setPendingVes(undefined);
+      toast("Car saved.");
+      await refresh();
+    } catch {
+      setAuthOpen(true);
+    }
+  }
+
   const electric = vehicle?.propulsion === "bev" || vehicle?.propulsion === "phev";
+  const addCar = (
+    <div className="grid gap-4">
+      <RegLookup
+        onPick={(vehicleHit, vrm, ves) => {
+          setPendingVrm(vrm);
+          setPendingVes(ves);
+          setCatalogue(vehicleHit);
+        }}
+        onChangeCar={() => setCatalogueOpen(true)}
+        onVesOnly={(ves, vrm) => {
+          setPendingVrm(vrm);
+          setPendingVes(ves);
+        }}
+      />
+      <VehicleCatalogue
+        selected={catalogue}
+        onSelect={(next) => {
+          setCatalogue(next);
+          if (next) void addFromCatalogue(next, pendingVrm, pendingVes);
+        }}
+        open={catalogueOpen}
+        onOpenChange={setCatalogueOpen}
+      />
+      {catalogue && pendingVrm ? (
+        <Button type="button" onClick={() => void addFromCatalogue(catalogue, pendingVrm, pendingVes)}>
+          Add this car
+        </Button>
+      ) : null}
+    </div>
+  );
 
   return (
     <main className="mx-auto w-[min(720px,calc(100%-1.5rem))] py-8">
@@ -245,12 +315,16 @@ export function GaragePage() {
         ) : vehicles.length === 0 ? (
           <m.div variants={reveal}>
             <Card>
-              <p>Add your car and we will stop guessing.</p>
-              <p className="mt-2 text-sm text-mist">Save a car from an estimate. Sign in if you want it on other devices.</p>
+              <p className="mb-4">Add your car and we will stop guessing.</p>
+              {addCar}
             </Card>
           </m.div>
         ) : (
           <>
+            <Card className="mb-6">
+              <p className="mb-3 text-sm text-mist">Add another car</p>
+              {addCar}
+            </Card>
             <ul className="mb-6 grid gap-2">
               {vehicles.map((v) => (
                 <li key={v.id}>
