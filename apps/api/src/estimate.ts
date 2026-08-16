@@ -31,6 +31,7 @@ import { ownerFromContext } from './session.js';
 import { getDefaultTariff, getCalibration, getVehicle, persistLive, ytdMiles } from './db/repo.js';
 import { resolveEstimatePrice } from './prices.js';
 import { loadGridIntensity, resolveEstimateEvPrice, resolveForecastTemp } from './ev.js';
+import { defaultDepartsAt, detectChargeHits, resolveRouteCharges } from './charges.js';
 import type { BrimDb } from './db/types.js';
 import type { VehicleRow } from './db/memory.js';
 
@@ -188,6 +189,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
         : 'l/100km';
 
   const nowIso = body.nowIso ?? body.departsAt ?? '1970-01-01T00:00:00Z';
+  const departsAt = defaultDepartsAt(c.env, body.departsAt ?? body.nowIso);
   const tariff = body.vehicleId
     ? await getDefaultTariff(db, session.ownerId, body.vehicleId)
     : undefined;
@@ -263,7 +265,12 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
     }
   }
 
-  const estimateFor = (distanceMeters: number, durationSeconds: number, providerFuel?: number) =>
+  const estimateFor = (
+    distanceMeters: number,
+    durationSeconds: number,
+    charges: ReturnType<typeof resolveRouteCharges>['charges'],
+    providerFuel?: number,
+  ) =>
     computeEstimate({
       distanceMeters,
       durationSeconds,
@@ -296,18 +303,28 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
       ...(forecastTempC !== undefined ? { forecastTempC } : {}),
       ...(gridIntensityGPerKwh !== undefined ? { gridIntensityGPerKwh } : {}),
       ...(liquidPricePence !== undefined ? { liquidPricePence } : {}),
-      charges: [],
+      charges,
     });
+
+  const primaryResolved = resolveRouteCharges({
+    hits: await detectChargeHits(c.env, db, route.encodedPolyline),
+    ...(vehicleInline ? { vehicle: vehicleInline } : {}),
+    departsAt,
+    durationSeconds: route.durationSeconds,
+  });
 
   const estimate = estimateFor(
     route.distanceMeters,
     route.durationSeconds,
+    primaryResolved.charges,
     route.providerFuelLitres,
   );
 
   if (priceReason) estimate.reasons.push(priceReason);
   if (intensityReason) estimate.reasons.push(intensityReason);
   if (priceWarning) estimate.warnings.push(priceWarning);
+  estimate.reasons.push(...primaryResolved.reasons);
+  estimate.warnings.push(...primaryResolved.warnings);
 
   if (chosen.exceeded) {
     estimate.reasons.push(
@@ -321,17 +338,25 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   const shape = decodePolyline(route.encodedPolyline);
   const start = route.start ?? shape[0];
   const end = route.end ?? shape[shape.length - 1];
-  const alternatives = (route.alternatives ?? []).map((alt) => {
-    const priced = estimateFor(alt.distanceMeters, alt.durationSeconds);
-    return {
-      id: alt.id,
-      label: alt.label,
-      distanceMeters: alt.distanceMeters,
-      durationSeconds: alt.durationSeconds,
-      encodedPolyline: alt.encodedPolyline,
-      costPence: priced.cost.totalPence.point,
-    };
-  });
+  const alternatives = await Promise.all(
+    (route.alternatives ?? []).map(async (alt) => {
+      const altResolved = resolveRouteCharges({
+        hits: await detectChargeHits(c.env, db, alt.encodedPolyline),
+        ...(vehicleInline ? { vehicle: vehicleInline } : {}),
+        departsAt,
+        durationSeconds: alt.durationSeconds,
+      });
+      const priced = estimateFor(alt.distanceMeters, alt.durationSeconds, altResolved.charges);
+      return {
+        id: alt.id,
+        label: alt.label,
+        distanceMeters: alt.distanceMeters,
+        durationSeconds: alt.durationSeconds,
+        encodedPolyline: alt.encodedPolyline,
+        costPence: priced.cost.totalPence.point,
+      };
+    }),
+  );
   const waypointPins = (waypoints ?? [])
     .map((w) => pinFrom(w, undefined))
     .filter((p): p is { label: string; lat: number; lng: number } => Boolean(p));

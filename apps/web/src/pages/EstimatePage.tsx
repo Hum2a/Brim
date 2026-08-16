@@ -68,6 +68,7 @@ type EvNetworkRow = {
   pencePerKwh: number;
 };
 type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
+type VehicleKind = "car" | "van" | "motorcycle";
 type Estimate = {
   cost: {
     totalPence: { point: number; low: number; high: number };
@@ -84,7 +85,14 @@ type Estimate = {
   hmrc?: { approvedPence: number; ytdMiles: number; crossedThreshold: boolean };
   distanceMeters: number;
   durationSeconds: number;
-  charges: unknown[];
+  charges: Array<{
+    id: string;
+    kind: "toll" | "zone_charge" | "restriction";
+    name: string;
+    pence: number;
+    operatorUrl?: string;
+    note?: string;
+  }>;
   encodedPolyline?: string;
   origin?: Place;
   destination?: Place;
@@ -163,6 +171,9 @@ export function EstimatePage() {
   const [focusStop, setFocusStop] = useState<FocusStop>("origin");
   const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>();
   const [propulsion, setPropulsion] = useState<Propulsion>("petrol");
+  const [vehicleKind, setVehicleKind] = useState<VehicleKind>("car");
+  const [vehicleYear, setVehicleYear] = useState("");
+  const [euroStatus, setEuroStatus] = useState("");
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
   const [mpg, setMpg] = useState("40");
   const [tank, setTank] = useState("55");
@@ -562,9 +573,15 @@ export function EstimatePage() {
     const hasOverride = overrideRaw.trim() !== "" && Number.isFinite(overrideNum) && overrideNum > 0;
 
     const profile: Record<string, unknown> = {
-      kind: "car",
+      kind: vehicleKind,
       propulsion,
     };
+    const year = Number(vehicleYear);
+    if (Number.isFinite(year) && year >= 1970) profile.year = year;
+    if (euroStatus) {
+      profile.euroStatus = euroStatus;
+      profile.euroStatusSource = "derived";
+    }
     if (catalogue) {
       profile.make = catalogue.make;
       profile.model = catalogue.model;
@@ -1048,6 +1065,48 @@ export function EstimatePage() {
                 </Select>
               )}
             </FormItem>
+            <FormItem>
+              <Label>Vehicle class</Label>
+              <Select value={vehicleKind} onValueChange={(v) => setVehicleKind(v as VehicleKind)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="car">Car</SelectItem>
+                  <SelectItem value="van">Van</SelectItem>
+                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+            <FormItem>
+              <Label htmlFor="year">Year of first registration</Label>
+              <Input
+                id="year"
+                className="tabular"
+                inputMode="numeric"
+                value={vehicleYear}
+                onChange={(ev) => setVehicleYear(ev.target.value)}
+                placeholder="Optional"
+              />
+            </FormItem>
+            <FormItem>
+              <Label>Euro standard</Label>
+              <Select
+                value={euroStatus || "unknown"}
+                onValueChange={(v) => setEuroStatus(v === "unknown" ? "" : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Unknown" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unknown">Unknown</SelectItem>
+                  <SelectItem value="Euro 3">Euro 3</SelectItem>
+                  <SelectItem value="Euro 4">Euro 4</SelectItem>
+                  <SelectItem value="Euro 5">Euro 5</SelectItem>
+                  <SelectItem value="Euro 6">Euro 6</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
             {propulsion === "bev" || (propulsion === "phev" && !catalogue) ? (
               <>
                 <FormItem>
@@ -1210,9 +1269,40 @@ export function EstimatePage() {
             </AccordionItem>
           </Accordion>
         </m.div>
+        {estimate.charges.length > 0 ? (
+          <m.ul variants={reveal} className="mt-3 grid gap-2 text-sm">
+            {estimate.charges.map((charge) => (
+              <li key={charge.id} className="flex flex-wrap items-baseline justify-between gap-2">
+                <span>
+                  {charge.name}
+                  {charge.kind === "restriction" ? (
+                    <span className="block text-warning">
+                      {charge.note ?? "Your vehicle cannot enter this zone."}
+                    </span>
+                  ) : null}
+                </span>
+                {charge.kind === "restriction" ? (
+                  <span className="text-mist">No charge</span>
+                ) : (
+                  <span className="tabular">£{(charge.pence / 100).toFixed(2)}</span>
+                )}
+                {charge.operatorUrl ? (
+                  <a
+                    href={charge.operatorUrl}
+                    className="basis-full text-sm underline"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Check with the operator
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </m.ul>
+        ) : null}
         <m.p variants={reveal} className="mt-3 text-sm text-mist">
-          Charges such as ULEZ and Dart Charge are not in this number yet. They will appear here
-          when the charges layer ships.
+          Brim is an estimate. You remain responsible for paying or staying out. Cars, vans and
+          motorcycles only; HGV, bus and taxi classes are not modelled.
         </m.p>
         <m.div variants={reveal} className="mt-4 flex flex-wrap gap-2">
           <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>

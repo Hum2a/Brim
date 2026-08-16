@@ -24,6 +24,10 @@
           "run": "npm ci"
         },
         {
+          "name": "Zone freshness",
+          "run": "npm run data:verify-zones"
+        },
+        {
           "name": "Check",
           "run": "npm run check"
         },

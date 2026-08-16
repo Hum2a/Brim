@@ -71,3 +71,10 @@ export {
   parseLatLngString,
   type LatLng,
 } from './polyline.js';
+export * from './zones/index.js';
+export {
+  CHARGE_JOURNEY_SET,
+  journeyHits,
+  type ChargeJourneyCase,
+  type ChargeJourneyExpected,
+} from './fixtures/charge-journeys.js';

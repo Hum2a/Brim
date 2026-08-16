@@ -289,4 +289,20 @@ export {
   type CalibrationFromFillUps,
   type FillUpSample,
 } from "./consumption/calibrate.js";
+export {
+  complianceForZone,
+  daysWindowApplies,
+  deriveEuroFromYear,
+  localDaysTouched,
+  londonParts,
+  parseEuroStatus,
+  resolveCharges,
+  resolveEuro,
+  windowApplies,
+  type ChargeHitInput,
+  type ComplianceResult,
+  type ComplianceVerdict,
+  type ResolveChargesInput,
+  type ResolveChargesResult,
+} from "./charges/index.js";
 

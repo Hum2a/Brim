@@ -49,6 +49,7 @@ import {
 } from './journeys.js';
 import { handleMetaPrices, handleStationsNear } from './stations.js';
 import { handleMetaEvTariffs } from './ev.js';
+import { handleChargesForRoute, handleVehicleCompliance, handleZones } from './charges.js';
 
 const app = new Hono<{ Bindings: ApiBindings }>();
 
@@ -79,6 +80,9 @@ app.post('/v1/estimate/from-maps-url', handleFromMapsUrl);
 app.get('/v1/stations/near', handleStationsNear);
 app.get('/v1/meta/prices', handleMetaPrices);
 app.get('/v1/meta/ev-tariffs', handleMetaEvTariffs);
+app.get('/v1/zones', handleZones);
+app.get('/v1/charges/for-route', handleChargesForRoute);
+app.post('/v1/charges/for-route', handleChargesForRoute);
 
 app.get('/v1/auth/session', sessionHandler);
 app.post('/v1/auth/claim-anon', claimAnonHandler);
@@ -94,6 +98,7 @@ app.get('/v1/vehicles', listVehiclesHandler);
 app.post('/v1/vehicles', createVehicleHandler);
 app.patch('/v1/vehicles/:id', patchVehicleHandler);
 app.delete('/v1/vehicles/:id', deleteVehicleHandler);
+app.get('/v1/vehicles/:id/compliance', handleVehicleCompliance);
 app.get('/v1/vehicles/:id/tariffs', listTariffsHandler);
 app.post('/v1/vehicles/:id/tariffs', createTariffHandler);
 app.get('/v1/vehicles/:id/fill-ups', listFillUpsHandler);

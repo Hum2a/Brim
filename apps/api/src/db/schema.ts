@@ -210,6 +210,7 @@ export const zones = pgTable('zones', {
   isRestriction: boolean('is_restriction').notNull(),
   appliesHoursJson: jsonb('applies_hours_json'),
   sourceUrl: text('source_url'),
+  operatorUrl: text('operator_url'),
   verifiedOn: date('verified_on'),
   datasetVersion: text('dataset_version'),
 });
@@ -221,6 +222,7 @@ export const tolls = pgTable('tolls', {
   chargePenceByClassJson: jsonb('charge_pence_by_class_json'),
   appliesHoursJson: jsonb('applies_hours_json'),
   sourceUrl: text('source_url'),
+  operatorUrl: text('operator_url'),
   verifiedOn: date('verified_on'),
 });
 

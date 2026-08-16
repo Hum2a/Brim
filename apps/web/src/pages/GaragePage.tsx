@@ -6,6 +6,7 @@ import { Card } from "@brim/ui-kit/card";
 import { Form, FormItem } from "@brim/ui-kit/form";
 import { Input } from "@brim/ui-kit/input";
 import { Label } from "@brim/ui-kit/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
 import { api } from "../api.js";
@@ -22,6 +23,9 @@ type Vehicle = {
   id: string;
   nickname?: string;
   propulsion: string;
+  kind?: string;
+  year?: number;
+  euro_status?: string;
   make?: string;
   model?: string;
   tank_litres?: number;
@@ -72,6 +76,9 @@ export function GaragePage() {
   const [offpeakWindow, setOffpeakWindow] = useState("");
   const [hasHeatPump, setHasHeatPump] = useState(false);
   const [nickname, setNickname] = useState("");
+  const [kind, setKind] = useState("car");
+  const [year, setYear] = useState("");
+  const [euroStatus, setEuroStatus] = useState("");
   const [tank, setTank] = useState("");
   const [battery, setBattery] = useState("");
   const [odo, setOdo] = useState("");
@@ -106,6 +113,9 @@ export function GaragePage() {
       return;
     }
     setNickname(vehicle.nickname ?? "");
+    setKind(vehicle.kind ?? "car");
+    setYear(vehicle.year !== undefined ? String(vehicle.year) : "");
+    setEuroStatus(vehicle.euro_status ?? "");
     setTank(vehicle.tank_litres !== undefined ? String(vehicle.tank_litres) : "");
     setBattery(vehicle.battery_kwh_usable !== undefined ? String(vehicle.battery_kwh_usable) : "");
     setHasHeatPump(vehicle.has_heat_pump === true);
@@ -136,6 +146,10 @@ export function GaragePage() {
         method: "PATCH",
         body: JSON.stringify({
           nickname: nickname || undefined,
+          kind,
+          year: year ? Number(year) : undefined,
+          euroStatus: euroStatus || undefined,
+          euroStatusSource: euroStatus ? "derived" : undefined,
           tankLitres: tank ? Number(tank) : undefined,
           batteryKwhUsable: battery ? Number(battery) : undefined,
           hasHeatPump,
@@ -263,6 +277,27 @@ export function GaragePage() {
                     <FormItem>
                       <Label htmlFor="nick">Nickname</Label>
                       <Input id="nick" value={nickname} onChange={(ev) => setNickname(ev.target.value)} />
+                    </FormItem>
+                    <FormItem>
+                      <Label>Vehicle class</Label>
+                      <Select value={kind} onValueChange={setKind}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="car">Car</SelectItem>
+                          <SelectItem value="van">Van</SelectItem>
+                          <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                    <FormItem>
+                      <Label htmlFor="year">Year of first registration</Label>
+                      <Input id="year" className="tabular" value={year} onChange={(ev) => setYear(ev.target.value)} />
+                    </FormItem>
+                    <FormItem>
+                      <Label htmlFor="euro">Euro standard</Label>
+                      <Input id="euro" value={euroStatus} onChange={(ev) => setEuroStatus(ev.target.value)} placeholder="Euro 6" />
                     </FormItem>
                     {electric ? (
                       <>

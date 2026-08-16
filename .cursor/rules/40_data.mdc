@@ -9,4 +9,4 @@ Glob: `data/**`, `scripts/**`
 - Zone GeoJSON is versioned and dated with `source_url` and `verified_on`.
 - Store raw Fuel Finder payloads beside normalised rows.
 - `data:verify-zones` fails CI when a zone has not been re-verified in 180 days.
-- All `db:*` and `data:*` commands use `with-env.mjs`.
+- All `db:*` and `data:*` commands use `with-env.mjs`, except `data:verify-zones` which is a file-only freshness gate.

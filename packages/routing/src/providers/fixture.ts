@@ -81,6 +81,46 @@ const RECORDED: RecordedRoute[] = [
     durationSeconds: 5400,
     encodedPolyline: line("Newcastle", "York"),
   },
+  {
+    id: "bristol-bath",
+    origin: "Bristol",
+    destination: "Bath",
+    distanceMeters: 21000,
+    durationSeconds: 2400,
+    encodedPolyline: line("Bristol", "Bath"),
+  },
+  {
+    id: "dartford-thurrock",
+    origin: "Dartford",
+    destination: "Thurrock",
+    distanceMeters: 9000,
+    durationSeconds: 900,
+    encodedPolyline: line("Dartford", "Thurrock"),
+  },
+  {
+    id: "coleshill-cannock",
+    origin: "Coleshill",
+    destination: "Cannock",
+    distanceMeters: 28000,
+    durationSeconds: 1500,
+    encodedPolyline: line("Coleshill", "Cannock"),
+  },
+  {
+    id: "runcorn-widnes",
+    origin: "Runcorn",
+    destination: "Widnes",
+    distanceMeters: 5000,
+    durationSeconds: 480,
+    encodedPolyline: line("Runcorn", "Widnes"),
+  },
+  {
+    id: "jarrow-howdon",
+    origin: "Jarrow",
+    destination: "Howdon",
+    distanceMeters: 4000,
+    durationSeconds: 420,
+    encodedPolyline: line("Jarrow", "Howdon"),
+  },
 ];
 
 export class FixtureProvider implements RoutingProvider {

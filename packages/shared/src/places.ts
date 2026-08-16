@@ -26,6 +26,15 @@ export const UK_PLACES: PlaceHit[] = [
   { label: "High Street, Crawley", lat: 51.1145, lng: -0.1878 },
   { label: "Victoria Street, London", lat: 51.4975, lng: -0.1372 },
   { label: "Deansgate, Manchester", lat: 53.4787, lng: -2.248 },
+  { label: "Bath", lat: 51.3811, lng: -2.359 },
+  { label: "Dartford", lat: 51.4464, lng: 0.2165 },
+  { label: "Thurrock", lat: 51.4781, lng: 0.3268 },
+  { label: "Coleshill", lat: 52.4995, lng: -1.7066 },
+  { label: "Cannock", lat: 52.689, lng: -2.0307 },
+  { label: "Runcorn", lat: 53.341, lng: -2.731 },
+  { label: "Widnes", lat: 53.363, lng: -2.728 },
+  { label: "Jarrow", lat: 54.981, lng: -1.47 },
+  { label: "Howdon", lat: 54.997, lng: -1.474 },
 ].map((p) => ({ ...p, placeId: fixturePlaceId(p.label) }));
 
 export function searchPlaces(query: string, places: PlaceHit[] = UK_PLACES): PlaceHit[] {

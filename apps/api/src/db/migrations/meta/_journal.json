@@ -50,6 +50,13 @@
       "when": 1722988800000,
       "tag": "0007_grid_intensity_pk",
       "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1723075200000,
+      "tag": "0008_zones_multipolygon",
+      "breakpoints": false
     }
   ]
 }

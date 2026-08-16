@@ -81,7 +81,7 @@ Glob: `packages/engine/**`
 - Zero runtime I/O. Lint must fail on `fetch`, `Date.now`, `process.env`, `fs`, and Cloudflare bindings.
 - Consumption tier chain is strictly 0→4. Always return the tier label from spec §5.2.
 - Missing optional inputs degrade a tier, append a reason, and still return a result. Never throw for missing optionals.
-- Charges are accepted as an input array; this package does not resolve them.
+- Geometry I/O stays outside this package. Window, compliance, restriction-vs-charge, and calendar-day dedup live here as `resolveCharges`. `computeEstimate` still only sums the charge array.
 
 ## API (apps/api, workers/sync)
 
@@ -109,6 +109,6 @@ Glob: `data/**`, `scripts/**`
 - Zone GeoJSON is versioned and dated with `source_url` and `verified_on`.
 - Store raw Fuel Finder payloads beside normalised rows.
 - `data:verify-zones` fails CI when a zone has not been re-verified in 180 days.
-- All `db:*` and `data:*` commands use `with-env.mjs`.
+- All `db:*` and `data:*` commands use `with-env.mjs`, except `data:verify-zones` which is a file-only freshness gate.
 
 

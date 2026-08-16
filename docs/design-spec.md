@@ -673,10 +673,11 @@ station_prices   station_id, grade ('E10'|'E5'|'B7'|'SDV'|'LPG'), price_tenths_p
 
 zones            id, name, authority, kind ('caz'|'ulez'|'congestion'|'lez'),
                  caz_class?, charge_pence?, is_restriction, applies_hours_json,
-                 geometry geography(Polygon,4326), source_url, verified_on, dataset_version
+                 geometry geography(MultiPolygon,4326), source_url, operator_url,
+                 verified_on, dataset_version
 
 tolls            id, name, operator, location geography, charge_pence_by_class_json,
-                 applies_hours_json, source_url, verified_on
+                 applies_hours_json, source_url, operator_url, verified_on
 
 vca_vehicles     id, make, model, derivative, fuel, engine_cc, transmission,
                  co2_gkm, consumption_combined, unit, cycle, dataset_version
@@ -867,7 +868,7 @@ dev:web / dev:api / dev:ext / dev:all / dev:fixtures
 build:web / build:api / build:ext
 test / test:watch / test:ci / test:rls / test:e2e
 db:generate / db:migrate / db:migrate:development / db:migrate:staging / db:migrate:production / db:migrate:all / db:studio / db:force-rls / db:rls:check / db:seed
-data:sync-fuel / data:sync-fuel:staging / data:sync-fuel:prod / data:sync-vca / data:sync-vca:staging / data:sync-vca:prod / data:sync-carbon / data:sync-carbon:staging / data:sync-carbon:prod / data:normalise-check / data:verify-zones
+data:sync-fuel / data:sync-fuel:staging / data:sync-fuel:prod / data:sync-vca / data:sync-vca:staging / data:sync-vca:prod / data:sync-carbon / data:sync-carbon:staging / data:sync-carbon:prod / data:load-zones / data:load-zones:staging / data:load-zones:prod / data:normalise-check / data:verify-zones
 env:setup / env:merge / env:sync / env:sync:staging / env:sync:prod / cf:sync / cf:sync:staging / cf:sync:prod / rules:sync / rules:check / ignore:sync
 check / ship-it / doctor / git:unlock / clean / reset / size
 deploy:staging / deploy:prod / deploy:preview / deploy:all / deploy:sync:staging / deploy:sync:prod
@@ -1005,6 +1006,7 @@ P9–P10 are weeks of fiddly work and should be paid for by demonstrated demand.
 8. **Monetisation** - free, no ads, no paid tier, no data sale. Cost controlled rather than offset (§14, §20).
 9. **Posture** - real product, not a portfolio piece. This is why §9B.6, §16 privacy and §24 exist in this form.
 10. **EV public charging prices** - hand-maintain a dated per-network table (`data/tariffs/networks.json`), user-editable on the estimate. Home tariffs remain the honest default. Closing §26.4.
+11. **Vans and motorcycles** - in for v1. CAZ C charges vans and not cars; motorcycles follow the scheme rules (ULEZ Euro 3+, London CC exempt). HGV, PSV and taxi classes remain out. Closing §26.5.
 
 ## 26. Remaining open questions
 
@@ -1012,4 +1014,3 @@ P9–P10 are weeks of fiddly work and should be paid for by demonstrated demand.
 2. **Confirm the MIT/AGPL split** - a single MIT licence across everything is simpler and better portfolio surface; AGPL on the apps is better protection. Pick before the first public commit; relicensing after contributions arrive is painful.
 3. **Who owns zone data maintenance** once schemes change - is `data:verify-zones` failing CI enough, or does this need a calendar reminder and a named owner?
 4. **OSRM hosting** - self-host on a small VPS, or use a public demo endpoint for the fallback? Public endpoints have no availability guarantee, which undermines the point of a failover.
-5. **Vans and motorcycles** - CAZ classes treat them differently from cars, and supporting them roughly doubles the compliance matrix. In for v1, or cars only with a clear "cars only" statement?
