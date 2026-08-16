@@ -35,6 +35,7 @@ export type EstimateInput = {
   charging?: "acHome" | "dcRapid" | undefined;
   forecastTempC?: number | undefined;
   gridIntensityGPerKwh?: number | undefined;
+  liquidPricePence?: number | undefined;
   nowIso?: string | undefined;
   charges?: Charge[] | undefined;
 };
@@ -178,6 +179,7 @@ export function computeEstimate(input: EstimateInput): Estimate {
         hasHeatPump: input.vehicle?.hasHeatPump === true,
         gridIntensityGPerKwh: input.gridIntensityGPerKwh ?? 150,
       });
+      reasons.push(...evPart.reasons);
       const iceResolved = resolveConsumption({
         kind: "liquid",
         propulsion: "petrol",
@@ -187,7 +189,8 @@ export function computeEstimate(input: EstimateInput): Estimate {
       const ice = estimateIce({
         distanceMeters: iceKm * 1000,
         lPer100km: iceResolved.value,
-        pricePencePerLitre: input.priceUnit === "ppl" ? input.pricePence : 140,
+        pricePencePerLitre:
+          input.priceUnit === "ppl" ? input.pricePence : (input.liquidPricePence ?? 140),
         propulsion: "petrol",
         halfWidth,
       });

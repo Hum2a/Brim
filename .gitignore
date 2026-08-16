@@ -29,3 +29,5 @@ data/vca/raw/*
 !data/vca/raw/.gitkeep
 data/fuel-finder/raw/*
 !data/fuel-finder/raw/.gitkeep
+data/carbon/raw/*
+!data/carbon/raw/.gitkeep

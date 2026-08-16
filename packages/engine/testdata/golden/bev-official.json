@@ -45,6 +45,7 @@
   "reasons": [
     "Adjusted the official figure up 15% - official tests run optimistic.",
     "No road mix available, so we left consumption unadjusted and widened the range.",
+    "Forecast was 2°C, so we increased energy use by 12.5%. Heat pump halved the extra use.",
     "Cost is billed on energy drawn from the grid, not energy in the battery."
   ],
   "warnings": []

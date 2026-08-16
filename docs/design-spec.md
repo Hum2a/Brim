@@ -217,20 +217,24 @@ journey date:
 ```
 Applied only when a forecast temperature is available for the journey window; otherwise skipped,
 with a reason string. Heat-pump-equipped vehicles get a reduced penalty (halve the uplift) where
-the VCA/derivative data indicates one.
+the VCA/derivative data indicates one, or where the user has said the car has a heat pump.
+Forecast temperature comes from Open-Meteo at the origin for `departsAt` (no API key). Fail open:
+omit the temperature and keep the skip reason.
 
 **Grid carbon intensity** comes from the National Grid ESO Carbon Intensity API - free, no key,
-regional and forecast gCO₂/kWh. This makes Brim's EV carbon figure materially better than the
-flat national average everyone else uses.
+national GB forecast and actual gCO₂/kWh at leave time, ingested by `data:sync-carbon` and the
+sync Worker. Regional DNO mapping is a follow-up; v1 names the national series in the reason.
+If no row covers `departsAt`, use 150 g/kWh and say so. This is still better than a silent flat
+average.
 
 ### 5.6 EV price sources - the honest gap
 
 There is **no statutory open feed for EV charging prices**. Fuel Finder covers motor fuel only.
 So:
 
-1. Home tariff - user-entered p/kWh, with an off-peak rate and window (Octopus Go, Intelligent, Economy 7 patterns are the common shapes)
-2. Public network averages - a hand-maintained, dated table in the repo per network and speed tier, user-editable
-3. Fallback national average with a loud low-confidence reason
+1. Home tariff - user-entered p/kWh, with an off-peak rate and window (Octopus Go, Intelligent, Economy 7 patterns are the common shapes). If an off-peak rate is set, home estimates use it (typical overnight charge) and say so. Leave time is not charge time, so the window is stored and shown, not matched against `departsAt`.
+2. Public network averages - a hand-maintained, dated table in `data/tariffs/networks.json` per network and speed tier, user-editable on the estimate. Served as `GET /v1/meta/ev-tariffs`. Public DC uses charging efficiency `dcRapid`.
+3. Fallback dated constant (home ~7.5 p/kWh, public ~70 p/kWh) with source `hardcoded-fallback` and a loud `price-data-unavailable` warning. Never labelled `national-median`.
 
 Say this plainly in the UI. "Petrol prices are live from the government feed. EV charging prices
 are estimates you can correct." Users forgive a stated limitation and punish a hidden one.
@@ -292,7 +296,8 @@ type Estimate = {
 | **Fuel Finder (CMA/DBT)** | per-forecourt prices by grade, site details, hours | OGL v3.0, free | OAuth2 client credentials, **30 req/min sequential only** (HTTP 429 if a second request starts before the previous finishes), ~8,000 forecourts, 30-min update obligation |
 | **DVLA VES API** | make, fuel type, engine capacity, CO₂, year, Euro status | Free, API key, terms-bound | **No model or derivative, no mpg** |
 | **VCA car fuel data** | official mpg / kWh / CO₂ by derivative | Downloadable dataset | Bulk-load via `data:sync-vca` (session cookie, then `download.aspx` / ZIP). **UK type-approved cars only** - not motorcycles, grey imports, or kit cars. No live API; make/model search is `GET /v1/vehicles/catalogue` |
-| **National Grid ESO Carbon Intensity** | gCO₂/kWh, regional + forecast | Free, no key | EV carbon accuracy |
+| **National Grid ESO Carbon Intensity** | gCO₂/kWh, national GB forecast + actual | Free, no key | EV carbon. Sync via `data:sync-carbon` / `workers/sync`; never on the estimate request path. Regional DNO mapping is a follow-up |
+| **Open-Meteo** | hourly `temperature_2m` at origin | Free, no key | EV/PHEV request path only. Fail open. `BRIM_FIXTURES=1` uses 12°C and does not call the API |
 | **NCR (DfT)** | charge-point locations, connectors | OGL, free | Context only in v1 |
 | **London Datastore** | ULEZ / CC / LEZ boundary geometry | OGL | Best-maintained zone source |
 | **Individual councils / data.gov.uk** | CAZ boundaries | Mixed | **No single national dataset** - assembled by hand (§9B.4) |
@@ -329,7 +334,8 @@ Expect the feed to be dirty. This is a normalisation pipeline, not a fetch.
 ### 7.1 Sync job
 Cloudflare cron (`workers/sync`, `*/20 * * * *`; obligation is 30 minutes). Sequential paginated
 pull into Neon via OAuth2 client credentials. Never on a request path. Local/first load is
-`data:sync-fuel`. ~8,000 sites at 500/batch is about 16 station pages plus 16 price pages; sleep
+`data:sync-fuel`. The same Worker also pulls National Grid carbon intensity when `DATABASE_URL`
+is set; Fuel Finder OAuth secrets are not required for that path. ~8,000 sites at 500/batch is about 16 station pages plus 16 price pages; sleep
 ~4s between pages to stay under 30 rpm.
 
 Base `https://www.fuel-finder.service.gov.uk`. Token: `POST /api/v1/oauth/generate_access_token`.
@@ -619,7 +625,8 @@ billing account gets a working product.
 
 ### 11.3 Fixture mode (open-source requirement)
 `npm run dev` must work for a contributor with **zero API keys**. A `BRIM_FIXTURES=1` mode
-serves recorded responses for Routes, Fuel Finder, DVLA and VCA from `packages/shared/fixtures`.
+serves recorded responses for Routes, Fuel Finder, DVLA, VCA, carbon intensity, and a fixed 12°C
+forecast from `packages/shared` fixtures. Open-Meteo and the Carbon Intensity API are not called.
 Without this, the barrier to a first contribution is a Google billing account, and there will be
 no contributors.
 
@@ -693,7 +700,10 @@ zod-validated at the boundary, responses typed from `packages/shared`.
 
 ```
 POST   /v1/estimate                  { origin, destination, waypoints?, departsAt?,
-                                       vehicleId?|vehicleInline?, priceStrategy, tariffId? }
+                                       vehicleId?|vehicleInline?, priceStrategy, tariffId?,
+                                       chargingLocation?, network?, chargingSpeed?,
+                                       pricePence?, offpeakPence?, offpeakWindow?,
+                                       startChargePercent?, hasHeatPump?, batteryKwhUsable? }
                                      → Estimate (§5.8)
 POST   /v1/estimate/from-maps-url    { url } → resolves, delegates
 
@@ -727,6 +737,7 @@ GET    /v1/journeys/summary          tax-year miles, AMAP, actual spend
 GET    /v1/journeys/:id
 POST   /v1/auth/claim-anon           merge anon profile into account
 GET    /v1/meta/prices               national medians per grade + observedAt
+GET    /v1/meta/ev-tariffs           dated public-network EV table + home/public fallbacks
 GET    /health
 ```
 
@@ -856,7 +867,7 @@ dev:web / dev:api / dev:ext / dev:all / dev:fixtures
 build:web / build:api / build:ext
 test / test:watch / test:ci / test:rls / test:e2e
 db:generate / db:migrate / db:migrate:development / db:migrate:staging / db:migrate:production / db:migrate:all / db:studio / db:force-rls / db:rls:check / db:seed
-data:sync-fuel / data:sync-fuel:staging / data:sync-fuel:prod / data:sync-vca / data:sync-vca:staging / data:sync-vca:prod / data:sync-carbon / data:normalise-check / data:verify-zones
+data:sync-fuel / data:sync-fuel:staging / data:sync-fuel:prod / data:sync-vca / data:sync-vca:staging / data:sync-vca:prod / data:sync-carbon / data:sync-carbon:staging / data:sync-carbon:prod / data:normalise-check / data:verify-zones
 env:setup / env:merge / env:sync / env:sync:staging / env:sync:prod / cf:sync / cf:sync:staging / cf:sync:prod / rules:sync / rules:check / ignore:sync
 check / ship-it / doctor / git:unlock / clean / reset / size
 deploy:staging / deploy:prod / deploy:preview / deploy:all / deploy:sync:staging / deploy:sync:prod
@@ -993,12 +1004,12 @@ P9–P10 are weeks of fiddly work and should be paid for by demonstrated demand.
 7. **Licence** - open source: MIT for engine/shared/routing, AGPL-3.0 for apps (§20).
 8. **Monetisation** - free, no ads, no paid tier, no data sale. Cost controlled rather than offset (§14, §20).
 9. **Posture** - real product, not a portfolio piece. This is why §9B.6, §16 privacy and §24 exist in this form.
+10. **EV public charging prices** - hand-maintain a dated per-network table (`data/tariffs/networks.json`), user-editable on the estimate. Home tariffs remain the honest default. Closing §26.4.
 
 ## 26. Remaining open questions
 
 1. **Domain and Web Store name availability** for Brim - check before P0, since the repo goes public immediately.
 2. **Confirm the MIT/AGPL split** - a single MIT licence across everything is simpler and better portfolio surface; AGPL on the apps is better protection. Pick before the first public commit; relicensing after contributions arrive is painful.
 3. **Who owns zone data maintenance** once schemes change - is `data:verify-zones` failing CI enough, or does this need a calendar reminder and a named owner?
-4. **EV public charging price table** - hand-maintain per network, or drop public charging in v1 and support home tariffs only? Home-only is more honest and much less maintenance.
-5. **OSRM hosting** - self-host on a small VPS, or use a public demo endpoint for the fallback? Public endpoints have no availability guarantee, which undermines the point of a failover.
-6. **Vans and motorcycles** - CAZ classes treat them differently from cars, and supporting them roughly doubles the compliance matrix. In for v1, or cars only with a clear "cars only" statement?
+4. **OSRM hosting** - self-host on a small VPS, or use a public demo endpoint for the fallback? Public endpoints have no availability guarantee, which undermines the point of a failover.
+5. **Vans and motorcycles** - CAZ classes treat them differently from cars, and supporting them roughly doubles the compliance matrix. In for v1, or cars only with a clear "cars only" statement?

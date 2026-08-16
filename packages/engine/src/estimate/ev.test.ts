@@ -27,6 +27,10 @@ describe("EV energy", () => {
     expect(temperatureFactor(-1, false).factor).toBe(1.4);
     expect(temperatureFactor(-1, true).factor).toBe(1.2);
     expect(temperatureFactor(undefined, false).reason).toMatch(/No forecast/);
+    expect(temperatureFactor(12, false).reason).toMatch(/12°C/);
+    expect(temperatureFactor(12, false).reason).toMatch(/10%/);
+    expect(temperatureFactor(2, true).reason).toMatch(/heat pump/i);
+    expect(temperatureFactor(20, false).reason).toBeUndefined();
   });
 });
 

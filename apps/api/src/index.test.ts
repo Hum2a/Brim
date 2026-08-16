@@ -146,10 +146,91 @@ describe('api', () => {
       { BRIM_FIXTURES: '1' },
     );
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { price: { pence: number; unit: string; source: string } };
+    const json = (await res.json()) as {
+      price: { pence: number; unit: string; source: string };
+      reasons: string[];
+      warnings: Array<{ code: string }>;
+    };
     expect(json.price.unit).toBe('p/kWh');
     expect(json.price.pence).toBe(7.5);
-    expect(json.price.source).toBe('national-median');
+    expect(json.price.source).toBe('hardcoded-fallback');
+    expect(json.warnings.some((w) => w.code === 'price-data-unavailable')).toBe(true);
+    expect(json.reasons.some((r) => r.includes('150 g/kWh'))).toBe(true);
+    expect(json.reasons.some((r) => r.includes('12°C'))).toBe(true);
+  });
+
+  it('uses a user EV tariff and fixture grid intensity at leave time', async () => {
+    const res = await app.request(
+      '/v1/estimate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: 'Crawley',
+          destination: 'London',
+          propulsion: 'bev',
+          departsAt: '2026-08-16T12:00:00Z',
+          priceStrategy: 'user-tariff',
+          pricePence: 7.5,
+          vehicleInline: {
+            kind: 'car',
+            propulsion: 'bev',
+            userEnteredConsumption: 3.8,
+            userEnteredUnit: 'mi/kWh',
+            batteryKwhUsable: 64,
+            startChargePercent: 80,
+          },
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      price: { source: string; pence: number };
+      reasons: string[];
+      energy: { arrivalStateOfCharge?: { verdict: string } };
+    };
+    expect(json.price.source).toBe('user-tariff');
+    expect(json.price.pence).toBe(7.5);
+    expect(json.reasons.some((r) => r.includes('190 g/kWh'))).toBe(true);
+    expect(json.energy.arrivalStateOfCharge?.verdict).toBeTruthy();
+  });
+
+  it('uses the public-network table for DC charging', async () => {
+    const res = await app.request(
+      '/v1/estimate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: 'Crawley',
+          destination: 'London',
+          propulsion: 'bev',
+          chargingLocation: 'public',
+          network: 'ionity',
+          chargingSpeed: 'dc',
+          vehicleInline: {
+            kind: 'car',
+            propulsion: 'bev',
+            userEnteredConsumption: 3.8,
+            userEnteredUnit: 'mi/kWh',
+          },
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { price: { source: string; pence: number } };
+    expect(json.price.source).toBe('network-table');
+    expect(json.price.pence).toBe(74);
+  });
+
+  it('serves the dated EV network table', async () => {
+    const res = await app.request('/v1/meta/ev-tariffs', {}, { BRIM_FIXTURES: '1' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { networks: Array<{ id: string }>; fallbacks: { home: { pencePerKwh: number } } };
+    expect(json.fallbacks.home.pencePerKwh).toBe(7.5);
+    expect(json.networks.some((n) => n.id === 'ionity')).toBe(true);
   });
 
   it('uses the national median when the start is outside the fixture cluster', async () => {

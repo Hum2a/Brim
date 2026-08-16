@@ -46,6 +46,8 @@
   "reasons": [
     "Adjusted the official figure up 12% - official tests run optimistic.",
     "No road mix available, so we left consumption unadjusted and widened the range.",
+    "No forecast temperature, so we skipped the cold-weather adjustment.",
+    "Cost is billed on energy drawn from the grid, not energy in the battery.",
     "Treated the plug-in hybrid as electric until the battery is empty, then petrol."
   ],
   "warnings": []

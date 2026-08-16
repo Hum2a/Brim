@@ -11,6 +11,7 @@ import {
   ukTaxYearStartUtc,
   vehicleProfileSchema,
   type PriceSource,
+  type VehicleProfile,
 } from '@brim/shared';
 import type { RoutePlace, RouteRequest } from '@brim/routing';
 import {
@@ -29,6 +30,7 @@ import { NeonRouteCache } from './db/route-cache.js';
 import { ownerFromContext } from './session.js';
 import { getDefaultTariff, getCalibration, getVehicle, persistLive, ytdMiles } from './db/repo.js';
 import { resolveEstimatePrice } from './prices.js';
+import { loadGridIntensity, resolveEstimateEvPrice, resolveForecastTemp } from './ev.js';
 import type { BrimDb } from './db/types.js';
 import type { VehicleRow } from './db/memory.js';
 
@@ -50,6 +52,14 @@ const estimateBodySchema = z.object({
   stationId: z.string().optional(),
   priceStrategy: z.enum(['national-median', 'user-tariff', 'hardcoded-fallback']).optional(),
   pricePence: z.number().optional(),
+  chargingLocation: z.enum(['home', 'public']).optional(),
+  network: z.string().optional(),
+  chargingSpeed: z.enum(['ac', 'dc']).optional(),
+  offpeakPence: z.number().optional(),
+  offpeakWindow: z.string().optional(),
+  startChargePercent: z.number().optional(),
+  hasHeatPump: z.boolean().optional(),
+  batteryKwhUsable: z.number().optional(),
   nowIso: z.string().optional(),
 });
 
@@ -63,7 +73,7 @@ function cacheFor(env: ApiBindings, db: BrimDb) {
   return isolateCache;
 }
 
-function vehicleFromRow(row: VehicleRow) {
+function vehicleFromRow(row: VehicleRow): VehicleProfile {
   const profile: {
     kind: VehicleRow['kind'];
     propulsion: VehicleRow['propulsion'];
@@ -112,7 +122,16 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   const session = await ownerFromContext(c);
 
   const saved = body.vehicleId ? await getVehicle(db, session.ownerId, body.vehicleId) : undefined;
-  const vehicleInline = body.vehicleInline ?? (saved ? vehicleFromRow(saved) : undefined);
+  let vehicleInline: VehicleProfile | undefined =
+    body.vehicleInline ?? (saved ? vehicleFromRow(saved) : undefined);
+  if (vehicleInline) {
+    vehicleInline = {
+      ...vehicleInline,
+      ...(body.startChargePercent !== undefined ? { startChargePercent: body.startChargePercent } : {}),
+      ...(body.hasHeatPump !== undefined ? { hasHeatPump: body.hasHeatPump } : {}),
+      ...(body.batteryKwhUsable !== undefined ? { batteryKwhUsable: body.batteryKwhUsable } : {}),
+    };
+  }
   const propulsion = vehicleInline?.propulsion ?? body.propulsion ?? 'petrol';
   const storedCalib = body.vehicleId
     ? await getCalibration(db, session.ownerId, body.vehicleId)
@@ -169,12 +188,12 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
         : 'l/100km';
 
   const nowIso = body.nowIso ?? body.departsAt ?? '1970-01-01T00:00:00Z';
-  const tariff =
-    body.priceStrategy === 'user-tariff' && body.vehicleId
-      ? await getDefaultTariff(db, session.ownerId, body.vehicleId)
-      : undefined;
+  const tariff = body.vehicleId
+    ? await getDefaultTariff(db, session.ownerId, body.vehicleId)
+    : undefined;
   const originCoords =
     origin.lat !== undefined && origin.lng !== undefined ? { lat: origin.lat, lng: origin.lng } : undefined;
+  const electric = propulsion === 'bev' || propulsion === 'phev';
   const useTariff = body.priceStrategy === 'user-tariff' && (tariff || body.pricePence !== undefined);
   let pricePence = propulsion === 'bev' ? 7.5 : 140;
   let priceUnit: 'ppl' | 'p/kWh' = propulsion === 'bev' ? 'p/kWh' : 'ppl';
@@ -183,11 +202,46 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   let pickedStationId: string | undefined;
   let priceReason: string | undefined;
   let priceWarning: { code: string; message: string; severity: 'info' | 'warning' | 'blocking' } | undefined;
+  let charging: 'acHome' | 'dcRapid' | undefined;
+  let liquidPricePence: number | undefined;
+  let forecastTempC: number | undefined;
+  let gridIntensityGPerKwh: number | undefined;
+  let intensityReason: string | undefined;
 
-  if (propulsion === 'bev') {
-    pricePence = body.pricePence ?? tariff?.pence_per_kwh ?? 7.5;
+  if (electric) {
+    const evPrice = resolveEstimateEvPrice({
+      ...(body.chargingLocation ? { chargingLocation: body.chargingLocation } : {}),
+      ...(body.network ? { network: body.network } : {}),
+      ...(body.chargingSpeed ? { chargingSpeed: body.chargingSpeed } : {}),
+      ...(body.pricePence !== undefined ? { pricePence: body.pricePence } : {}),
+      ...(body.offpeakPence !== undefined ? { offpeakPence: body.offpeakPence } : {}),
+      ...(body.offpeakWindow ? { offpeakWindow: body.offpeakWindow } : {}),
+      ...(tariff ? { tariff } : {}),
+    });
+    pricePence = evPrice.pence;
     priceUnit = 'p/kWh';
-    priceSource = useTariff ? 'user-tariff' : 'national-median';
+    priceSource = evPrice.source;
+    priceObservedAt = evPrice.observedAt;
+    priceReason = evPrice.reason;
+    priceWarning = evPrice.warning;
+    charging = evPrice.charging;
+    const atIso = body.departsAt ?? nowIso;
+    const intensity = await loadGridIntensity(c.env, db, atIso);
+    gridIntensityGPerKwh = intensity.gPerKwh;
+    intensityReason = intensity.reason;
+    forecastTempC = await resolveForecastTemp({
+      fixtureMode: isFixtureMode(c.env.BRIM_FIXTURES),
+      ...(originCoords ? { origin: originCoords } : {}),
+      atIso,
+    });
+    if (propulsion === 'phev') {
+      const ice = await resolveEstimatePrice(c.env, db, {
+        propulsion: 'petrol',
+        ...(body.stationId ? { stationId: body.stationId } : {}),
+        ...(originCoords ? { origin: originCoords } : {}),
+      });
+      if (ice) liquidPricePence = ice.pence;
+    }
   } else if (useTariff || body.pricePence !== undefined) {
     pricePence = body.pricePence ?? tariff?.pence_per_kwh ?? 140;
     priceUnit = 'ppl';
@@ -238,8 +292,11 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
       priceSource,
       priceObservedAt,
       ...(pickedStationId ? { stationId: pickedStationId } : {}),
+      ...(charging ? { charging } : {}),
+      ...(forecastTempC !== undefined ? { forecastTempC } : {}),
+      ...(gridIntensityGPerKwh !== undefined ? { gridIntensityGPerKwh } : {}),
+      ...(liquidPricePence !== undefined ? { liquidPricePence } : {}),
       charges: [],
-      gridIntensityGPerKwh: 150,
     });
 
   const estimate = estimateFor(
@@ -249,6 +306,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   );
 
   if (priceReason) estimate.reasons.push(priceReason);
+  if (intensityReason) estimate.reasons.push(intensityReason);
   if (priceWarning) estimate.warnings.push(priceWarning);
 
   if (chosen.exceeded) {

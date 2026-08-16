@@ -74,6 +74,29 @@ describe("computeEstimate", () => {
     });
     expect(exhausted.energy.litres?.point).toBeGreaterThan(0);
 
+    const livePetrol = computeEstimate({
+      distanceMeters: 400_000,
+      propulsion: "phev",
+      vehicle: { kind: "car", propulsion: "phev", batteryKwhUsable: 10, startChargePercent: 50 },
+      official: { value: 20, unit: "kWh/100km", cycle: "WLTP" },
+      pricePence: 7,
+      priceUnit: "p/kWh",
+      priceSource: "user-tariff",
+      priceObservedAt: "2026-01-01T00:00:00Z",
+      liquidPricePence: 132.2,
+    });
+    const silent140 = computeEstimate({
+      distanceMeters: 400_000,
+      propulsion: "phev",
+      vehicle: { kind: "car", propulsion: "phev", batteryKwhUsable: 10, startChargePercent: 50 },
+      official: { value: 20, unit: "kWh/100km", cycle: "WLTP" },
+      pricePence: 7,
+      priceUnit: "p/kWh",
+      priceSource: "user-tariff",
+      priceObservedAt: "2026-01-01T00:00:00Z",
+    });
+    expect(livePetrol.cost.energyPence.point).toBeLessThan(silent140.cost.energyPence.point);
+
     const noCharge = computeEstimate({
       distanceMeters: 50_000,
       propulsion: "phev",

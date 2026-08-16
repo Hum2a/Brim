@@ -243,12 +243,18 @@ export const vcaVehicles = pgTable(
   (t) => ({ makeModelIdx: index('vca_vehicles_make_model').on(t.make, t.model) }),
 );
 
-export const gridIntensity = pgTable('grid_intensity', {
-  region: text('region').notNull(),
-  intensityGPerKwh: doublePrecision('intensity_g_per_kwh').notNull(),
-  validFrom: timestamp('valid_from', { withTimezone: true }).notNull(),
-  validTo: timestamp('valid_to', { withTimezone: true }).notNull(),
-});
+export const gridIntensity = pgTable(
+  'grid_intensity',
+  {
+    region: text('region').notNull(),
+    intensityGPerKwh: doublePrecision('intensity_g_per_kwh').notNull(),
+    validFrom: timestamp('valid_from', { withTimezone: true }).notNull(),
+    validTo: timestamp('valid_to', { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    regionFrom: uniqueIndex('grid_intensity_region_from').on(t.region, t.validFrom),
+  }),
+);
 
 export const routeCache = pgTable('route_cache', {
   cacheKey: text('cache_key').primaryKey(),

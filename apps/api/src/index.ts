@@ -48,6 +48,7 @@ import {
   saveJourneyHandler,
 } from './journeys.js';
 import { handleMetaPrices, handleStationsNear } from './stations.js';
+import { handleMetaEvTariffs } from './ev.js';
 
 const app = new Hono<{ Bindings: ApiBindings }>();
 
@@ -77,6 +78,7 @@ app.post('/v1/estimate', handleEstimate);
 app.post('/v1/estimate/from-maps-url', handleFromMapsUrl);
 app.get('/v1/stations/near', handleStationsNear);
 app.get('/v1/meta/prices', handleMetaPrices);
+app.get('/v1/meta/ev-tariffs', handleMetaEvTariffs);
 
 app.get('/v1/auth/session', sessionHandler);
 app.post('/v1/auth/claim-anon', claimAnonHandler);

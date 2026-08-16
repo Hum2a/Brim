@@ -45,6 +45,7 @@
   "reasons": [
     "Used your logged fill-ups rather than the brochure figure.",
     "No road mix available, so we left consumption unadjusted and widened the range.",
+    "Forecast was 12°C, so we increased energy use by 10%.",
     "Cost is billed on energy drawn from the grid, not energy in the battery."
   ],
   "warnings": []

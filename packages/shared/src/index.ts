@@ -6,7 +6,20 @@ export {
   FUEL_FINDER_PFS_FIXTURES,
   FUEL_FINDER_PRICE_FIXTURES,
 } from './fixtures/fuel-finder.js';
+export {
+  CARBON_INTENSITY_FIXTURES,
+  CARBON_INTENSITY_FIXTURE_NOW,
+} from './fixtures/carbon-intensity.js';
 export * from './fuel-finder/index.js';
+export * from './carbon/index.js';
+export * from './tariffs/index.js';
+export { arrivalCopy, type ArrivalCopyInput } from './copy/arrival.js';
+export {
+  FIXTURE_FORECAST_TEMP_C,
+  OPEN_METEO_ORIGIN,
+  openMeteoForecastUrl,
+  pickHourlyTemperature,
+} from './weather/open-meteo.js';
 export * from './vca/types.js';
 export { parseCsv, parseCsvRows, normHeader } from './vca/csv.js';
 export {

@@ -26,6 +26,7 @@ type Vehicle = {
   model?: string;
   tank_litres?: number;
   battery_kwh_usable?: number;
+  has_heat_pump?: boolean;
   is_default?: boolean;
 };
 
@@ -46,7 +47,13 @@ type Calibration = {
   confidence: string;
 };
 
-type Tariff = { id: string; pence_per_kwh: number; is_default: boolean };
+type Tariff = {
+  id: string;
+  pence_per_kwh: number;
+  is_default: boolean;
+  offpeak_pence?: number;
+  offpeak_window?: string;
+};
 
 function title(v: Vehicle) {
   return v.nickname ?? [v.make, v.model].filter(Boolean).join(" ") ?? v.propulsion;
@@ -61,6 +68,9 @@ export function GaragePage() {
   const [fills, setFills] = useState<FillUp[]>([]);
   const [calib, setCalib] = useState<Calibration | null>(null);
   const [homePence, setHomePence] = useState("7.5");
+  const [offpeakPence, setOffpeakPence] = useState("");
+  const [offpeakWindow, setOffpeakWindow] = useState("");
+  const [hasHeatPump, setHasHeatPump] = useState(false);
   const [nickname, setNickname] = useState("");
   const [tank, setTank] = useState("");
   const [battery, setBattery] = useState("");
@@ -98,6 +108,7 @@ export function GaragePage() {
     setNickname(vehicle.nickname ?? "");
     setTank(vehicle.tank_litres !== undefined ? String(vehicle.tank_litres) : "");
     setBattery(vehicle.battery_kwh_usable !== undefined ? String(vehicle.battery_kwh_usable) : "");
+    setHasHeatPump(vehicle.has_heat_pump === true);
     void api<{ fillUps: FillUp[] }>(`/v1/vehicles/${vehicle.id}/fill-ups`)
       .then((r) => setFills(r.fillUps))
       .catch(() => setFills([]));
@@ -108,7 +119,11 @@ export function GaragePage() {
       void api<{ tariffs: Tariff[] }>(`/v1/vehicles/${vehicle.id}/tariffs`)
         .then((r) => {
           const home = r.tariffs.find((t) => t.is_default) ?? r.tariffs[0];
-          if (home) setHomePence(String(home.pence_per_kwh));
+          if (home) {
+            setHomePence(String(home.pence_per_kwh));
+            setOffpeakPence(home.offpeak_pence !== undefined ? String(home.offpeak_pence) : "");
+            setOffpeakWindow(home.offpeak_window ?? "");
+          }
         })
         .catch(() => undefined);
     }
@@ -123,14 +138,19 @@ export function GaragePage() {
           nickname: nickname || undefined,
           tankLitres: tank ? Number(tank) : undefined,
           batteryKwhUsable: battery ? Number(battery) : undefined,
+          hasHeatPump,
         }),
       });
       if (vehicle.propulsion === "bev" || vehicle.propulsion === "phev") {
         const pence = Number(homePence);
         if (Number.isFinite(pence) && pence > 0) {
+          const payload: Record<string, unknown> = { kind: "home", pencePerKwh: pence, isDefault: true };
+          const offpeak = Number(offpeakPence);
+          if (Number.isFinite(offpeak) && offpeak > 0) payload.offpeakPence = offpeak;
+          if (offpeakWindow.trim()) payload.offpeakWindow = offpeakWindow.trim();
           await api(`/v1/vehicles/${vehicle.id}/tariffs`, {
             method: "POST",
-            body: JSON.stringify({ kind: "home", pencePerKwh: pence, isDefault: true }),
+            body: JSON.stringify(payload),
           });
         }
       }
@@ -253,6 +273,24 @@ export function GaragePage() {
                         <FormItem>
                           <Label htmlFor="tariff">Home p/kWh</Label>
                           <Input id="tariff" className="tabular" value={homePence} onChange={(ev) => setHomePence(ev.target.value)} />
+                        </FormItem>
+                        <FormItem>
+                          <Label htmlFor="offpeak">Off-peak p/kWh</Label>
+                          <Input id="offpeak" className="tabular" value={offpeakPence} onChange={(ev) => setOffpeakPence(ev.target.value)} />
+                        </FormItem>
+                        <FormItem>
+                          <Label htmlFor="offpeak-window">Off-peak window</Label>
+                          <Input id="offpeak-window" value={offpeakWindow} onChange={(ev) => setOffpeakWindow(ev.target.value)} placeholder="00:30-05:30" />
+                        </FormItem>
+                        <FormItem>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={hasHeatPump}
+                              onChange={(ev) => setHasHeatPump(ev.target.checked)}
+                            />
+                            Heat pump
+                          </label>
                         </FormItem>
                       </>
                     ) : (

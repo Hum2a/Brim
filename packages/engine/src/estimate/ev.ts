@@ -37,7 +37,15 @@ export function temperatureFactor(
   }
   const uplift = factor - 1;
   const applied = hasHeatPump ? 1 + uplift / 2 : factor;
-  return { factor: applied, reason: undefined };
+  if (applied === 1) {
+    return { factor: applied, reason: undefined };
+  }
+  const pct = Math.round((applied - 1) * 1000) / 10;
+  const heat = hasHeatPump && uplift > 0 ? " Heat pump halved the extra use." : "";
+  return {
+    factor: applied,
+    reason: `Forecast was ${tempC}°C, so we increased energy use by ${pct}%.${heat}`,
+  };
 }
 
 export function estimateEv(input: {

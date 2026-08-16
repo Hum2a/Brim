@@ -9,7 +9,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { findPlaceByLabel } from "@brim/shared";
+import { arrivalCopy, findPlaceByLabel } from "@brim/shared";
 import { PumpReadout, reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
 import {
   Accordion,
@@ -51,9 +51,22 @@ type Vehicle = {
   make?: string;
   model?: string;
   is_default?: boolean;
+  has_heat_pump?: boolean;
 };
 type SavedPlace = { id: string; kind: "home" | "work" | "favourite"; label: string; lat: number; lng: number };
-type Tariff = { id: string; pence_per_kwh: number; is_default: boolean };
+type Tariff = {
+  id: string;
+  pence_per_kwh: number;
+  is_default: boolean;
+  offpeak_pence?: number;
+  offpeak_window?: string;
+};
+type EvNetworkRow = {
+  id: string;
+  network: string;
+  speed: "ac" | "dc";
+  pencePerKwh: number;
+};
 type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
 type Estimate = {
   cost: {
@@ -64,7 +77,10 @@ type Estimate = {
   consumption: { label: string; display: string };
   reasons: string[];
   warnings: Array<{ message: string }>;
-  energy: { arrivalStateOfCharge?: { percent: number; verdict: string } };
+  energy: {
+    arrivalStateOfCharge?: { percent: number; verdict: "comfortable" | "tight" | "insufficient"; shortfallKwh?: number };
+  };
+  co2Kg?: number;
   hmrc?: { approvedPence: number; ytdMiles: number; crossedThreshold: boolean };
   distanceMeters: number;
   durationSeconds: number;
@@ -109,6 +125,7 @@ function priceSourceLabel(source: string): string {
   if (source === "user-picked-station") return "This forecourt";
   if (source === "hardcoded-fallback") return "Price data unavailable";
   if (source === "user-tariff") return "Your tariff";
+  if (source === "network-table") return "Public network table";
   return source;
 }
 
@@ -163,6 +180,12 @@ export function EstimatePage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("inline");
   const [homePence, setHomePence] = useState("7.5");
+  const [offpeakPence, setOffpeakPence] = useState("");
+  const [offpeakWindow, setOffpeakWindow] = useState("");
+  const [chargingLocation, setChargingLocation] = useState<"home" | "public">("home");
+  const [networkId, setNetworkId] = useState("");
+  const [evNetworks, setEvNetworks] = useState<EvNetworkRow[]>([]);
+  const [hasHeatPump, setHasHeatPump] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [pendingSave, setPendingSave] = useState<"vehicle" | "journey" | "fill" | null>(null);
   const [places, setPlaces] = useState<SavedPlace[]>([]);
@@ -192,6 +215,7 @@ export function EstimatePage() {
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
   const savedElectric =
     selectedVehicle?.propulsion === "bev" || selectedVehicle?.propulsion === "phev";
+  const electricTrip = propulsion === "bev" || propulsion === "phev" || savedElectric;
 
   const tripRef = useRef({
     origin,
@@ -203,7 +227,14 @@ export function EstimatePage() {
     propulsion,
     vehicleId,
     savedElectric,
+    electricTrip,
     homePence,
+    offpeakPence,
+    offpeakWindow,
+    chargingLocation,
+    networkId,
+    hasHeatPump,
+    start,
     stationId,
   });
   tripRef.current = {
@@ -216,7 +247,14 @@ export function EstimatePage() {
     propulsion,
     vehicleId,
     savedElectric,
+    electricTrip,
     homePence,
+    offpeakPence,
+    offpeakWindow,
+    chargingLocation,
+    networkId,
+    hasHeatPump,
+    start,
     stationId,
   };
 
@@ -225,10 +263,21 @@ export function EstimatePage() {
     void api<{ tariffs: Tariff[] }>(`/v1/vehicles/${vehicleId}/tariffs`)
       .then((r) => {
         const home = r.tariffs.find((t) => t.is_default) ?? r.tariffs[0];
-        if (home) setHomePence(String(home.pence_per_kwh));
+        if (home) {
+          setHomePence(String(home.pence_per_kwh));
+          setOffpeakPence(home.offpeak_pence !== undefined ? String(home.offpeak_pence) : "");
+          setOffpeakWindow(home.offpeak_window ?? "");
+        }
       })
       .catch(() => undefined);
-  }, [savedElectric, vehicleId]);
+    setHasHeatPump(selectedVehicle?.has_heat_pump === true);
+  }, [savedElectric, vehicleId, selectedVehicle?.has_heat_pump]);
+
+  useEffect(() => {
+    void api<{ networks: EvNetworkRow[] }>("/v1/meta/ev-tariffs")
+      .then((r) => setEvNetworks(r.networks))
+      .catch(() => setEvNetworks([]));
+  }, []);
 
   useEffect(() => {
     if (!originPin || propulsion === "bev") {
@@ -447,17 +496,29 @@ export function EstimatePage() {
       .map((v) => tripPlace(v.text, v.pin));
     if (vias.length > 0) body.waypoints = vias;
     if (trip.vehicleId === "inline") body.vehicleInline = vehicleInline();
-    else {
-      body.vehicleId = trip.vehicleId;
-      if (trip.savedElectric) {
-        const pence = Number(trip.homePence);
-        if (Number.isFinite(pence) && pence > 0) {
-          body.priceStrategy = "user-tariff";
-          body.pricePence = pence;
+    else body.vehicleId = trip.vehicleId;
+    if (trip.stationId && trip.propulsion !== "bev") body.stationId = trip.stationId;
+    if (trip.electricTrip) {
+      body.chargingLocation = trip.chargingLocation;
+      body.hasHeatPump = trip.hasHeatPump;
+      const startPct = Number(trip.start);
+      if (Number.isFinite(startPct) && startPct > 0) body.startChargePercent = startPct;
+      const pence = Number(trip.homePence);
+      if (trip.chargingLocation === "public") {
+        if (trip.networkId) {
+          body.network = trip.networkId;
+          const picked = evNetworks.find((n) => n.id === trip.networkId);
+          if (picked) body.chargingSpeed = picked.speed;
+          if (Number.isFinite(pence) && pence > 0) body.pricePence = pence;
         }
+      } else if (Number.isFinite(pence) && pence > 0) {
+        body.priceStrategy = "user-tariff";
+        body.pricePence = pence;
+        const offpeak = Number(trip.offpeakPence);
+        if (Number.isFinite(offpeak) && offpeak > 0) body.offpeakPence = offpeak;
+        if (trip.offpeakWindow.trim()) body.offpeakWindow = trip.offpeakWindow.trim();
       }
     }
-    if (trip.stationId && trip.propulsion !== "bev") body.stationId = trip.stationId;
     return body;
   }
 
@@ -529,6 +590,7 @@ export function EstimatePage() {
       const startPct = Number(start);
       if (Number.isFinite(batteryKwh) && batteryKwh > 0) profile.batteryKwhUsable = batteryKwh;
       if (Number.isFinite(startPct) && startPct > 0) profile.startChargePercent = startPct;
+      profile.hasHeatPump = hasHeatPump;
     }
     return profile;
   }
@@ -546,11 +608,19 @@ export function EstimatePage() {
     if (vehicleId !== "inline" && savedElectric) {
       const pence = Number(homePence);
       if (Number.isFinite(pence) && pence > 0) {
+        const payload: Record<string, unknown> = { kind: "home", pencePerKwh: pence, isDefault: true };
+        const offpeak = Number(offpeakPence);
+        if (Number.isFinite(offpeak) && offpeak > 0) payload.offpeakPence = offpeak;
+        if (offpeakWindow.trim()) payload.offpeakWindow = offpeakWindow.trim();
         void api(`/v1/vehicles/${vehicleId}/tariffs`, {
           method: "POST",
-          body: JSON.stringify({ kind: "home", pencePerKwh: pence, isDefault: true }),
+          body: JSON.stringify(payload),
         }).catch(() => undefined);
       }
+      void api(`/v1/vehicles/${vehicleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ hasHeatPump }),
+      }).catch(() => undefined);
     }
     void runEstimate(body);
   }
@@ -716,16 +786,95 @@ export function EstimatePage() {
             </Select>
           </FormItem>
         ) : null}
-        {savedElectric ? (
-          <FormItem>
-            <Label htmlFor="home-pence">Home p/kWh</Label>
-            <Input
-              id="home-pence"
-              value={homePence}
-              onChange={(ev) => setHomePence(ev.target.value)}
-              className="tabular"
-            />
-          </FormItem>
+        {electricTrip ? (
+          <>
+            <p className="text-sm text-mist">
+              Petrol prices are live from the government feed. EV charging prices are estimates you
+              can correct.
+            </p>
+            <FormItem>
+              <Label>Charge where</Label>
+              <Select
+                value={chargingLocation}
+                onValueChange={(v) => setChargingLocation(v as "home" | "public")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="home">Home</SelectItem>
+                  <SelectItem value="public">Public network</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+            {chargingLocation === "public" ? (
+              <FormItem>
+                <Label>Network</Label>
+                <Select
+                  value={networkId}
+                  onValueChange={(id) => {
+                    setNetworkId(id);
+                    const row = evNetworks.find((n) => n.id === id);
+                    if (row) setHomePence(String(row.pencePerKwh));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a network" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {evNetworks.map((n) => (
+                      <SelectItem key={n.id} value={n.id}>
+                        {n.network} ({n.speed.toUpperCase()})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            ) : null}
+            <FormItem>
+              <Label htmlFor="home-pence">
+                {chargingLocation === "public" ? "p/kWh (editable)" : "Home p/kWh"}
+              </Label>
+              <Input
+                id="home-pence"
+                value={homePence}
+                onChange={(ev) => setHomePence(ev.target.value)}
+                className="tabular"
+              />
+            </FormItem>
+            {chargingLocation === "home" ? (
+              <>
+                <FormItem>
+                  <Label htmlFor="offpeak-pence">Off-peak p/kWh (optional)</Label>
+                  <Input
+                    id="offpeak-pence"
+                    value={offpeakPence}
+                    onChange={(ev) => setOffpeakPence(ev.target.value)}
+                    className="tabular"
+                  />
+                </FormItem>
+                <FormItem>
+                  <Label htmlFor="offpeak-window">Off-peak window</Label>
+                  <Input
+                    id="offpeak-window"
+                    value={offpeakWindow}
+                    onChange={(ev) => setOffpeakWindow(ev.target.value)}
+                    placeholder="00:30-05:30"
+                  />
+                </FormItem>
+              </>
+            ) : null}
+            <FormItem>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={hasHeatPump}
+                  onChange={(ev) => setHasHeatPump(ev.target.checked)}
+                />
+                Heat pump
+              </label>
+            </FormItem>
+          </>
         ) : null}
         <FormItem>
           <AddressField
@@ -1029,8 +1178,12 @@ export function EstimatePage() {
         </m.div>
         {estimate.energy.arrivalStateOfCharge ? (
           <m.p variants={reveal} className="mt-2 text-sm">
-            Arrival about {estimate.energy.arrivalStateOfCharge.percent.toFixed(0)}% (
-            {estimate.energy.arrivalStateOfCharge.verdict})
+            {arrivalCopy(estimate.energy.arrivalStateOfCharge)}
+          </m.p>
+        ) : null}
+        {typeof estimate.co2Kg === "number" ? (
+          <m.p variants={reveal} className="tabular mt-2 text-sm text-mist">
+            About {estimate.co2Kg.toFixed(1)} kg CO₂
           </m.p>
         ) : null}
         {hmrc ? (
