@@ -823,7 +823,7 @@ and on all charge-window logic**.
 dev:web / dev:api / dev:ext / dev:all / dev:fixtures
 build:web / build:api / build:ext
 test / test:watch / test:ci / test:rls / test:e2e
-db:generate / db:migrate / db:studio / db:force-rls / db:rls:check / db:seed
+db:generate / db:migrate / db:migrate:development / db:migrate:staging / db:migrate:production / db:studio / db:force-rls / db:rls:check / db:seed
 data:sync-fuel / data:sync-vca / data:sync-carbon / data:normalise-check / data:verify-zones
 env:setup / env:merge / env:sync / env:sync:staging / env:sync:prod / rules:sync / rules:check / ignore:sync
 check / ship-it / doctor / clean / reset / size
@@ -831,7 +831,8 @@ deploy:staging / deploy:prod / deploy:preview
 ```
 
 All data and database commands go through `scripts/with-env.mjs` so the target environment is
-explicit, never inferred. `with-env` loads `.env` and `.dev.vars`; an empty value never
+explicit, never inferred. `db:migrate:*` uses the `pg` driver over TCP — not the Neon websocket
+client Workers use at request time. `with-env` loads `.env` and `.dev.vars`; an empty value never
 overwrites a filled one. `env:setup` copies committed `.example` templates into the gitignored
 `.env` / `.dev.vars` files when those files are missing. `env:merge` does the same and also
 appends keys that exist in the example but not yet in the dest, without changing existing
