@@ -193,6 +193,7 @@ node scripts/with-env.mjs <dev|staging|prod> -- <command>
 | <kbd>npm run check</kbd> | typecheck + lint + test |
 | <kbd>npm run doctor</kbd> | local toolchain sanity |
 | <kbd>npm run rules:check</kbd> | generated agent files match `AGENTS.md` |
+| <kbd>npm run cf:sync:staging</kbd> / <kbd>cf:sync:prod</kbd> | upload Worker secrets (`--yes`) |
 | <kbd>npm run deploy:staging</kbd> | one Worker: SPA + API |
 | <kbd>npm run deploy:prod</kbd> | same, production env |
 | <kbd>npm run size</kbd> | gzip vs the 150 kB initial-JS gate |

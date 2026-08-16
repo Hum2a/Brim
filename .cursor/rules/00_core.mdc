@@ -56,7 +56,7 @@ No secrets in source, fixtures, tests, or commit messages. Forked PRs run agains
 node scripts/with-env.mjs <dev|staging|prod> -- <command>
 ```
 
-The wrapper MUST fail loudly if no environment is given.
+The wrapper MUST fail loudly if no environment is given. `cf:sync` also goes through `with-env.mjs` and pushes Worker secrets to Cloudflare without printing values. Staging and production require `--yes`.
 
 ## Stack
 

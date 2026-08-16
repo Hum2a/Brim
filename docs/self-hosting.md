@@ -33,7 +33,7 @@ npm run dev:fixtures
 
 | Process | URL |
 |---|---|
-| Vite | [http://localhost:5173](http://localhost:5173) — proxies `/v1` and `/health` |
+| Vite | [http://localhost:5173](http://localhost:5173) - proxies `/v1` and `/health` |
 | Wrangler | [http://localhost:8787](http://localhost:8787) |
 
 `BRIM_FIXTURES=1` is read **only** in `apps/api`. `packages/engine` never sees it.
@@ -79,6 +79,15 @@ Sync into Wrangler-shaped files:
 npm run env:sync
 npm run env:sync:staging
 npm run env:sync:prod
+```
+
+Push filled Worker secrets to Cloudflare (names only in the log, never values).
+`BRIM_FIXTURES` and `WEB_ORIGIN` stay in `wrangler.jsonc` and apply on deploy.
+
+```bash
+npm run cf:sync -- --dry-run
+npm run cf:sync:staging -- --yes
+npm run cf:sync:prod -- --yes
 ```
 
 ---
@@ -135,7 +144,9 @@ Set `OSRM_URL` if you self-host OSRM instead of Google.
 One Worker per environment: **static SPA + Hono**.
 
 ```bash
+npm run cf:sync:staging -- --yes
 npm run deploy:staging    # brim-staging.humza-butt.space
+npm run cf:sync:prod -- --yes
 npm run deploy:prod       # brim.humza-butt.space
 ```
 
