@@ -1,5 +1,12 @@
 # Contributor Covenant Code of Conduct
 
+<p align="center">
+  <a href="https://www.contributor-covenant.org/version/2/1/code_of_conduct/"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-1F6F63?style=flat-square" alt="Contributor Covenant 2.1"/></a>
+</p>
+
+> [!NOTE]
+> This is the social contract for Brim spaces (issues, PRs, discussions, chat). Enforcement contact: [SECURITY.md](SECURITY.md).
+
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our
@@ -14,23 +21,13 @@ diverse, inclusive, and healthy community.
 
 ## Our Standards
 
-Examples of behavior that contributes to a positive environment:
-
-- Demonstrating empathy and kindness
-- Being respectful of differing opinions, viewpoints, and experiences
-- Giving and gracefully accepting constructive feedback
-- Taking responsibility and apologizing to those affected by our mistakes
-- Focusing on what is best for the community
-
-Examples of unacceptable behavior:
-
-- Sexualised language or imagery, and sexual attention or advances of any kind
-- Trolling, insulting or derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing others' private information, such as a physical or email address,
-  without their explicit permission
-- Other conduct which could reasonably be considered inappropriate in a
-  professional setting
+| Contributes | Unacceptable |
+|---|---|
+| Empathy and kindness | Sexualised language or imagery; sexual attention or advances of any kind |
+| Respect for differing opinions | Trolling, insulting or derogatory comments; personal or political attacks |
+| Giving and gracefully accepting feedback | Public or private harassment |
+| Responsibility and apology when we get it wrong | Publishing others' private information without explicit permission |
+| Focusing on what is best for the community | Other conduct reasonably considered inappropriate in a professional setting |
 
 ## Enforcement Responsibilities
 
@@ -46,17 +43,24 @@ an individual is officially representing the community in public spaces.
 
 ## Enforcement
 
-Report incidents to the project maintainers via the contact in SECURITY.md.
+Report incidents to the project maintainers via the contact in [SECURITY.md](SECURITY.md).
 All complaints will be reviewed and investigated promptly and fairly.
 
 ## Enforcement Guidelines
 
-Community leaders will follow these guidelines:
+```mermaid
+flowchart TD
+  A[Report] --> B{Severity}
+  B -->|unprofessional| C[1 Correction]
+  B -->|continued| D[2 Warning]
+  B -->|serious or pattern| E[3 Temporary ban]
+  E -->|aggression or repeat| F[4 Permanent ban]
+```
 
-1. **Correction** - private warning for unprofessional behaviour.
-2. **Warning** - consequences for continued behaviour, including a no-interaction period.
-3. **Temporary ban** - temporary ban from community interaction.
-4. **Permanent ban** - permanent ban for pattern of violation or aggression.
+1. **Correction** — private warning for unprofessional behaviour.
+2. **Warning** — consequences for continued behaviour, including a no-interaction period.
+3. **Temporary ban** — temporary ban from community interaction.
+4. **Permanent ban** — permanent ban for pattern of violation or aggression.
 
 ## Attribution
 

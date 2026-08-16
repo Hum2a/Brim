@@ -5,7 +5,7 @@ import {
   UK_PLACES,
   type PlaceHit,
 } from "@brim/shared";
-import type { AutocompleteOpts, GeocodeHit, Geocoder, PlaceSuggestion } from "./types.js";
+import type { GeocodeHit, Geocoder, PlaceSuggestion } from "./types.js";
 
 function toSuggestion(p: PlaceHit): PlaceSuggestion {
   const hit: PlaceSuggestion = { label: p.label, lat: p.lat, lng: p.lng };
@@ -22,12 +22,12 @@ function toHit(p: PlaceHit): GeocodeHit {
 export class FixtureGeocoder implements Geocoder {
   constructor(private readonly places: PlaceHit[] = UK_PLACES) {}
 
-  async autocomplete(query: string, _opts?: AutocompleteOpts): Promise<PlaceSuggestion[]> {
+  async autocomplete(query: string): Promise<PlaceSuggestion[]> {
     if (query.trim().length < 2) return [];
     return searchPlaces(query, this.places).map(toSuggestion);
   }
 
-  async resolve(placeId: string, _opts?: { session?: string }): Promise<GeocodeHit | undefined> {
+  async resolve(placeId: string): Promise<GeocodeHit | undefined> {
     const hit = findPlaceById(placeId, this.places);
     return hit ? toHit(hit) : undefined;
   }

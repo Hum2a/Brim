@@ -1,5 +1,10 @@
 # Brim - Design Specification
 
+> [!IMPORTANT]
+> **Authoritative.** Code that contradicts this file is a bug in one of the two — flag it, do not silently reconcile. [ADR 0003](adr/0003-cinematic-ui-override.md) records a product override of §15.
+>
+> [Docs hub](README.md) · [Self-hosting](self-hosting.md) · [ADRs](adr/README.md) · [Contributing](../CONTRIBUTING.md)
+
 > **True journey cost for UK drivers** - fuel or energy, tolls, and clean-air charges,
 > accurate to *your* vehicle and *the forecourt you'll actually stop at*.
 > Aligned to Project Scaffold Template v0.4.
@@ -829,7 +834,7 @@ test / test:watch / test:ci / test:rls / test:e2e
 db:generate / db:migrate / db:migrate:development / db:migrate:staging / db:migrate:production / db:studio / db:force-rls / db:rls:check / db:seed
 data:sync-fuel / data:sync-vca / data:sync-carbon / data:normalise-check / data:verify-zones
 env:setup / env:merge / env:sync / env:sync:staging / env:sync:prod / rules:sync / rules:check / ignore:sync
-check / ship-it / doctor / clean / reset / size
+check / ship-it / doctor / git:unlock / clean / reset / size
 deploy:staging / deploy:prod / deploy:preview
 ```
 

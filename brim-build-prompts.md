@@ -1,5 +1,8 @@
 # Brim - Build Prompt Kit (Foundation, P0–P4)
 
+> [!TIP]
+> [Docs hub](docs/README.md) · attach [`docs/design-spec.md`](docs/design-spec.md) to every phase. Do not chain phases unattended.
+
 > Companion to `brim-specification-v0.2.md`. Keep the spec in the repo at `docs/design-spec.md`
 > and **attach it to every prompt** - these phases reference it by section rather than restating it.
 

@@ -1,5 +1,8 @@
 # Brim - Design Specification
 
+> [!NOTE]
+> The **authoritative** copy used by the build is [`docs/design-spec.md`](docs/design-spec.md). This file is the v0.2 source dump. [Docs hub](docs/README.md).
+
 > **True journey cost for UK drivers** - fuel or energy, tolls, and clean-air charges,
 > accurate to *your* vehicle and *the forecourt you'll actually stop at*.
 > Aligned to Project Scaffold Template v0.4.

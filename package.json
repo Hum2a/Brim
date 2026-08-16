@@ -54,6 +54,7 @@
     "rules:sync": "node scripts/rules-sync.mjs",
     "rules:check": "node scripts/rules-sync.mjs --check",
     "doctor": "node scripts/doctor.mjs",
+    "git:unlock": "node scripts/git-unlock.mjs",
     "size": "node scripts/size.mjs",
     "ship-it": "npm run check && npm run build",
     "prepare": "husky"

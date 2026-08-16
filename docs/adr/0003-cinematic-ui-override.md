@@ -1,20 +1,31 @@
-# ADR 0003 - Cinematic UI override of spec §15
+# ADR 0003 — Cinematic UI override of spec §15
 
-Date: 2026-08-16
+<table>
+<tr>
+<td><strong>Date</strong></td><td>2026-08-16</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td><td>
 
-## Status
+[![Override](https://img.shields.io/badge/status-accepted_override-C4472F?style=flat-square)](#)
 
-Accepted (product request). Contradicts spec §15.1 and the AGENTS.md web rules on glass, shadows, gradients, palette size, and motion.
+</td>
+</tr>
+<tr>
+<td><strong>Contradicts</strong></td><td>spec §15.1 · AGENTS.md web rules (glass, shadows, gradients, palette, motion)</td>
+</tr>
+</table>
+
+> [!IMPORTANT]
+> AGENTS.md says code that contradicts the spec is a bug in one of the two — **flag it, do not silently reconcile.** This file is that flag.
 
 ## Context
 
 Spec §15.1 is an instrument: five colours, `--radius: 2px`, no gradients/glass/card shadows, amber only on the pump total, and the pump count-up as the only motion. The 2026-08-16 product request asked for a cinematic shadcn + Motion pass: glass, glows, extra hues, ambient light, and motion on every route.
 
-AGENTS.md says code that contradicts the spec is a bug in one of the two - flag it, do not silently reconcile.
-
 ## Decision
 
-For this pass the product request wins. The UI may use:
+For this pass the **product request wins**. The UI may use:
 
 - Extra ambient hues (`--night`, `--mist`, `--glow`, glass tokens)
 - `backdrop-filter` glass panels, soft shadows, radial/vignette washes
@@ -23,23 +34,30 @@ For this pass the product request wins. The UI may use:
 
 Still required:
 
-- Dark only
-- Archivo / Inter Tight / JetBrains Mono, `.tabular` on numbers
-- `--radius: 2px` on controls (sharp glass, not stock `0.5rem`)
-- Amber as the pump-total hero (glow is allowed on that numeral)
-- `prefers-reduced-motion` snaps; pump announces the final value once
-- Individual shadcn imports, never a barrel
-- Browser never calls Google, DVLA, or Fuel Finder
+| Keep | Break |
+|---|---|
+| Dark only | Extra ambient hues |
+| Archivo / Inter Tight / JetBrains Mono · `.tabular` | Glass + soft shadow + washes |
+| `--radius: 2px` on controls | Stock `0.5rem` shadcn radius |
+| Amber as pump-total hero (glow allowed **on that numeral**) | Amber everywhere |
+| `prefers-reduced-motion` snaps; pump announces **once** | Ignoring reduced motion |
+| Individual shadcn imports | Barrel imports |
+| Browser never calls Google / DVLA / Fuel Finder | — |
 
 ## Consequences
 
-The kitchen sink is the visual review gate. Reverting to §15 restraint is a later product decision, not a silent restyle.
+The kitchen sink (`/kitchen-sink`) is the visual review gate. Reverting to §15 restraint is a later product decision, not a silent restyle.
 
-§16 budget is initial JS < 150 kB gzip. Measured after this pass (Vite production build, `LazyMotion` + route-split History/Account/KitchenSink):
+§16 budget is initial JS **&lt; 150 kB gzip**. Measured after this pass (Vite production build, `LazyMotion` + route-split History/Account/KitchenSink):
 
-- Initial JS (`assets/index-*.js`): **151.8 kB gzip - miss** by 1.8 kB
-- CSS: 5.8 kB gzip
-- Kitchen sink chunk: 19.4 kB gzip (not in the initial payload)
-- Total JS+CSS including route chunks and `sw.js`: 178.5 kB gzip
+| Asset | gzip | vs 150 kB |
+|---|---:|---|
+| Initial JS (`assets/index-*.js`) | **151.8 kB** | miss by 1.8 kB |
+| CSS | 5.8 kB | — |
+| Kitchen sink chunk | 19.4 kB | not in initial payload |
+| Total JS+CSS + `sw.js` | 178.5 kB | — |
 
-Do not treat a later trim as a silent pass of the gate. Re-run `npm run size` after UI changes.
+> [!WARNING]
+> Do not treat a later trim as a silent pass of the gate. Re-run <kbd>npm run size</kbd> after UI changes.
+
+**Index:** [ADR list](README.md)

@@ -1,17 +1,38 @@
 name: Bug
-description: Something is wrong
+description: Something is wrong — no VRMs, no secrets
+title: "[bug] "
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > This report must contain **no** registration marks, API keys, or personal data.
+        > A VRM in an issue body is a privacy incident.
+
+        Kitchen sink / staging: <https://brim-staging.humza-butt.space/kitchen-sink>
   - type: textarea
     id: what
     attributes:
       label: What happened
+      description: Observed behaviour. No screenshots of a number plate.
+      placeholder: The band did not widen when I left mpg blank…
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
       label: What should have happened
+      description: Spec citation welcome (`docs/design-spec.md` §…).
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Staging (brim-staging.humza-butt.space)
+        - Production (brim.humza-butt.space)
+        - Local fixtures
+        - Unsure
   - type: checkboxes
     id: privacy
     attributes:

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security / privacy incident
+    url: https://github.com/Hum2a/Brim/security/advisories/new
+    about: Vulnerabilities and VRM leaks — never a public issue
+  - name: Documentation hub
+    url: https://github.com/Hum2a/Brim/blob/master/docs/README.md
+    about: Spec, ADRs, self-hosting

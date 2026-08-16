@@ -1,7 +1,15 @@
 name: Data correction
-description: Zone boundary, brand name, or EV tariff
+description: Zone boundary, brand name, EV tariff, or toll table
+title: "[data] "
 labels: ["data"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!TIP]
+        > You do not need TypeScript. A PR against `data/` with `source_url` and `verified_on` is enough.
+
+        Zones stale after **180 days** fail `data:verify-zones` in CI.
   - type: dropdown
     id: kind
     attributes:
@@ -17,6 +25,10 @@ body:
     id: source
     attributes:
       label: Source URL and verified-on date
+      description: ISO date (`YYYY-MM-DD`) plus a link a reviewer can open.
+      placeholder: |
+        source_url: https://…
+        verified_on: 2026-08-16
     validations:
       required: true
   - type: checkboxes

@@ -2,6 +2,8 @@
 
 Single source of truth for agent and contributor rules. Generated Cursor/Claude/Windsurf/Aider/Copilot files are derived from this document by `npm run rules:sync`. If generated files drift, `npm run rules:check` fails. Do not edit generated files by hand.
 
+Human-facing docs: [README.md](README.md) · [docs hub](docs/README.md). This file stays terse on purpose.
+
 `docs/design-spec.md` is authoritative. Code that contradicts the spec is a bug in one of the two: flag it, do not silently reconcile.
 
 ## Hard rules

@@ -1,13 +1,27 @@
 name: Feature
-description: A product change
+description: A product change — check the spec first
+title: "[feat] "
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!NOTE]
+        > `docs/design-spec.md` is authoritative. If this contradicts it, say so — we will want an ADR, not a silent reconcile.
+
+        Docs hub: [docs/README.md](https://github.com/Hum2a/Brim/blob/master/docs/README.md)
   - type: textarea
     id: proposal
     attributes:
       label: Proposal
+      description: What changes for the driver, in one screen's worth of behaviour.
     validations:
       required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: Spec touchpoints
+      description: Section numbers if you have them (§5 consumption, §8 privacy, §15 UI, …).
   - type: checkboxes
     id: privacy
     attributes:
