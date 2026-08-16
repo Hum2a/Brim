@@ -10,7 +10,7 @@ export const AccordionItem = forwardRef<
   ElementRef<typeof AccordionPrimitive.Item>,
   ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
 >(({ className, ...props }, ref) => (
-  <AccordionPrimitive.Item ref={ref} className={cn("border-b border-glass-border", className)} {...props} />
+  <AccordionPrimitive.Item ref={ref} className={cn("border-b border-border", className)} {...props} />
 ));
 AccordionItem.displayName = "AccordionItem";
 
@@ -22,7 +22,7 @@ export const AccordionTrigger = forwardRef<
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-3 text-left text-sm transition-all [&[data-state=open]>svg]:rotate-180",
+        "flex flex-1 items-center justify-between py-3 text-left text-sm transition-transform duration-200 [&[data-state=open]>svg]:rotate-180 motion-reduce:transition-none",
         className,
       )}
       {...props}
@@ -40,10 +40,17 @@ export const AccordionContent = forwardRef<
 >(({ className, children, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
-    className="overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+    className="accordion-motion overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
     {...props}
   >
-    <div className={cn("pb-3 text-mist", className)}>{children}</div>
+    <div
+      className={cn(
+        "pb-3 text-mist opacity-0 transition-opacity duration-200 group-data-[state=open]:opacity-100 motion-reduce:transition-none [[data-state=open]_&]:opacity-100",
+        className,
+      )}
+    >
+      {children}
+    </div>
   </AccordionPrimitive.Content>
 ));
 AccordionContent.displayName = "AccordionContent";

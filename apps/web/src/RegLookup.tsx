@@ -99,7 +99,7 @@ export function RegLookup({
       <p className="text-xs text-mist">Optional. Make and model still work if you would rather not use a reg.</p>
       {error ? <p className="text-sm text-warning">{error}</p> : null}
       {outcome === "single" && candidates[0] ? (
-        <div className="rounded-[2px] border border-glass-border p-3">
+        <div className="rounded-[2px] border border-border p-3">
           <p className="text-sm">We think this is your car</p>
           <p className="mt-1 text-sm">
             {candidates[0].make} {candidates[0].model}
@@ -117,7 +117,7 @@ export function RegLookup({
             <button
               key={vehicle.id}
               type="button"
-              className="flex min-h-10 w-full flex-col items-start justify-center rounded-[2px] border border-glass-border px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="flex min-h-10 w-full flex-col items-start justify-center rounded-[2px] border border-border px-3 py-2 text-left text-sm hover:bg-white/5"
               onClick={() => ves && onPick(vehicle, lookedUp, ves)}
             >
               <span>

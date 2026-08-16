@@ -1,6 +1,6 @@
-import { m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
+import { fadeUp, usePrefersReducedMotion } from "@brim/ui-kit";
 import { Button } from "@brim/ui-kit/button";
 import { Card } from "@brim/ui-kit/card";
 import { Form, FormItem } from "@brim/ui-kit/form";
@@ -369,45 +369,45 @@ export function GaragePage() {
 
   return (
     <main className="mx-auto w-[min(720px,calc(100%-1.5rem))] py-8">
-      <m.div variants={staggerChildren} initial={reduce ? false : "initial"} animate="animate">
-        <m.div variants={reveal}>
-          <h1 className="display mb-2 text-4xl">Garage</h1>
-          <p className="mb-6 text-mist">The cars Brim actually knows, and the fill-ups that correct the brochure.</p>
-        </m.div>
-        {loading ? (
-          <Card aria-busy="true">
-            <Skeleton className="mb-3 h-10 w-40" />
-            <Skeleton className="h-24 w-full" />
+      <h1 className="display mb-2 text-4xl">Garage</h1>
+      <p className="mb-6 text-mist">The cars Brim actually knows, and the fill-ups that correct the brochure.</p>
+      {loading ? (
+        <Card aria-busy="true">
+          <Skeleton className="mb-3 h-10 w-40" />
+          <Skeleton className="h-24 w-full" />
+        </Card>
+      ) : vehicles.length === 0 ? (
+        <Card>
+          <p className="mb-4">Add your car and we will stop guessing.</p>
+          {addCar}
+        </Card>
+      ) : (
+        <>
+          <Card className="mb-6">
+            <p className="mb-3 text-sm text-mist">Add another car</p>
+            {addCar}
           </Card>
-        ) : vehicles.length === 0 ? (
-          <m.div variants={reveal}>
-            <Card>
-              <p className="mb-4">Add your car and we will stop guessing.</p>
-              {addCar}
-            </Card>
-          </m.div>
-        ) : (
-          <>
-            <Card className="mb-6">
-              <p className="mb-3 text-sm text-mist">Add another car</p>
-              {addCar}
-            </Card>
-            <ul className="mb-6 grid gap-2">
-              {vehicles.map((v) => (
-                <li key={v.id}>
-                  <Button
-                    type="button"
-                    variant={v.id === selected ? "default" : "ghost"}
-                    onClick={() => setSelected(v.id)}
-                  >
-                    {title(v)}
-                    {v.is_default ? " (default)" : ""}
-                  </Button>
-                </li>
-              ))}
-            </ul>
+          <ul className="mb-6 grid gap-2">
+            {vehicles.map((v) => (
+              <li key={v.id}>
+                <Button
+                  type="button"
+                  variant={v.id === selected ? "default" : "ghost"}
+                  onClick={() => setSelected(v.id)}
+                >
+                  {title(v)}
+                  {v.is_default ? " (default)" : ""}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <AnimatePresence mode="wait" initial={false}>
             {vehicle ? (
-              <m.div variants={reveal} className="grid gap-4">
+              <m.div
+                key={vehicle.id}
+                className="grid gap-4"
+                {...(reduce ? { initial: false as const } : fadeUp)}
+              >
                 <Card>
                   <Form
                     onSubmit={(e) => {
@@ -613,9 +613,9 @@ export function GaragePage() {
                 </Card>
               </m.div>
             ) : null}
-          </>
-        )}
-      </m.div>
+          </AnimatePresence>
+        </>
+      )}
       <Dialog open={authOpen} onOpenChange={setAuthOpen}>
         <DialogContent>
           <DialogHeader>

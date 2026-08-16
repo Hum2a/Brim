@@ -222,7 +222,7 @@ These fail review. Full text: [`AGENTS.md`](AGENTS.md).
 | [**Docs hub**](docs/README.md) | Index of everything below |
 | [Design spec](docs/design-spec.md) | Authoritative product + engineering spec |
 | [Self-hosting](docs/self-hosting.md) | Env, Neon, deploy |
-| [ADRs](docs/adr/README.md) | Including the §15 UI override |
+| [ADRs](docs/adr/README.md) | Including the §15.1 motion override |
 | [Contributing](CONTRIBUTING.md) | PRs, data, fixtures |
 | [Security](SECURITY.md) | Private disclosure |
 

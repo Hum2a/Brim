@@ -1,7 +1,7 @@
 # Brim - Design Specification
 
 > [!IMPORTANT]
-> **Authoritative.** Code that contradicts this file is a bug in one of the two - flag it, do not silently reconcile. [ADR 0003](adr/0003-cinematic-ui-override.md) records a product override of §15.
+> **Authoritative.** Code that contradicts this file is a bug in one of the two - flag it, do not silently reconcile. [ADR 0005](adr/0005-purposeful-motion.md) records the current product override of §15.1 motion-only (visual restraint restored; purposeful motion allowed).
 >
 > [Docs hub](README.md) · [Self-hosting](self-hosting.md) · [ADRs](adr/README.md) · [Contributing](../CONTRIBUTING.md)
 

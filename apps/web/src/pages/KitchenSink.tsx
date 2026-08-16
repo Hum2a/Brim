@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import {
   PumpReadout,
   ReducedMotionProvider,
-  pageTransition,
+  fadeUp,
+  motionSafe,
   usePrefersReducedMotion,
 } from '@brim/ui-kit';
 import {
@@ -39,16 +40,13 @@ import { Hint } from '@brim/ui-kit/tooltip';
 function MotionLab() {
   const reduce = usePrefersReducedMotion();
   const [scene, setScene] = useState<'estimate' | 'history'>('estimate');
-  const transition = reduce
-    ? { initial: { opacity: 1 }, animate: { opacity: 1 }, exit: { opacity: 1 } }
-    : pageTransition;
+  const transition = motionSafe(reduce, fadeUp);
 
   return (
     <div className="grid gap-6">
       <Card>
         <p className="mb-3 text-sm text-mist">
-          Cross-fade between two scenes. With reduced motion this snaps; otherwise it blurs and
-          slides.
+          Route-style fade. With reduced motion this snaps; otherwise it fades 8px.
         </p>
         <Button
           type="button"
@@ -58,16 +56,21 @@ function MotionLab() {
           Swap scene
         </Button>
         <div className="relative mt-4 min-h-32">
-          <AnimatePresence mode="wait">
-            <m.div key={scene} {...transition} className="glass p-5">
+          <AnimatePresence initial={false}>
+            <m.div
+              key={scene}
+              initial={transition.initial}
+              animate={transition.animate}
+              exit={{ ...transition.exit, position: 'absolute', width: '100%' }}
+              transition={transition.transition}
+              className="rounded-[2px] border border-border bg-card p-5"
+            >
               {scene === 'estimate' ? (
                 <p className="display text-2xl">Estimate scene</p>
               ) : (
                 <p className="display text-2xl">History scene</p>
               )}
-              <p className="mt-2 text-sm text-mist">
-                Shared wordmark and pump use layoutId on the real routes.
-              </p>
+              <p className="mt-2 text-sm text-mist">Nav ink glides with a transform. Pump count-up stays on Estimate.</p>
             </m.div>
           </AnimatePresence>
         </div>
@@ -96,8 +99,8 @@ export function KitchenSink() {
       <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8">
         <h1 className="display mb-2 text-4xl">Kitchen sink</h1>
         <p className="mb-6 max-w-xl text-mist">
-          Sharp glass, extra cinematic hues, Motion on the pump. If this looks like a stock shadcn +
-          Framer landing page, restyle it.
+          Motion lab. Solid panels, 2px corners, pump count-up. If this looks like a stock animated
+          dashboard, restyle it.
         </p>
         <label className="mb-8 flex max-w-md flex-row items-center gap-3 text-sm">
           <input
@@ -190,7 +193,7 @@ export function KitchenSink() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent>
-                      Popover surface - 2px corners, glass, glow shadow.
+                      Popover surface: 2px corners, solid panel.
                     </PopoverContent>
                   </Popover>
                   <Drawer>
@@ -199,7 +202,7 @@ export function KitchenSink() {
                         Drawer
                       </Button>
                     </DrawerTrigger>
-                    <DrawerContent>Night-shift drawer. Sharp top edge.</DrawerContent>
+                    <DrawerContent>Trip drawer. Sharp top edge.</DrawerContent>
                   </Drawer>
                   <Sheet>
                     <SheetTrigger asChild>
@@ -207,7 +210,7 @@ export function KitchenSink() {
                         Sheet
                       </Button>
                     </SheetTrigger>
-                    <SheetContent>Side glass.</SheetContent>
+                    <SheetContent>Side panel.</SheetContent>
                   </Sheet>
                   <Button
                     type="button"
@@ -232,7 +235,7 @@ export function KitchenSink() {
             <DialogHeader>
               <DialogTitle>Not a template</DialogTitle>
             </DialogHeader>
-            <p>Sharp corners, cinematic glass, dark only.</p>
+            <p>Sharp corners, solid panels, dark only.</p>
           </DialogContent>
         </Dialog>
       </main>

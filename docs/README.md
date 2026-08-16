@@ -26,4 +26,4 @@ flowchart LR
 > Vehicle registration marks never appear in a URL, query string, log line, analytics event, error report, fixture, or commit message.
 
 > [!NOTE]
-> ADR 0003 records a **product override** of spec §15 (glass, extra hues, motion). That is flagged, not silently reconciled.
+> ADR 0005 records the current **product override** of spec §15.1 (purposeful motion). Visual restraint is restored. That is flagged, not silently reconciled.

@@ -1,21 +1,19 @@
-import { animate, m, useMotionValue, useTransform } from "motion/react";
+import { animate, useMotionValue, useTransform } from "motion/react";
 import { useEffect, useState } from "react";
-import { pumpGlow, usePrefersReducedMotion } from "./motion.js";
+import { usePrefersReducedMotion } from "./motion.js";
 
 type PumpReadoutProps = {
   value: number;
   currency?: string;
   unit?: string;
-  layoutId?: string;
 };
 
-export function PumpReadout({ value, currency = "£", unit, layoutId }: PumpReadoutProps) {
+export function PumpReadout({ value, currency = "£", unit }: PumpReadoutProps) {
   const reduce = usePrefersReducedMotion();
   const mv = useMotionValue(0);
   const shown = useTransform(mv, (v) => Math.round(v));
   const [digits, setDigits] = useState("0");
   const [announce, setAnnounce] = useState("");
-  const [lit, setLit] = useState(false);
 
   useEffect(() => {
     const unsub = shown.on("change", (v) => setDigits(String(v)));
@@ -24,7 +22,6 @@ export function PumpReadout({ value, currency = "£", unit, layoutId }: PumpRead
 
   useEffect(() => {
     setAnnounce("");
-    setLit(false);
     if (reduce) {
       mv.set(value);
       setDigits(String(Math.round(value)));
@@ -35,7 +32,6 @@ export function PumpReadout({ value, currency = "£", unit, layoutId }: PumpRead
       duration: 0.6,
       ease: [0.16, 1, 0.3, 1],
       onComplete: () => {
-        setLit(true);
         setAnnounce(`${currency}${Math.round(value)}${unit ? ` ${unit}` : ""}`);
       },
     });
@@ -43,12 +39,7 @@ export function PumpReadout({ value, currency = "£", unit, layoutId }: PumpRead
   }, [value, currency, unit, reduce, mv]);
 
   return (
-    <m.div
-      {...(layoutId ? { layoutId } : {})}
-      variants={pumpGlow}
-      animate={lit && !reduce ? "lit" : "rest"}
-      className="inline-block"
-    >
+    <div className="inline-block">
       <p
         className="tabular display"
         style={{
@@ -57,7 +48,6 @@ export function PumpReadout({ value, currency = "£", unit, layoutId }: PumpRead
           margin: 0,
           minWidth: "7ch",
           letterSpacing: "0.04em",
-          textShadow: lit && !reduce ? "0 0 32px rgba(232,179,60,0.55)" : "none",
         }}
       >
         {currency}
@@ -67,6 +57,6 @@ export function PumpReadout({ value, currency = "£", unit, layoutId }: PumpRead
       <span className="sr-only" aria-live="polite">
         {announce}
       </span>
-    </m.div>
+    </div>
   );
 }

@@ -1,4 +1,6 @@
+import { m } from 'motion/react';
 import { useState, type FormEvent } from 'react';
+import { fadeUp, usePrefersReducedMotion } from '@brim/ui-kit';
 import { Button } from '@brim/ui-kit/button';
 import { Form, FormItem } from '@brim/ui-kit/form';
 import { Input } from '@brim/ui-kit/input';
@@ -23,6 +25,14 @@ function errorMessage(
   return error?.message ?? fallback;
 }
 
+function ErrorLine({ message, reduce }: { message: string; reduce: boolean }) {
+  return (
+    <m.p role="alert" className="mb-3 text-sm text-warning" {...(reduce ? { initial: false as const } : fadeUp)}>
+      {message}
+    </m.p>
+  );
+}
+
 export function AuthPanel({
   onSuccess,
   defaultTab = 'signin',
@@ -43,6 +53,7 @@ export function AuthPanel({
   const [confirm, setConfirm] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reduce = usePrefersReducedMotion();
 
   async function afterAuth() {
     await api('/v1/auth/claim-anon', { method: 'POST', body: JSON.stringify({}) }).catch(
@@ -184,7 +195,7 @@ export function AuthPanel({
       <Form onSubmit={(e) => void onForgot(e)}>
         <p className="mb-3 text-sm text-mist">We will email a link to set a new password.</p>
         {emailField}
-        {error ? <p className="mb-3 text-sm text-warning">{error}</p> : null}
+        {error ? <ErrorLine message={error} reduce={reduce} /> : null}
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={pending}>
             {pending ? 'Sending…' : 'Send reset link'}
@@ -225,7 +236,7 @@ export function AuthPanel({
             required
           />
         </FormItem>
-        {error ? <p className="mb-3 text-sm text-warning">{error}</p> : null}
+        {error ? <ErrorLine message={error} reduce={reduce} /> : null}
         <Button type="submit" disabled={pending}>
           {pending ? 'Saving…' : 'Set new password'}
         </Button>
@@ -264,9 +275,7 @@ export function AuthPanel({
                 required
               />
             </FormItem>
-            {error && tab === 'signin' ? (
-              <p className="mb-3 text-sm text-warning">{error}</p>
-            ) : null}
+            {error && tab === 'signin' ? <ErrorLine message={error} reduce={reduce} /> : null}
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" disabled={pending}>
                 {pending ? 'Signing in…' : 'Sign in'}
@@ -291,9 +300,7 @@ export function AuthPanel({
                 required
               />
             </FormItem>
-            {error && tab === 'signup' ? (
-              <p className="mb-3 text-sm text-warning">{error}</p>
-            ) : null}
+            {error && tab === 'signup' ? <ErrorLine message={error} reduce={reduce} /> : null}
             <Button type="submit" disabled={pending}>
               {pending ? 'Creating…' : 'Create account'}
             </Button>

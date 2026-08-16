@@ -7,7 +7,7 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-glass-border text-mist",
+        default: "border-border text-mist",
         diesel: "border-diesel/40 text-diesel",
         warning: "border-warning/40 text-warning",
       },

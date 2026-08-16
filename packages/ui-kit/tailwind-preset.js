@@ -19,11 +19,6 @@ export default {
         warning: "#C4472F",
         night: "#0B1220",
         mist: "#8BA3C7",
-        glow: "#E8B33C",
-        glass: {
-          DEFAULT: "rgba(20,23,26,0.55)",
-          border: "rgba(242,240,235,0.14)",
-        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -62,10 +57,6 @@ export default {
         display: ['"Archivo Expanded"', "Archivo", "sans-serif"],
         body: ['"Inter Tight"', "system-ui", "sans-serif"],
         data: ['"JetBrains Mono"', "ui-monospace", "monospace"],
-      },
-      boxShadow: {
-        glass: "0 24px 80px rgba(0,0,0,.45)",
-        glow: "0 0 40px rgba(232,179,60,.35)",
       },
       keyframes: {
         "accordion-down": {

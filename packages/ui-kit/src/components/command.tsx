@@ -22,7 +22,7 @@ export const CommandInput = forwardRef<
   <CommandPrimitive.Input
     ref={ref}
     className={cn(
-      "h-10 w-full border-b border-glass-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground",
+      "h-10 w-full border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground",
       className,
     )}
     {...props}

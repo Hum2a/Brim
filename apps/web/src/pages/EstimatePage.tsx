@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { arrivalCopy, findPlaceByLabel } from "@brim/shared";
-import { PumpReadout, reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
+import { PumpReadout, fade, fadeUp, reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
 import {
   Accordion,
   AccordionContent,
@@ -209,6 +209,9 @@ export function EstimatePage() {
   const [errorSource, setErrorSource] = useState<"maps" | "trip" | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const revealed = useRef(false);
+  const savedTimer = useRef(0);
+  const [savedLabel, setSavedLabel] = useState<"vehicle" | "journey" | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("inline");
   const [homePence, setHomePence] = useState("7.5");
@@ -324,6 +327,12 @@ export function EstimatePage() {
       .catch(() => undefined);
     setHasHeatPump(selectedVehicle?.has_heat_pump === true);
   }, [savedElectric, vehicleId, selectedVehicle?.has_heat_pump]);
+
+  useEffect(() => {
+    if (estimate) revealed.current = true;
+  }, [estimate]);
+
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   useEffect(() => {
     void api<{ networks: EvNetworkRow[] }>("/v1/meta/ev-tariffs")
@@ -704,6 +713,12 @@ export function EstimatePage() {
     void runEstimate(body);
   }
 
+  function flashSaved(kind: "vehicle" | "journey") {
+    window.clearTimeout(savedTimer.current);
+    setSavedLabel(kind);
+    savedTimer.current = window.setTimeout(() => setSavedLabel(null), 1200);
+  }
+
   async function saveVehicle() {
     try {
       await api("/v1/vehicles", {
@@ -716,6 +731,7 @@ export function EstimatePage() {
       });
       const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
       setVehicles(list.vehicles);
+      flashSaved("vehicle");
       toast("Saved. Sign in to keep this car on other devices.");
     } catch {
       setPendingSave("vehicle");
@@ -736,6 +752,7 @@ export function EstimatePage() {
           departsAt,
         }),
       });
+      flashSaved("journey");
       toast("Journey stored as a snapshot.");
     } catch {
       setPendingSave("journey");
@@ -1312,24 +1329,29 @@ export function EstimatePage() {
     </>
   );
 
+  const shouldStagger = Boolean(estimate) && !revealed.current && !reduce;
   const result: ReactNode =
-    estimate && !loading ? (
+    estimate ? (
       <m.section
+        key="result"
         aria-live="polite"
-        variants={staggerChildren}
-        initial={reduce ? false : "initial"}
+        {...(shouldStagger
+          ? { variants: staggerChildren, initial: "initial" as const }
+          : { initial: false as const })}
         animate="animate"
-        className="glass p-4"
+        exit={reduce ? fade.exit : fadeUp.exit}
+        transition={fadeUp.transition}
+        className="relative rounded-[2px] border border-border bg-card p-4"
       >
-        <m.div variants={reveal}>
-          <PumpReadout value={pounds} layoutId="pump-readout" />
+        {loading ? <div className="absolute inset-0 z-10 bg-forecourt/40" aria-busy="true" /> : null}
+        <m.div {...(shouldStagger ? { variants: reveal } : {})}>
+          <PumpReadout value={pounds} />
         </m.div>
-        <m.p variants={reveal} className="tabular mt-2 text-mist">
+        <m.p {...(shouldStagger ? { variants: reveal } : {})} className="tabular mt-2 text-mist">
           {band}
         </m.p>
         {estimate.price ? (
-          <m.p
-            variants={reveal}
+          <p
             className={
               estimate.price.source === "hardcoded-fallback"
                 ? "mt-2 text-sm text-warning"
@@ -1344,13 +1366,13 @@ export function EstimatePage() {
             {estimate.price.source !== "hardcoded-fallback"
               ? ` · ${formatObservedAt(estimate.price.observedAt)}`
               : null}
-          </m.p>
+          </p>
         ) : null}
         {estimate.cheapestFill?.stations[0] ? (
-          <m.div variants={reveal} className="mt-3">
+          <div className="mt-3">
             <button
               type="button"
-              className="w-full rounded-[2px] border border-glass-border p-3 text-left"
+              className="pressable w-full rounded-[2px] border border-border p-3 text-left transition-transform duration-150 hover:-translate-y-px active:scale-[0.99] motion-reduce:transform-none"
               onClick={() => {
                 const picked = estimate.cheapestFill?.stations[0];
                 if (!picked) return;
@@ -1383,33 +1405,33 @@ export function EstimatePage() {
                 <p className="mt-1 text-sm text-mist">{estimate.cheapestFill.stations[0].openingHours}</p>
               ) : null}
             </button>
-          </m.div>
+          </div>
         ) : null}
-        <m.div variants={reveal} className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="diesel">{estimate.consumption.label}</Badge>
           <span className="tabular text-sm">{estimate.consumption.display}</span>
-        </m.div>
+        </div>
         {estimate.energy.arrivalStateOfCharge ? (
-          <m.p variants={reveal} className="mt-2 text-sm">
+          <p className="mt-2 text-sm">
             {arrivalCopy(estimate.energy.arrivalStateOfCharge)}
-          </m.p>
+          </p>
         ) : null}
         {typeof estimate.co2Kg === "number" ? (
-          <m.p variants={reveal} className="tabular mt-2 text-sm text-mist">
+          <p className="tabular mt-2 text-sm text-mist">
             About {estimate.co2Kg.toFixed(1)} kg CO₂
-          </m.p>
+          </p>
         ) : null}
         {hmrc ? (
-          <m.p variants={reveal} className="tabular mt-2 text-sm text-mist">
+          <p className="tabular mt-2 text-sm text-mist">
             {hmrc}
-          </m.p>
+          </p>
         ) : null}
         {estimate.warnings.map((w) => (
-          <m.p key={w.message} variants={reveal} className="mt-2 text-warning">
+          <p key={w.message} className="mt-2 text-warning">
             {w.message}
-          </m.p>
+          </p>
         ))}
-        <m.div variants={reveal}>
+        <div>
           <Accordion type="single" collapsible className="mt-2">
             <AccordionItem value="reasons">
               <AccordionTrigger>How we got there</AccordionTrigger>
@@ -1422,9 +1444,9 @@ export function EstimatePage() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </m.div>
+        </div>
         {estimate.charges.length > 0 ? (
-          <m.ul variants={reveal} className="mt-3 grid gap-2 text-sm">
+          <ul className="mt-3 grid gap-2 text-sm">
             {estimate.charges.map((charge) => (
               <li key={charge.id} className="flex flex-wrap items-baseline justify-between gap-2">
                 <span>
@@ -1452,18 +1474,18 @@ export function EstimatePage() {
                 ) : null}
               </li>
             ))}
-          </m.ul>
+          </ul>
         ) : null}
-        <m.p variants={reveal} className="mt-3 text-sm text-mist">
+        <p className="mt-3 text-sm text-mist">
           Brim is an estimate. You remain responsible for paying or staying out. Cars, vans and
           motorcycles only; HGV, bus and taxi classes are not modelled.
-        </m.p>
-        <m.div variants={reveal} className="mt-4 flex flex-wrap gap-2">
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>
-            Save this car
+            {savedLabel === "vehicle" ? "Saved" : "Save this car"}
           </Button>
           <Button type="button" variant="ghost" onClick={() => void saveJourney()}>
-            Save journey
+            {savedLabel === "journey" ? "Saved" : "Save journey"}
           </Button>
           {vehicleId !== "inline" ? (
             <Button type="button" variant="ghost" onClick={() => setFillOpen(true)}>
@@ -1473,12 +1495,12 @@ export function EstimatePage() {
           <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
             Sign in to sync
           </Button>
-        </m.div>
+        </div>
       </m.section>
     ) : null;
 
   return (
-    <main className="relative mx-3 mb-3 h-[calc(100dvh-5.75rem)] overflow-hidden rounded-[2px] border border-glass-border">
+    <main className="relative mx-3 mb-3 h-[calc(100dvh-5.75rem)] overflow-hidden rounded-[2px] border border-border">
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center" aria-busy="true">
@@ -1505,13 +1527,19 @@ export function EstimatePage() {
             {error}
           </p>
         ) : null}
-        {loading ? (
-          <Card aria-busy="true">
-            <Skeleton className="mb-3 h-16 w-48" />
-            <Skeleton className="h-4 w-24" />
-          </Card>
-        ) : null}
-        <AnimatePresence>{result}</AnimatePresence>
+        <div className="relative min-h-[7rem]">
+          <AnimatePresence initial={false}>
+            {loading && !estimate ? (
+              <m.div key="skeleton" {...fade} aria-busy="true">
+                <Card>
+                  <Skeleton className="mb-3 h-16 w-48" />
+                  <Skeleton className="h-4 w-24" />
+                </Card>
+              </m.div>
+            ) : null}
+            {result}
+          </AnimatePresence>
+        </div>
       </div>
 
       {wide ? null : (

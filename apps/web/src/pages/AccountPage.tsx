@@ -1,6 +1,6 @@
-import { m } from 'motion/react';
+import { AnimatePresence, m } from 'motion/react';
 import { useCallback, useEffect, useState } from 'react';
-import { reveal, staggerChildren, usePrefersReducedMotion } from '@brim/ui-kit';
+import { fade, usePrefersReducedMotion } from '@brim/ui-kit';
 import { Button } from '@brim/ui-kit/button';
 import { Card } from '@brim/ui-kit/card';
 import { Skeleton } from '@brim/ui-kit/skeleton';
@@ -84,32 +84,32 @@ export function AccountPage() {
 
   return (
     <main className="mx-auto w-[min(560px,calc(100%-1.5rem))] py-8">
-      <m.div variants={staggerChildren} initial={reduce ? false : 'initial'} animate="animate">
-        <m.div variants={reveal}>
-          <h1 className="display mb-2 text-4xl">{signedIn ? 'Account' : 'Sign in'}</h1>
-          <p className="mb-6 text-mist">
-            {signedIn
-              ? 'This is the copy of Brim that travels with you.'
-              : 'You can estimate without an account. Sign in to keep the car and the history on other devices.'}
-          </p>
-        </m.div>
-        <m.div variants={reveal}>
-          <Card>
+      <h1 className="display mb-2 text-4xl">{signedIn ? 'Account' : 'Sign in'}</h1>
+      <p className="mb-6 text-mist">
+        {signedIn
+          ? 'This is the copy of Brim that travels with you.'
+          : 'You can estimate without an account. Sign in to keep the car and the history on other devices.'}
+      </p>
+      <Card>
+        <div className="relative min-h-40">
+          <AnimatePresence mode="wait" initial={false}>
             {loading ? (
-              <div aria-busy="true">
+              <m.div key="skeleton" {...fade} aria-busy="true">
                 <Skeleton className="mb-3 h-10 w-40" />
                 <Skeleton className="h-24 w-full" />
-              </div>
-            ) : error ? (
-              <div>
-                <p className="mb-3 text-sm text-warning" role="alert">
-                  {error}
-                </p>
-                <Button type="button" variant="ghost" onClick={() => void refresh()}>
-                  Try again
-                </Button>
-              </div>
-            ) : signedIn ? (
+              </m.div>
+            ) : (
+              <m.div key={error ? 'error' : signedIn ? 'signed-in' : 'signed-out'} {...(reduce ? { initial: false } : fade)}>
+                {error ? (
+                  <div>
+                    <p className="mb-3 text-sm text-warning" role="alert">
+                      {error}
+                    </p>
+                    <Button type="button" variant="ghost" onClick={() => void refresh()}>
+                      Try again
+                    </Button>
+                  </div>
+                ) : signedIn ? (
               <div className="space-y-5">
                 <p>
                   Signed in as <span className="text-pump">{session.email ?? session.ownerId}</span>
@@ -204,17 +204,19 @@ export function AccountPage() {
                 <p className="mt-5 text-sm text-mist">Estimating stays free. An account is only for sync and history.</p>
               </>
             )}
-          </Card>
-        </m.div>
-        <m.div variants={reveal} className="mt-4 flex flex-col items-start gap-2">
-          <Button type="button" variant="ghost" onClick={openHerald}>
-            What's new
-          </Button>
-          <Link href="/kitchen-sink" className="text-sm text-mist hover:text-pump">
-            Lab
-          </Link>
-        </m.div>
-      </m.div>
+              </m.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </Card>
+      <div className="mt-4 flex flex-col items-start gap-2">
+        <Button type="button" variant="ghost" onClick={openHerald}>
+          What's new
+        </Button>
+        <Link href="/kitchen-sink" className="text-sm text-mist hover:text-pump">
+          Lab
+        </Link>
+      </div>
     </main>
   );
 }

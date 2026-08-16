@@ -1,6 +1,4 @@
-import { m } from "motion/react";
 import { useEffect, useState } from "react";
-import { reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
 import { Button } from "@brim/ui-kit/button";
 import { Card } from "@brim/ui-kit/card";
 import { toast } from "@brim/ui-kit/toast";
@@ -36,7 +34,6 @@ type Summary = {
 };
 
 export function HistoryPage() {
-  const reduce = usePrefersReducedMotion();
   const [rows, setRows] = useState<Row[]>([]);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -58,106 +55,100 @@ export function HistoryPage() {
 
   return (
     <main className="mx-auto w-[min(720px,calc(100%-1.5rem))] py-8">
-      <m.div variants={staggerChildren} initial={reduce ? false : "initial"} animate="animate">
-        <m.div variants={reveal}>
-          <h1 className="display mb-2 text-4xl">Journeys</h1>
-          <p className="mb-6 text-mist">Snapshots. The number will not move if constants change.</p>
-        </m.div>
-        {summary ? (
-          <m.p variants={reveal} className="tabular mb-4 text-sm text-mist">
-            This tax year: {summary.miles.toFixed(0)} miles, £{(summary.actualPence / 100).toFixed(2)} actual,
-            HMRC would allow £{(summary.approvedPence / 100).toFixed(2)}
-            {summary.crossedThreshold ? " (past 10,000 miles)." : "."}
-          </m.p>
-        ) : null}
-        <m.div variants={reveal}>
-          <Button
-            type="button"
-            variant="ghost"
-            className="mb-6"
-            onClick={async () => {
-              const res = await fetch(`${apiBase}/v1/journeys/export`, { credentials: "include" });
-              const blob = await res.blob();
-              const href = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = href;
-              a.download = "brim-journeys.csv";
-              a.click();
-              URL.revokeObjectURL(href);
-            }}
-          >
-            Download CSV
+      <h1 className="display mb-2 text-4xl">Journeys</h1>
+      <p className="mb-6 text-mist">Snapshots. The number will not move if constants change.</p>
+      {summary ? (
+        <p className="tabular mb-4 text-sm text-mist">
+          This tax year: {summary.miles.toFixed(0)} miles, £{(summary.actualPence / 100).toFixed(2)} actual,
+          HMRC would allow £{(summary.approvedPence / 100).toFixed(2)}
+          {summary.crossedThreshold ? " (past 10,000 miles)." : "."}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        className="mb-6"
+        onClick={async () => {
+          const res = await fetch(`${apiBase}/v1/journeys/export`, { credentials: "include" });
+          const blob = await res.blob();
+          const href = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = href;
+          a.download = "brim-journeys.csv";
+          a.click();
+          URL.revokeObjectURL(href);
+        }}
+      >
+        Download CSV
+      </Button>
+      <ul className="grid gap-3">
+        {rows.map((r) => (
+          <li key={r.id}>
+            <Card className="flex flex-wrap items-center justify-between gap-3">
+              <button type="button" className="text-left" onClick={() => void openDetail(r.id)}>
+                <p>
+                  {r.origin} → {r.destination}
+                </p>
+                <p className="tabular text-sm text-mist">
+                  £{(r.totalPence / 100).toFixed(2)}
+                  {r.miles !== undefined ? ` · ${r.miles.toFixed(0)} mi` : ""}
+                  {r.vehicleNickname ? ` · ${r.vehicleNickname}` : ""} · {r.createdAt.slice(0, 10)}
+                </p>
+              </button>
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => navigate(`/?journey=${r.id}`)}>
+                  Estimate again
+                </Button>
+                <Button
+                  type="button"
+                  variant="warning"
+                  size="sm"
+                  onClick={async () => {
+                    if (!confirm("Delete this journey permanently?")) return;
+                    await api(`/v1/journeys/${r.id}`, { method: "DELETE" });
+                    toast("Journey deleted.");
+                    setDetail(null);
+                    await refresh();
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </Card>
+          </li>
+        ))}
+      </ul>
+      {detail ? (
+        <Card className="mt-6">
+          <p className="mb-2">
+            {detail.origin} → {detail.destination}
+          </p>
+          <p className="tabular text-sm">
+            £{(detail.totalPence / 100).toFixed(2)}
+            {detail.totalLowPence !== undefined && detail.totalHighPence !== undefined
+              ? ` (£${(detail.totalLowPence / 100).toFixed(0)}–£${(detail.totalHighPence / 100).toFixed(0)})`
+              : ""}
+          </p>
+          {detail.consumptionLabel ? <p className="mt-2 text-sm text-mist">{detail.consumptionLabel}</p> : null}
+          {detail.hmrc?.approvedPence !== undefined ? (
+            <p className="tabular mt-2 text-sm text-mist">
+              HMRC would allow £{(detail.hmrc.approvedPence / 100).toFixed(2)}.
+            </p>
+          ) : null}
+          {detail.reasons && detail.reasons.length > 0 ? (
+            <ul className="mt-3 list-disc space-y-1 pl-4 text-sm text-mist">
+              {detail.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-mist">Stored as the snapshot from the day you saved it.</p>
+          )}
+          <Button type="button" className="mt-4" variant="ghost" onClick={() => navigate(`/?journey=${detail.id}`)}>
+            Estimate again
           </Button>
-        </m.div>
-        <ul className="grid gap-3">
-          {rows.map((r) => (
-            <m.li key={r.id} layout variants={reveal}>
-              <Card className="flex flex-wrap items-center justify-between gap-3">
-                <button type="button" className="text-left" onClick={() => void openDetail(r.id)}>
-                  <p>
-                    {r.origin} → {r.destination}
-                  </p>
-                  <p className="tabular text-sm text-mist">
-                    £{(r.totalPence / 100).toFixed(2)}
-                    {r.miles !== undefined ? ` · ${r.miles.toFixed(0)} mi` : ""}
-                    {r.vehicleNickname ? ` · ${r.vehicleNickname}` : ""} · {r.createdAt.slice(0, 10)}
-                  </p>
-                </button>
-                <div className="flex gap-2">
-                  <Button type="button" variant="ghost" size="sm" onClick={() => navigate(`/?journey=${r.id}`)}>
-                    Estimate again
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="warning"
-                    size="sm"
-                    onClick={async () => {
-                      if (!confirm("Delete this journey permanently?")) return;
-                      await api(`/v1/journeys/${r.id}`, { method: "DELETE" });
-                      toast("Journey deleted.");
-                      setDetail(null);
-                      await refresh();
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </Card>
-            </m.li>
-          ))}
-        </ul>
-        {detail ? (
-          <Card className="mt-6">
-            <p className="mb-2">
-              {detail.origin} → {detail.destination}
-            </p>
-            <p className="tabular text-sm">
-              £{(detail.totalPence / 100).toFixed(2)}
-              {detail.totalLowPence !== undefined && detail.totalHighPence !== undefined
-                ? ` (£${(detail.totalLowPence / 100).toFixed(0)}–£${(detail.totalHighPence / 100).toFixed(0)})`
-                : ""}
-            </p>
-            {detail.consumptionLabel ? <p className="mt-2 text-sm text-mist">{detail.consumptionLabel}</p> : null}
-            {detail.hmrc?.approvedPence !== undefined ? (
-              <p className="tabular mt-2 text-sm text-mist">
-                HMRC would allow £{(detail.hmrc.approvedPence / 100).toFixed(2)}.
-              </p>
-            ) : null}
-            {detail.reasons && detail.reasons.length > 0 ? (
-              <ul className="mt-3 list-disc space-y-1 pl-4 text-sm text-mist">
-                {detail.reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-3 text-sm text-mist">Stored as the snapshot from the day you saved it.</p>
-            )}
-            <Button type="button" className="mt-4" variant="ghost" onClick={() => navigate(`/?journey=${detail.id}`)}>
-              Estimate again
-            </Button>
-          </Card>
-        ) : null}
-      </m.div>
+        </Card>
+      ) : null}
     </main>
   );
 }

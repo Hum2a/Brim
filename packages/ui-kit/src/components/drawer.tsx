@@ -13,12 +13,9 @@ export function DrawerTrigger(props: ComponentProps<typeof DrawerPrimitive.Trigg
 export function DrawerContent({ className, children, ...props }: ComponentProps<typeof DrawerPrimitive.Content>) {
   return (
     <DrawerPrimitive.Portal>
-      <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-night/60 backdrop-blur-sm" />
+      <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-forecourt/70" />
       <DrawerPrimitive.Content
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-50 rounded-t-[2px] border border-glass-border bg-[var(--glass)] p-4 shadow-glass backdrop-blur-2xl",
-          className,
-        )}
+        className={cn("fixed inset-x-0 bottom-0 z-50 rounded-t-[2px] border border-border bg-card p-4", className)}
         {...props}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />

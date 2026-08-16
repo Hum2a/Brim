@@ -1,4 +1,4 @@
-# ADR 0003 — Cinematic UI override of spec §15
+# ADR 0003: Cinematic UI override of spec §15
 
 <table>
 <tr>
@@ -7,9 +7,12 @@
 <tr>
 <td><strong>Status</strong></td><td>
 
-[![Override](https://img.shields.io/badge/status-accepted_override-C4472F?style=flat-square)](#)
+[![Superseded](https://img.shields.io/badge/status-superseded-8ba3c7?style=flat-square)](#)
 
 </td>
+</tr>
+<tr>
+<td><strong>Superseded by</strong></td><td>[0005](0005-purposeful-motion.md)</td>
 </tr>
 <tr>
 <td><strong>Contradicts</strong></td><td>spec §15.1 · AGENTS.md web rules (glass, shadows, gradients, palette, motion)</td>
@@ -17,7 +20,7 @@
 </table>
 
 > [!IMPORTANT]
-> AGENTS.md says code that contradicts the spec is a bug in one of the two — **flag it, do not silently reconcile.** This file is that flag.
+> AGENTS.md says code that contradicts the spec is a bug in one of the two: **flag it, do not silently reconcile.** This file was that flag. [ADR 0005](0005-purposeful-motion.md) restores visual restraint and keeps purposeful motion.
 
 ## Context
 
@@ -42,7 +45,7 @@ Still required:
 | Amber as pump-total hero (glow allowed **on that numeral**) | Amber everywhere |
 | `prefers-reduced-motion` snaps; pump announces **once** | Ignoring reduced motion |
 | Individual shadcn imports | Barrel imports |
-| Browser never calls Google / DVLA / Fuel Finder | — |
+| Browser never calls Google / DVLA / Fuel Finder | - |
 
 ## Consequences
 
@@ -53,9 +56,9 @@ The kitchen sink (`/kitchen-sink`) is the visual review gate. Reverting to §15 
 | Asset | gzip | vs 150 kB |
 |---|---:|---|
 | Initial JS (`assets/index-*.js`) | **151.8 kB** | miss by 1.8 kB |
-| CSS | 5.8 kB | — |
+| CSS | 5.8 kB | - |
 | Kitchen sink chunk | 19.4 kB | not in initial payload |
-| Total JS+CSS + `sw.js` | 178.5 kB | — |
+| Total JS+CSS + `sw.js` | 178.5 kB | - |
 
 > [!WARNING]
 > Do not treat a later trim as a silent pass of the gate. Re-run <kbd>npm run size</kbd> after UI changes.
