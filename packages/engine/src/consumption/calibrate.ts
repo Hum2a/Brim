@@ -1,5 +1,8 @@
 import { milesToKm } from "@brim/shared";
 
+/** Intervals shorter than this are treated as odometer noise, not a sample. */
+export const MIN_INTERVAL_MILES = 20;
+
 export type FillUpSample = {
   odometerMiles: number;
   quantity: number;
@@ -72,7 +75,9 @@ export function calibrateFromFillUps(
       }
     }
     if (!end || litresOrKwh <= 0) continue;
-    const km = milesToKm(end.odometerMiles - start.odometerMiles);
+    const miles = end.odometerMiles - start.odometerMiles;
+    if (miles < MIN_INTERVAL_MILES) continue;
+    const km = milesToKm(miles);
     if (km <= 0) continue;
     rates.push((litresOrKwh / km) * 100);
   }

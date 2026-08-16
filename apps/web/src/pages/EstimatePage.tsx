@@ -225,6 +225,7 @@ export function EstimatePage() {
   const [fillQty, setFillQty] = useState("");
   const [fillPrice, setFillPrice] = useState("");
   const [fillBrim, setFillBrim] = useState(true);
+  const [fillWhen, setFillWhen] = useState("");
   const [stale, setStale] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
   const [stationId, setStationId] = useState<string | undefined>();
@@ -247,6 +248,7 @@ export function EstimatePage() {
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
   const savedElectric =
     selectedVehicle?.propulsion === "bev" || selectedVehicle?.propulsion === "phev";
+  const savedBev = selectedVehicle?.propulsion === "bev";
   const electricTrip = propulsion === "bev" || propulsion === "phev" || savedElectric;
 
   const tripRef = useRef({
@@ -1422,7 +1424,7 @@ export function EstimatePage() {
           </Button>
           {vehicleId !== "inline" ? (
             <Button type="button" variant="ghost" onClick={() => setFillOpen(true)}>
-              Log a fill-up
+              {savedBev ? "Log a charge" : "Log a fill-up"}
             </Button>
           ) : null}
           <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
@@ -1493,32 +1495,54 @@ export function EstimatePage() {
       <Dialog open={fillOpen} onOpenChange={setFillOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Log a fill-up</DialogTitle>
-            <DialogDescription>Odometer, quantity, brim. Used to correct the brochure figure.</DialogDescription>
+            <DialogTitle>{savedBev ? "Log a charge" : "Log a fill-up"}</DialogTitle>
+            <DialogDescription>
+              Odometer, quantity, {savedBev ? "full" : "brim"}. Used to correct the brochure figure.
+            </DialogDescription>
           </DialogHeader>
           <Form
             onSubmit={(e) => {
               e.preventDefault();
               const pounds = Number(fillPrice);
+              const when = fillWhen.trim() ? new Date(fillWhen) : undefined;
               void api("/v1/fill-ups", {
                 method: "POST",
                 body: JSON.stringify({
                   vehicleId,
                   odometerMiles: Number(fillOdo),
                   quantity: Number(fillQty),
-                  unit: savedElectric ? "kwh" : "litres",
+                  unit: savedBev ? "kwh" : "litres",
                   price: Number.isFinite(pounds) ? Math.round(pounds * 100) : 0,
                   brim: fillBrim,
+                  ...(when && Number.isFinite(when.getTime()) ? { occurredAt: when.toISOString() } : {}),
                 }),
               })
-                .then(() => {
-                  toast("Fill-up stored.");
+                .then(async () => {
                   setFillOpen(false);
                   setFillOdo("");
                   setFillQty("");
                   setFillPrice("");
+                  setFillWhen("");
+                  const cal = await api<{ confidence: string }>(`/v1/vehicles/${vehicleId}/calibration`).catch(
+                    () => null,
+                  );
+                  toast(
+                    cal?.confidence === "calibrated"
+                      ? "Stored. Estimates will now use your fill-ups."
+                      : "Stored.",
+                  );
+                  void runEstimate(buildEstimateBody());
                 })
-                .catch(() => {
+                .catch((err: unknown) => {
+                  const message = err instanceof Error ? err.message : "";
+                  if (message === "odometer_rollback") {
+                    toast("Odometer must be higher than the last fill-up.");
+                    return;
+                  }
+                  if (message === "unit_mismatch") {
+                    toast("That quantity unit does not match this car.");
+                    return;
+                  }
                   setPendingSave("fill");
                   setFillOpen(false);
                   setAuthOpen(true);
@@ -1530,7 +1554,7 @@ export function EstimatePage() {
               <Input id="est-odo" className="tabular" value={fillOdo} onChange={(ev) => setFillOdo(ev.target.value)} required />
             </FormItem>
             <FormItem>
-              <Label htmlFor="est-qty">{savedElectric ? "kWh" : "Litres"}</Label>
+              <Label htmlFor="est-qty">{savedBev ? "kWh" : "Litres"}</Label>
               <Input id="est-qty" className="tabular" value={fillQty} onChange={(ev) => setFillQty(ev.target.value)} required />
             </FormItem>
             <FormItem>
@@ -1540,11 +1564,20 @@ export function EstimatePage() {
             <FormItem>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={fillBrim} onChange={(ev) => setFillBrim(ev.target.checked)} />
-                Filled to brim
+                {savedBev ? "Charged to full" : "Filled to brim"}
               </label>
             </FormItem>
+            <FormItem>
+              <Label htmlFor="est-when">When</Label>
+              <Input
+                id="est-when"
+                type="datetime-local"
+                value={fillWhen}
+                onChange={(ev) => setFillWhen(ev.target.value)}
+              />
+            </FormItem>
             <Button type="submit" className="mt-2">
-              Store fill-up
+              {savedBev ? "Store charge" : "Store fill-up"}
             </Button>
           </Form>
         </DialogContent>

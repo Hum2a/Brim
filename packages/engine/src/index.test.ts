@@ -108,4 +108,52 @@ describe("computeEstimate", () => {
     });
     expect(noCharge.warnings.some((w) => w.code === "phev-no-start-charge")).toBe(true);
   });
+
+  it("uses liquid calibration on the PHEV petrol tail", () => {
+    const vehicle = { kind: "car" as const, propulsion: "phev" as const, batteryKwhUsable: 10, startChargePercent: 50 };
+    const base = {
+      distanceMeters: 400_000,
+      propulsion: "phev" as const,
+      vehicle,
+      official: { value: 20, unit: "kWh/100km" as const, cycle: "WLTP" as const },
+      pricePence: 7,
+      priceUnit: "p/kWh" as const,
+      priceSource: "user-tariff" as const,
+      priceObservedAt: "2026-01-01T00:00:00Z",
+      liquidPricePence: 140,
+    };
+    const brochure = computeEstimate(base);
+    const calibrated = computeEstimate({
+      ...base,
+      calibration: { value: 3.2, unit: "l/100km", sampleCount: 4 },
+    });
+    expect(calibrated.consumption.tier).toBe(0);
+    expect(calibrated.energy.litres?.point).toBeLessThan(brochure.energy.litres?.point ?? 0);
+  });
+
+  it("widens the band when fill-up scatter is high, without leaving tier 0", () => {
+    const stable = computeEstimate({
+      distanceMeters: DISTANCE,
+      propulsion: "petrol",
+      calibration: { value: 6.2, unit: "l/100km", sampleCount: 4, stddev: 0.2 },
+      pricePence: PRICE,
+      priceUnit: "ppl",
+      priceSource: "national-median",
+      priceObservedAt: "2026-01-01T00:00:00Z",
+    });
+    const noisy = computeEstimate({
+      distanceMeters: DISTANCE,
+      propulsion: "petrol",
+      calibration: { value: 6.2, unit: "l/100km", sampleCount: 4, stddev: 2 },
+      pricePence: PRICE,
+      priceUnit: "ppl",
+      priceSource: "national-median",
+      priceObservedAt: "2026-01-01T00:00:00Z",
+    });
+    expect(noisy.consumption.tier).toBe(0);
+    expect(noisy.cost.totalPence.high - noisy.cost.totalPence.low).toBeGreaterThan(
+      stable.cost.totalPence.high - stable.cost.totalPence.low,
+    );
+    expect(noisy.reasons.some((s) => s.includes("fill-ups vary"))).toBe(true);
+  });
 });

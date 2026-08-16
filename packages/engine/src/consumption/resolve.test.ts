@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandWidth } from "../confidence.js";
+import { bandWidth, extraFallbacksFromCalibration } from "../confidence.js";
 import { applyRoadShape } from "./roadShape.js";
 import { resolveConsumption } from "./resolve.js";
 
@@ -12,6 +12,7 @@ describe("resolveConsumption tier chain", () => {
       official: { value: 5, unit: "l/100km", cycle: "WLTP" },
     });
     expect(r.tier).toBe(0);
+    expect(r.reasons.some((s) => s.includes("last 3 brim-to-brim intervals"))).toBe(true);
     expect(r.label).toBe("Based on your fill-ups");
     expect(r.value).toBe(6.5);
   });
@@ -23,7 +24,7 @@ describe("resolveConsumption tier chain", () => {
       userEntered: { value: 7, unit: "l/100km" },
     });
     expect(r.tier).toBe(1);
-    expect(r.reasons.some((s) => s.includes("at least 3"))).toBe(true);
+    expect(r.reasons.some((s) => s.includes("at least 3 brim-to-brim intervals"))).toBe(true);
   });
 
   it("selects tier 1 for user-entered", () => {
@@ -101,5 +102,11 @@ describe("road shape and bands", () => {
     const w0 = bandWidth(2, 0);
     const w1 = bandWidth(2, 1);
     expect(w1).toBeGreaterThan(w0);
+  });
+
+  it("adds a fallback when calibration scatter is high", () => {
+    expect(extraFallbacksFromCalibration({ value: 6.2, stddev: 0.2 })).toBe(0);
+    expect(extraFallbacksFromCalibration({ value: 6.2, stddev: 2 })).toBe(1);
+    expect(extraFallbacksFromCalibration({ value: 6.2 })).toBe(0);
   });
 });

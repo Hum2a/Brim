@@ -38,7 +38,7 @@
     "observedAt": "2026-01-15T12:00:00Z"
   },
   "reasons": [
-    "Used your logged fill-ups rather than the brochure figure.",
+    "Used your last 6 brim-to-brim intervals rather than the brochure figure.",
     "No road mix available, so we left consumption unadjusted and widened the range."
   ],
   "warnings": []

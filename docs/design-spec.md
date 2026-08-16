@@ -154,11 +154,15 @@ tier was used**:
 
 | Tier | Source | Typical error | Confidence label |
 |---|---|---|---|
-| 0 | User's calibrated figure (≥3 valid fill-ups / charges) | ±3–5% | *Based on your fill-ups* |
+| 0 | User's calibrated figure (≥3 brim-to-brim / charge-to-full intervals) | ±3–5% | *Based on your fill-ups* |
 | 1 | User-entered mpg or mi/kWh | user's problem | *You told us* |
 | 2 | VCA official figure × real-world correction | ±10% | *Official figure, adjusted* |
 | 3 | Class average by fuel type + capacity/battery band | ±20% | *Estimated from similar vehicles* |
 | 4 | Routing provider's own fuel estimate | ±25% | *Rough estimate* |
+
+Tier 0 counts brim-to-brim (or charge-to-full) **intervals**, not raw fill rows. Four brim
+fills are the usual way to reach three samples. Splash fills between brim endpoints still add
+quantity.
 
 **Correction factors (tier 2)** - by test cycle, since provenance matters more than the car:
 

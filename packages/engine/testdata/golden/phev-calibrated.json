@@ -4,9 +4,9 @@
   "energy": {
     "kind": "liquid",
     "litres": {
-      "point": 1.2272727272727275,
-      "low": 1.1413636363636366,
-      "high": 1.3131818181818184
+      "point": 0.5236363636363638,
+      "low": 0.4869818181818183,
+      "high": 0.5602909090909093
     },
     "kwh": {
       "battery": 14,
@@ -17,19 +17,19 @@
   },
   "cost": {
     "energyPence": {
-      "point": 290,
-      "low": 270,
-      "high": 310
+      "point": 190,
+      "low": 180,
+      "high": 210
     },
     "chargesPence": 0,
     "totalPence": {
-      "point": 290,
-      "low": 270,
-      "high": 310
+      "point": 190,
+      "low": 180,
+      "high": 210
     }
   },
   "charges": [],
-  "co2Kg": 4.9715727272727275,
+  "co2Kg": 3.325204363636364,
   "consumption": {
     "value": 3.2,
     "unit": "l/100km",
@@ -44,7 +44,7 @@
     "observedAt": "2026-01-15T12:00:00Z"
   },
   "reasons": [
-    "Used your logged fill-ups rather than the brochure figure.",
+    "Used your last 4 brim-to-brim intervals rather than the brochure figure.",
     "No road mix available, so we left consumption unadjusted and widened the range.",
     "No forecast temperature, so we skipped the cold-weather adjustment.",
     "Cost is billed on energy drawn from the grid, not energy in the battery.",

@@ -94,6 +94,15 @@ export async function createFillUpHandler(c: Context<{ Bindings: ApiBindings }>)
   const parsed = fillUpBody.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
   const db = createDb(c.env);
+  const vehicle = await getVehicle(db, session.ownerId, parsed.data.vehicleId);
+  if (!vehicle) return c.json({ error: 'not_found' }, 404);
+  const wantUnit = vehicle.propulsion === 'bev' ? 'kwh' : 'litres';
+  if (parsed.data.unit !== wantUnit) return c.json({ error: 'unit_mismatch' }, 400);
+  const existing = await listFillUps(db, session.ownerId, vehicle.id);
+  const latestMiles = existing.reduce((max, f) => Math.max(max, f.odometer_miles), 0);
+  if (existing.length > 0 && parsed.data.odometerMiles <= latestMiles) {
+    return c.json({ error: 'odometer_rollback' }, 400);
+  }
   const row: FillUpRow = {
     id: crypto.randomUUID(),
     vehicle_id: parsed.data.vehicleId,

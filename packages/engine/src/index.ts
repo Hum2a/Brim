@@ -8,7 +8,7 @@ import type {
   Warning,
 } from "@brim/shared";
 import { l100kmToMpg, metresToKm } from "@brim/shared";
-import { bandWidth } from "./confidence.js";
+import { bandWidth, extraFallbacksFromCalibration } from "./confidence.js";
 import { applyRoadShape } from "./consumption/roadShape.js";
 import { resolveConsumption } from "./consumption/resolve.js";
 import { arrivalStateOfCharge } from "./estimate/arrival.js";
@@ -21,7 +21,12 @@ export type EstimateInput = {
   durationSeconds?: number | undefined;
   propulsion: Propulsion;
   vehicle?: VehicleProfile | undefined;
-  calibration?: { value: number; unit: "l/100km" | "kWh/100km" | "mpg" | "mi/kWh"; sampleCount: number } | undefined;
+  calibration?: {
+    value: number;
+    unit: "l/100km" | "kWh/100km" | "mpg" | "mi/kWh";
+    sampleCount: number;
+    stddev?: number | undefined;
+  } | undefined;
   userEntered?: { value: number; unit: "l/100km" | "kWh/100km" | "mpg" | "mi/kWh" } | undefined;
   official?: { value: number; unit: "l/100km" | "kWh/100km" | "mpg" | "mi/kWh"; cycle: "WLTP" | "NEDC" } | undefined;
   classAverage?: { value: number; unit: "l/100km" | "kWh/100km" | "mpg" | "mi/kWh" } | undefined;
@@ -78,7 +83,9 @@ export function computeEstimate(input: EstimateInput): Estimate {
     input.roadComposition,
   );
   reasons.push(...shaped.reasons);
-  const halfWidth = bandWidth(resolved.tier, shaped.fallbacks);
+  const varianceFallbacks = extraFallbacksFromCalibration(input.calibration);
+  if (varianceFallbacks > 0) reasons.push("Your fill-ups vary, so the range is wider.");
+  const halfWidth = bandWidth(resolved.tier, shaped.fallbacks + varianceFallbacks);
 
   const durationSeconds = input.durationSeconds ?? 0;
   const priceObservedAt = input.priceObservedAt;
@@ -183,6 +190,7 @@ export function computeEstimate(input: EstimateInput): Estimate {
       const iceResolved = resolveConsumption({
         kind: "liquid",
         propulsion: "petrol",
+        calibration: input.calibration,
         official: input.official,
         classAverage: input.classAverage,
       });
@@ -301,6 +309,7 @@ export {
 } from "./fill/index.js";
 export {
   calibrateFromFillUps,
+  MIN_INTERVAL_MILES,
   type CalibrationFromFillUps,
   type FillUpSample,
 } from "./consumption/calibrate.js";

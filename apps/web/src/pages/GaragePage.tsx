@@ -88,6 +88,7 @@ export function GaragePage() {
   const [price, setPrice] = useState("");
   const [brim, setBrim] = useState(true);
   const [note, setNote] = useState("");
+  const [occurredAt, setOccurredAt] = useState("");
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
   const [catalogueOpen, setCatalogueOpen] = useState(false);
   const [pendingVrm, setPendingVrm] = useState<string | undefined>();
@@ -208,6 +209,7 @@ export function GaragePage() {
     e.preventDefault();
     if (!vehicle) return;
     const pounds = Number(price);
+    const when = occurredAt.trim() ? new Date(occurredAt) : undefined;
     try {
       await api("/v1/fill-ups", {
         method: "POST",
@@ -219,13 +221,31 @@ export function GaragePage() {
           price: Number.isFinite(pounds) ? Math.round(pounds * 100) : 0,
           brim,
           note: note || undefined,
+          ...(when && Number.isFinite(when.getTime()) ? { occurredAt: when.toISOString() } : {}),
         }),
       });
       setOdo("");
       setQty("");
       setPrice("");
       setNote("");
+      setOccurredAt("");
       toast("Fill-up stored.");
+      const fillsRes = await api<{ fillUps: FillUp[] }>(`/v1/vehicles/${vehicle.id}/fill-ups`);
+      setFills(fillsRes.fillUps);
+      setCalib(await api<Calibration>(`/v1/vehicles/${vehicle.id}/calibration`));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message === "odometer_rollback") toast("Odometer must be higher than the last fill-up.");
+      else if (message === "unit_mismatch") toast("That quantity unit does not match this car.");
+      else setAuthOpen(true);
+    }
+  }
+
+  async function removeFill(id: string) {
+    if (!vehicle) return;
+    try {
+      await api(`/v1/fill-ups/${id}`, { method: "DELETE" });
+      toast("Fill-up deleted.");
       const fillsRes = await api<{ fillUps: FillUp[] }>(`/v1/vehicles/${vehicle.id}/fill-ups`);
       setFills(fillsRes.fillUps);
       setCalib(await api<Calibration>(`/v1/vehicles/${vehicle.id}/calibration`));
@@ -269,6 +289,7 @@ export function GaragePage() {
   }
 
   const electric = vehicle?.propulsion === "bev" || vehicle?.propulsion === "phev";
+  const bev = vehicle?.propulsion === "bev";
   const addCar = (
     <div className="grid gap-4">
       <RegLookup
@@ -421,23 +442,27 @@ export function GaragePage() {
                   {calib ? (
                     <p className="tabular mt-4 text-sm text-mist">
                       {calib.confidence === "calibrated"
-                        ? `Based on your fill-ups (${calib.sampleCount} intervals${calib.value !== undefined ? `, ${calib.value.toFixed(1)} ${calib.unit}` : ""}).`
+                        ? `Based on your last ${calib.sampleCount} brim-to-brim intervals${calib.value !== undefined ? `, ${calib.value.toFixed(1)} ${calib.unit}` : ""}.`
                         : calib.confidence === "building"
-                          ? `${calib.sampleCount} brim interval${calib.sampleCount === 1 ? "" : "s"} so far. Need 3 for a personal figure.`
-                          : "No brim fill-ups yet."}
+                          ? `${calib.sampleCount} brim-to-brim interval${calib.sampleCount === 1 ? "" : "s"} so far. Need 3 for a personal figure.`
+                          : bev
+                            ? "No full charges yet."
+                            : "No brim fill-ups yet."}
                     </p>
                   ) : null}
                 </Card>
                 <Card>
-                  <h2 className="mb-3 text-lg">Log a fill-up</h2>
-                  <p className="mb-3 text-sm text-mist">Odometer, quantity, brim. Under fifteen seconds.</p>
+                  <h2 className="mb-3 text-lg">{bev ? "Log a charge" : "Log a fill-up"}</h2>
+                  <p className="mb-3 text-sm text-mist">
+                    Odometer, quantity, {bev ? "full" : "brim"}. Under fifteen seconds.
+                  </p>
                   <Form onSubmit={(e) => void logFill(e)}>
                     <FormItem>
                       <Label htmlFor="odo">Odometer miles</Label>
                       <Input id="odo" className="tabular" value={odo} onChange={(ev) => setOdo(ev.target.value)} required />
                     </FormItem>
                     <FormItem>
-                      <Label htmlFor="qty">{electric ? "kWh" : "Litres"}</Label>
+                      <Label htmlFor="qty">{bev ? "kWh" : "Litres"}</Label>
                       <Input id="qty" className="tabular" value={qty} onChange={(ev) => setQty(ev.target.value)} required />
                     </FormItem>
                     <FormItem>
@@ -447,22 +472,37 @@ export function GaragePage() {
                     <FormItem>
                       <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={brim} onChange={(ev) => setBrim(ev.target.checked)} />
-                        Filled to brim
+                        {bev ? "Charged to full" : "Filled to brim"}
                       </label>
+                    </FormItem>
+                    <FormItem>
+                      <Label htmlFor="when">When</Label>
+                      <Input
+                        id="when"
+                        type="datetime-local"
+                        value={occurredAt}
+                        onChange={(ev) => setOccurredAt(ev.target.value)}
+                      />
                     </FormItem>
                     <FormItem>
                       <Label htmlFor="note">Note</Label>
                       <Input id="note" value={note} onChange={(ev) => setNote(ev.target.value)} />
                     </FormItem>
                     <Button type="submit" className="mt-2">
-                      Store fill-up
+                      {bev ? "Store charge" : "Store fill-up"}
                     </Button>
                   </Form>
                   <ul className="mt-4 grid gap-2">
                     {fills.map((f) => (
-                      <li key={f.id} className="tabular text-sm text-mist">
-                        {f.occurredAt.slice(0, 10)} · {f.odometerMiles.toFixed(0)} mi · {f.quantity} {f.unit}
-                        {f.brim ? " · brim" : ""}
+                      <li key={f.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="tabular text-mist">
+                          {f.occurredAt.slice(0, 10)} · {f.odometerMiles.toFixed(0)} mi · {f.quantity} {f.unit}
+                          {f.brim ? (bev ? " · full" : " · brim") : ""}
+                          {f.pricePence > 0 ? ` · £${(f.pricePence / 100).toFixed(2)}` : ""}
+                        </span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => void removeFill(f.id)}>
+                          Delete
+                        </Button>
                       </li>
                     ))}
                   </ul>

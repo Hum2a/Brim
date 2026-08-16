@@ -145,6 +145,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
           value: storedCalib.calculated_value,
           unit: storedCalib.unit as 'l/100km' | 'kWh/100km' | 'mpg' | 'mi/kWh',
           sampleCount: storedCalib.sample_count,
+          ...(storedCalib.stddev !== undefined ? { stddev: storedCalib.stddev } : {}),
         }
       : undefined;
   const hasProfile = Boolean(vehicleInline);

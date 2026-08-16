@@ -68,11 +68,13 @@ export function resolveConsumption(inputs: ResolveConsumptionInput): ResolvedCon
 
   if (inputs.calibration && inputs.calibration.sampleCount >= 3) {
     const c = toCanonical(inputs.calibration.value, inputs.calibration.unit, inputs.kind);
-    reasons.push("Used your logged fill-ups rather than the brochure figure.");
+    reasons.push(
+      `Used your last ${inputs.calibration.sampleCount} brim-to-brim intervals rather than the brochure figure.`,
+    );
     return { ...c, tier: 0, label: TIER_LABEL[0], reasons };
   }
   if (inputs.calibration && inputs.calibration.sampleCount < 3) {
-    reasons.push("Not enough fill-ups yet for a personal figure - need at least 3.");
+    reasons.push("Not enough fill-ups yet for a personal figure - need at least 3 brim-to-brim intervals.");
   }
 
   if (inputs.userEntered) {

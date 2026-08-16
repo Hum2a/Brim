@@ -91,4 +91,13 @@ describe("calibrateFromFillUps", () => {
       ),
     ).toBeUndefined();
   });
+
+  it("drops intervals shorter than 20 miles as odometer noise", () => {
+    expect(
+      calibrateFromFillUps(
+        [brim(1000, 40), brim(1010, 40), brim(1020, 40), brim(1030, 40)],
+        "liquid",
+      ),
+    ).toBeUndefined();
+  });
 });

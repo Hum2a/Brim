@@ -50,8 +50,8 @@ export function AccountPage() {
       );
       if (def) {
         const cal = await api<Calibration>(`/v1/vehicles/${def.id}/calibration`).catch(() => null);
-        if (cal?.confidence === 'calibrated') setCalibLine(`Based on your fill-ups (${cal.sampleCount} intervals).`);
-        else if (cal?.confidence === 'building') setCalibLine(`${cal.sampleCount} brim intervals so far. Need 3.`);
+        if (cal?.confidence === 'calibrated') setCalibLine(`Based on your last ${cal.sampleCount} brim-to-brim intervals.`);
+        else if (cal?.confidence === 'building') setCalibLine(`${cal.sampleCount} brim-to-brim intervals so far. Need 3.`);
         else setCalibLine('No brim fill-ups on the default car yet.');
       } else {
         setCalibLine(null);
