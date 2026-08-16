@@ -33,9 +33,34 @@ describe('api', () => {
     const json = (await res.json()) as {
       cost: { totalPence: { point: number } };
       consumption: { label: string };
+      encodedPolyline: string;
+      origin?: { label: string; lat: number; lng: number };
+      destination?: { label: string; lat: number; lng: number };
     };
     expect(json.cost.totalPence.point).toBeGreaterThan(0);
     expect(json.consumption.label.length).toBeGreaterThan(0);
+    expect(json.encodedPolyline.length).toBeGreaterThan(0);
+    expect(json.origin?.label).toBe("Crawley");
+    expect(json.destination?.label).toBe("London");
+  });
+
+  it("accepts coordinate pins on the estimate body", async () => {
+    const res = await app.request(
+      '/v1/estimate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: { lat: 51.1092, lng: -0.1872, label: 'Crawley' },
+          destination: { lat: 51.5074, lng: -0.1278, label: 'London' },
+          propulsion: 'petrol',
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { encodedPolyline: string };
+    expect(json.encodedPolyline.length).toBeGreaterThan(0);
   });
 
   it('searches the fixture VCA catalogue', async () => {

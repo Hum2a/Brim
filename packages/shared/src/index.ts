@@ -33,4 +33,17 @@ export * from './constants/corrections.js';
 export * from './types.js';
 export { parseMapsUrl, type MapsParseResult } from './maps-url.js';
 export { hmrcAmapPence, ukTaxYearStartUtc, HMRC_AMAP_THRESHOLD_MILES } from './hmrc.js';
-export { searchPlaces, UK_PLACES, type PlaceHit } from './places.js';
+export {
+  searchPlaces,
+  findPlaceByLabel,
+  nearestPlace,
+  UK_PLACES,
+  type PlaceHit,
+} from './places.js';
+export {
+  encodePolyline,
+  decodePolyline,
+  simplifyRdp,
+  parseLatLngString,
+  type LatLng,
+} from './polyline.js';

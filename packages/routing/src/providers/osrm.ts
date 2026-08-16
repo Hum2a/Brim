@@ -1,5 +1,6 @@
 import type { RouteRequest, RouteResponse, RoutingProvider } from "../types.js";
 import { RoutingError } from "../types.js";
+import { osrmCoord } from "../place.js";
 
 export class OsrmProvider implements RoutingProvider {
   readonly name = "osrm";
@@ -10,12 +11,16 @@ export class OsrmProvider implements RoutingProvider {
     alternatives: true,
   } as const;
 
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
 
   async computeRoute(req: RouteRequest): Promise<RouteResponse> {
-    const path = `${encodeURIComponent(req.origin)};${encodeURIComponent(req.destination)}`;
+    const points = [req.origin, ...(req.waypoints ?? []), req.destination].map(osrmCoord);
+    const path = points.join(";");
     const url = `${this.baseUrl.replace(/\/$/, "")}/route/v1/driving/${path}?overview=full&geometries=polyline`;
-    const res = await fetch(url);
+    const res = await this.fetchImpl(url);
     if (!res.ok) {
       throw new RoutingError("upstream", `OSRM ${res.status}`);
     }

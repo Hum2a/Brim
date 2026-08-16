@@ -1,7 +1,25 @@
+import { encodePolyline, UK_PLACES } from "@brim/shared";
 import type { RouteRequest, RouteResponse, RoutingProvider } from "../types.js";
 import { RoutingError } from "../types.js";
+import { fixturePlaceKey } from "../place.js";
 
 export type RecordedRoute = RouteResponse & { id: string; origin: string; destination: string };
+
+function place(label: string) {
+  const hit = UK_PLACES.find((p) => p.label === label);
+  if (!hit) throw new Error(`missing fixture place ${label}`);
+  return hit;
+}
+
+function line(origin: string, destination: string): string {
+  const a = place(origin);
+  const b = place(destination);
+  return encodePolyline([
+    { lat: a.lat, lng: a.lng },
+    { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 },
+    { lat: b.lat, lng: b.lng },
+  ]);
+}
 
 const RECORDED: RecordedRoute[] = [
   {
@@ -10,7 +28,7 @@ const RECORDED: RecordedRoute[] = [
     destination: "London",
     distanceMeters: 51000,
     durationSeconds: 4200,
-    encodedPolyline: "fixture_crawley_london",
+    encodedPolyline: line("Crawley", "London"),
     roadComposition: { urban: 0.4, rural: 0.1, motorway: 0.5 },
   },
   {
@@ -19,7 +37,7 @@ const RECORDED: RecordedRoute[] = [
     destination: "Leeds",
     distanceMeters: 72000,
     durationSeconds: 3600,
-    encodedPolyline: "fixture_manchester_leeds",
+    encodedPolyline: line("Manchester", "Leeds"),
   },
   {
     id: "birmingham-bristol",
@@ -27,7 +45,7 @@ const RECORDED: RecordedRoute[] = [
     destination: "Bristol",
     distanceMeters: 145000,
     durationSeconds: 7200,
-    encodedPolyline: "fixture_birmingham_bristol",
+    encodedPolyline: line("Birmingham", "Bristol"),
   },
   {
     id: "edinburgh-glasgow",
@@ -35,7 +53,7 @@ const RECORDED: RecordedRoute[] = [
     destination: "Glasgow",
     distanceMeters: 75000,
     durationSeconds: 3900,
-    encodedPolyline: "fixture_edinburgh_glasgow",
+    encodedPolyline: line("Edinburgh", "Glasgow"),
   },
   {
     id: "cardiff-swansea",
@@ -43,7 +61,7 @@ const RECORDED: RecordedRoute[] = [
     destination: "Swansea",
     distanceMeters: 67000,
     durationSeconds: 3600,
-    encodedPolyline: "fixture_cardiff_swansea",
+    encodedPolyline: line("Cardiff", "Swansea"),
   },
   {
     id: "newcastle-york",
@@ -51,7 +69,7 @@ const RECORDED: RecordedRoute[] = [
     destination: "York",
     distanceMeters: 135000,
     durationSeconds: 5400,
-    encodedPolyline: "fixture_newcastle_york",
+    encodedPolyline: line("Newcastle", "York"),
   },
 ];
 
@@ -67,11 +85,11 @@ export class FixtureProvider implements RoutingProvider {
   constructor(private readonly routes: RecordedRoute[] = RECORDED) {}
 
   async computeRoute(req: RouteRequest): Promise<RouteResponse> {
+    const originKey = fixturePlaceKey(req.origin);
+    const destKey = fixturePlaceKey(req.destination);
     const hit =
       this.routes.find(
-        (r) =>
-          r.origin.toLowerCase() === req.origin.toLowerCase() &&
-          r.destination.toLowerCase() === req.destination.toLowerCase(),
+        (r) => r.origin.toLowerCase() === originKey && r.destination.toLowerCase() === destKey,
       ) ?? this.routes[0];
     if (!hit) throw new RoutingError("invalid-request", "no fixture routes");
     const fuel = req.mode === "advanced" ? (hit.distanceMeters / 1000 / 100) * 7.5 : undefined;

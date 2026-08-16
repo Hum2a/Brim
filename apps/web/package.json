@@ -15,9 +15,11 @@
     "deploy:preview": "node ../../scripts/build-web.mjs https://brim-api-staging.humzab1711.workers.dev && wrangler pages deploy dist --project-name brim-web-staging --branch preview",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
-  "dependencies": {
+    "dependencies": {
+    "@brim/shared": "*",
     "@brim/ui-kit": "*",
     "better-auth": "^1.4.22",
+    "maplibre-gl": "^5.9.0",
     "motion": "^12.23.12",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

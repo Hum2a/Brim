@@ -1,5 +1,6 @@
 import type { RouteRequest, RouteResponse, RoutingProvider } from "../types.js";
 import { RoutingError } from "../types.js";
+import { googlePlace } from "../place.js";
 
 export type GoogleMode = "basic" | "advanced";
 
@@ -26,11 +27,14 @@ export class GoogleRoutesProvider implements RoutingProvider {
   async computeRoute(req: RouteRequest): Promise<RouteResponse> {
     const advanced = req.mode === "advanced";
     const body: Record<string, unknown> = {
-      origin: { address: req.origin },
-      destination: { address: req.destination },
+      origin: googlePlace(req.origin),
+      destination: googlePlace(req.destination),
       travelMode: "DRIVE",
       computeAlternativeRoutes: false,
     };
+    if (req.waypoints && req.waypoints.length > 0) {
+      body.intermediates = req.waypoints.map(googlePlace);
+    }
     if (advanced) {
       body.routingPreference = "TRAFFIC_AWARE_OPTIMAL";
       body.extraComputations = ["FUEL_CONSUMPTION", "TOLLS"];

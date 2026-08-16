@@ -18,6 +18,9 @@
     "test": "vitest run --config vitest.config.ts",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
+  "dependencies": {
+    "@brim/shared": "*"
+  },
   "devDependencies": {
     "@brim/config": "*"
   }

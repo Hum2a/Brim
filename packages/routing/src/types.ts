@@ -5,10 +5,18 @@ export type RoutingCapabilities = {
   alternatives: boolean;
 };
 
+export type RoutePlace =
+  | string
+  | {
+      lat: number;
+      lng: number;
+      label?: string;
+    };
+
 export type RouteRequest = {
-  origin: string;
-  destination: string;
-  waypoints?: string[] | undefined;
+  origin: RoutePlace;
+  destination: RoutePlace;
+  waypoints?: RoutePlace[] | undefined;
   mode: "basic" | "advanced";
   departureTime?: string | undefined;
   emissionType?: "GASOLINE" | "DIESEL" | "HYBRID" | "ELECTRIC" | undefined;

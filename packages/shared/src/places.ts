@@ -24,3 +24,25 @@ export function searchPlaces(query: string, places: PlaceHit[] = UK_PLACES): Pla
   if (q.length < 1) return places.slice(0, 8);
   return places.filter((p) => p.label.toLowerCase().includes(q)).slice(0, 8);
 }
+
+export function findPlaceByLabel(label: string, places: PlaceHit[] = UK_PLACES): PlaceHit | undefined {
+  const q = label.trim().toLowerCase();
+  return places.find((p) => p.label.toLowerCase() === q);
+}
+
+export function nearestPlace(
+  lat: number,
+  lng: number,
+  places: PlaceHit[] = UK_PLACES,
+): PlaceHit | undefined {
+  let best: PlaceHit | undefined;
+  let bestD = Infinity;
+  for (const p of places) {
+    const d = (p.lat - lat) ** 2 + (p.lng - lng) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best;
+}
