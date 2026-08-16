@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@brim/ui-kit/skeleton';
 import { toast } from '@brim/ui-kit/toast';
 import { api } from '../api.js';
+import { AuthPanel } from '../AuthPanel.js';
 import { VehicleCatalogue, type CatalogueVehicle } from '../VehicleCatalogue.js';
 
 type Health = { status: string; fixtureMode: boolean };
@@ -75,9 +76,7 @@ export function EstimatePage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState('inline');
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [pendingSave, setPendingSave] = useState<'vehicle' | 'journey' | null>(null);
   const [stale, setStale] = useState(false);
 
   useEffect(() => {
@@ -227,31 +226,39 @@ export function EstimatePage() {
       setVehicles(list.vehicles);
       toast('Saved. Your car is on this device.');
     } catch {
+      setPendingSave('vehicle');
       setAuthOpen(true);
     }
   }
 
   async function saveJourney() {
     if (!estimate) return;
-    await api('/v1/journeys', {
-      method: 'POST',
-      body: JSON.stringify({
-        origin,
-        destination,
-        vehicleId: vehicleId === 'inline' ? undefined : vehicleId,
-        estimate,
-        departsAt,
-      }),
-    });
-    toast('Journey stored as a snapshot.');
+    try {
+      await api('/v1/journeys', {
+        method: 'POST',
+        body: JSON.stringify({
+          origin,
+          destination,
+          vehicleId: vehicleId === 'inline' ? undefined : vehicleId,
+          estimate,
+          departsAt,
+        }),
+      });
+      toast('Journey stored as a snapshot.');
+    } catch {
+      setPendingSave('journey');
+      setAuthOpen(true);
+    }
   }
 
-  async function onAuth(e: FormEvent) {
-    e.preventDefault();
-    const path = authMode === 'signup' ? '/v1/auth/signup' : '/v1/auth/login';
-    await api(path, { method: 'POST', body: JSON.stringify({ email, password }) });
+  async function onAuthSuccess() {
     setAuthOpen(false);
-    toast(authMode === 'signup' ? 'Account created.' : 'Signed in.');
+    const pending = pendingSave;
+    setPendingSave(null);
+    if (pending === 'vehicle') await saveVehicle();
+    if (pending === 'journey') await saveJourney();
+    const list = await api<{ vehicles: Vehicle[] }>('/v1/vehicles').catch(() => null);
+    if (list) setVehicles(list.vehicles);
   }
 
   const pounds = estimate ? estimate.cost.totalPence.point / 100 : 0;
@@ -586,43 +593,17 @@ export function EstimatePage() {
       <Dialog open={authOpen} onOpenChange={setAuthOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{authMode === 'signup' ? 'Keep this car' : 'Welcome back'}</DialogTitle>
+            <DialogTitle>Keep this car</DialogTitle>
             <DialogDescription>
               You can estimate without an account. Sign in only if you want this car on other
               devices.
             </DialogDescription>
           </DialogHeader>
-          <Form onSubmit={(e) => void onAuth(e)}>
-            <FormItem>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(ev) => setEmail(ev.target.value)}
-                required
-              />
-            </FormItem>
-            <FormItem>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(ev) => setPassword(ev.target.value)}
-                minLength={8}
-                required
-              />
-            </FormItem>
-            <Button type="submit">{authMode === 'signup' ? 'Create account' : 'Sign in'}</Button>
-            <button
-              type="button"
-              className="ml-3 text-sm underline"
-              onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}
-            >
-              {authMode === 'signup' ? 'I already have an account' : 'Create an account'}
-            </button>
-          </Form>
+          <AuthPanel
+            defaultTab="signup"
+            idPrefix="estimate-auth"
+            onSuccess={() => void onAuthSuccess()}
+          />
         </DialogContent>
       </Dialog>
     </main>

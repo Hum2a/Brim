@@ -7,6 +7,8 @@ export type ApiBindings = {
   DATABASE_URL?: string;
   BETTER_AUTH_SECRET?: string;
   RESEND_API_KEY?: string;
+  AUTH_FROM_EMAIL?: string;
+  WEB_ORIGIN?: string;
   OSRM_URL?: string;
   ROUTE_CACHE?: KVNamespace;
 };

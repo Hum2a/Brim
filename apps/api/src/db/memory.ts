@@ -2,8 +2,8 @@ export type VehicleRow = {
   id: string;
   owner_id: string;
   nickname?: string;
-  kind: "car" | "van" | "motorcycle";
-  propulsion: "petrol" | "diesel" | "hybrid" | "phev" | "bev";
+  kind: 'car' | 'van' | 'motorcycle';
+  propulsion: 'petrol' | 'diesel' | 'hybrid' | 'phev' | 'bev';
   make?: string;
   model?: string;
   derivative?: string;
@@ -12,7 +12,7 @@ export type VehicleRow = {
   engine_cc?: number;
   co2_gkm?: number;
   euro_status?: string;
-  euro_status_source?: "dvla" | "derived";
+  euro_status_source?: 'dvla' | 'derived';
   official_consumption?: number;
   official_unit?: string;
   official_cycle?: string;
@@ -27,7 +27,7 @@ export type VehicleRow = {
 export type TariffRow = {
   id: string;
   vehicle_id: string;
-  kind: "home" | "public";
+  kind: 'home' | 'public';
   pence_per_kwh: number;
   offpeak_pence?: number;
   offpeak_window?: string;
@@ -56,7 +56,7 @@ export type FillUpRow = {
   vehicle_id: string;
   odometer_miles: number;
   quantity: number;
-  unit: "litres" | "kwh";
+  unit: 'litres' | 'kwh';
   price_pence: number;
   filled_to_brim: boolean;
   occurred_at: string;
@@ -77,6 +77,13 @@ export type UserRow = {
   created_at: string;
 };
 
+export type AuthMemoryDb = {
+  user: Record<string, unknown>[];
+  session: Record<string, unknown>[];
+  account: Record<string, unknown>[];
+  verification: Record<string, unknown>[];
+};
+
 type MemoryShape = {
   users: Map<string, UserRow>;
   usersByEmail: Map<string, string>;
@@ -88,7 +95,7 @@ type MemoryShape = {
   routeCache: Map<string, { value: string; expiresAt: number }>;
 };
 
-const g = globalThis as { __brimMemory?: MemoryShape };
+const g = globalThis as { __brimMemory?: MemoryShape; __brimAuthMemory?: AuthMemoryDb };
 
 function empty(): MemoryShape {
   return {
@@ -103,13 +110,23 @@ function empty(): MemoryShape {
   };
 }
 
+function emptyAuth(): AuthMemoryDb {
+  return { user: [], session: [], account: [], verification: [] };
+}
+
 export function getMemoryDb(): MemoryShape {
   g.__brimMemory ??= empty();
   return g.__brimMemory;
 }
 
+export function getAuthMemory(): AuthMemoryDb {
+  g.__brimAuthMemory ??= emptyAuth();
+  return g.__brimAuthMemory;
+}
+
 export function resetMemoryDb(): void {
   g.__brimMemory = empty();
+  g.__brimAuthMemory = emptyAuth();
 }
 
 export function createMemoryDb() {

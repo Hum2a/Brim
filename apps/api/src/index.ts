@@ -2,17 +2,14 @@ import { cors } from 'hono/cors';
 import { Hono } from 'hono';
 import { isFixtureMode } from '@brim/shared';
 import type { ApiBindings } from './env.js';
+import { allowedWebOrigin } from './auth.js';
 import { cacheStats, handleEstimate, handleFromMapsUrl, handlePlaces } from './estimate.js';
 import {
+  betterAuthHandler,
   claimAnonHandler,
   deleteAccountHandler,
   exportAccountHandler,
-  loginHandler,
-  logoutHandler,
-  magicLinkHandler,
-  resetHandler,
   sessionHandler,
-  signupHandler,
 } from './account.js';
 import {
   createTariffHandler,
@@ -38,19 +35,11 @@ import {
 
 const app = new Hono<{ Bindings: ApiBindings }>();
 
-const LOCAL_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-
-app.use(
-  '*',
+app.use('*', (c, next) =>
   cors({
-    origin: (origin) => {
-      if (LOCAL_ORIGINS.includes(origin)) return origin;
-      if (/^https:\/\/[\w-]+\.brim-web-staging\.pages\.dev$/.test(origin)) return origin;
-      if (origin === 'https://brim-web-staging.pages.dev') return origin;
-      return LOCAL_ORIGINS[0] ?? 'http://localhost:5173';
-    },
+    origin: (origin) => allowedWebOrigin(origin, c.env.WEB_ORIGIN),
     credentials: true,
-  }),
+  })(c, next),
 );
 
 app.get('/health', (c) => {
@@ -70,14 +59,10 @@ app.post('/v1/estimate', handleEstimate);
 app.post('/v1/estimate/from-maps-url', handleFromMapsUrl);
 
 app.get('/v1/auth/session', sessionHandler);
-app.post('/v1/auth/signup', signupHandler);
-app.post('/v1/auth/login', loginHandler);
-app.post('/v1/auth/logout', logoutHandler);
 app.post('/v1/auth/claim-anon', claimAnonHandler);
-app.post('/v1/auth/magic-link', magicLinkHandler);
-app.post('/v1/auth/reset', resetHandler);
 app.get('/v1/auth/export', exportAccountHandler);
 app.delete('/v1/auth/account', deleteAccountHandler);
+app.on(['GET', 'POST'], '/v1/auth/*', betterAuthHandler);
 
 app.get('/v1/vehicles/catalogue/makes', listMakesHandler);
 app.get('/v1/vehicles/catalogue/models', listModelsHandler);

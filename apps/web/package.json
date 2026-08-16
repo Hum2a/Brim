@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@brim/ui-kit": "*",
+    "better-auth": "^1.4.22",
     "motion": "^12.23.12",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

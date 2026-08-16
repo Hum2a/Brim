@@ -1,85 +1,113 @@
-import { m } from "motion/react";
-import { useState, type FormEvent } from "react";
-import { reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
-import { Button } from "@brim/ui-kit/button";
-import { Card } from "@brim/ui-kit/card";
-import { Form, FormItem } from "@brim/ui-kit/form";
-import { Input } from "@brim/ui-kit/input";
-import { Label } from "@brim/ui-kit/label";
-import { toast } from "@brim/ui-kit/toast";
-import { api, apiBase } from "../api.js";
+import { m } from 'motion/react';
+import { useCallback, useEffect, useState } from 'react';
+import { reveal, staggerChildren, usePrefersReducedMotion } from '@brim/ui-kit';
+import { Button } from '@brim/ui-kit/button';
+import { Card } from '@brim/ui-kit/card';
+import { Skeleton } from '@brim/ui-kit/skeleton';
+import { toast } from '@brim/ui-kit/toast';
+import { api, apiBase } from '../api.js';
+import { authClient } from '../auth-client.js';
+import { AuthPanel } from '../AuthPanel.js';
+
+type BrimSession = { kind: 'anon' | 'user'; ownerId: string; email?: string };
 
 export function AccountPage() {
   const reduce = usePrefersReducedMotion();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [session, setSession] = useState<BrimSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function onSignup(e: FormEvent) {
-    e.preventDefault();
-    await api("/v1/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) });
-    setMessage("Account created. Vehicles saved on this device are now on the account.");
-    toast("Account created.");
-  }
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api<{ session: BrimSession | null }>('/v1/auth/session');
+      setSession(res.session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load the account.');
+      setSession(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  async function onLogin() {
-    await api("/v1/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-    setMessage("Signed in.");
-    toast("Signed in.");
-  }
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const signedIn = session?.kind === 'user';
 
   return (
     <main className="mx-auto w-[min(560px,calc(100%-1.5rem))] py-8">
-      <m.div variants={staggerChildren} initial={reduce ? false : "initial"} animate="animate">
+      <m.div variants={staggerChildren} initial={reduce ? false : 'initial'} animate="animate">
         <m.div variants={reveal}>
-          <h1 className="display mb-6 text-4xl">Account</h1>
+          <h1 className="display mb-2 text-4xl">{signedIn ? 'Account' : 'Sign in'}</h1>
+          <p className="mb-6 text-mist">
+            {signedIn
+              ? 'This is the copy of Brim that travels with you.'
+              : 'You can estimate without an account. Sign in to keep the car and the history on other devices.'}
+          </p>
         </m.div>
         <m.div variants={reveal}>
           <Card>
-            <Form onSubmit={(e) => void onSignup(e)}>
-              <FormItem>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(ev) => setEmail(ev.target.value)} required />
-              </FormItem>
-              <FormItem>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(ev) => setPassword(ev.target.value)}
-                  minLength={8}
-                  required
-                />
-              </FormItem>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit">Create account</Button>
-                <Button type="button" variant="ghost" onClick={() => void onLogin()}>
-                  Sign in
+            {loading ? (
+              <div aria-busy="true">
+                <Skeleton className="mb-3 h-10 w-40" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : error ? (
+              <div>
+                <p className="mb-3 text-sm text-warning">{error}</p>
+                <Button type="button" variant="ghost" onClick={() => void refresh()}>
+                  Try again
                 </Button>
               </div>
-            </Form>
-            <div className="mt-6 flex flex-col items-start gap-3">
-              <Button type="button" variant="ghost" onClick={() => void api("/v1/auth/logout", { method: "POST" })}>
-                Sign out
-              </Button>
-              <a className="text-sm underline" href={`${apiBase}/v1/auth/export`}>
-                Download all data
-              </a>
-              <Button
-                type="button"
-                variant="warning"
-                onClick={async () => {
-                  if (!confirm("Delete your account and stored journeys permanently?")) return;
-                  await api("/v1/auth/account", { method: "DELETE" });
-                  setMessage("Account deleted.");
-                  toast("Account deleted.");
-                }}
-              >
-                Delete account
-              </Button>
-            </div>
-            {message ? <p className="mt-4 text-sm text-mist">{message}</p> : null}
+            ) : signedIn ? (
+              <div className="space-y-4">
+                <p>
+                  Signed in as <span className="text-pump">{session.email ?? session.ownerId}</span>
+                </p>
+                <div className="flex flex-col items-start gap-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={async () => {
+                      await authClient.signOut();
+                      setMessage('Signed out.');
+                      toast('Signed out.');
+                      await refresh();
+                    }}
+                  >
+                    Sign out
+                  </Button>
+                  <a className="text-sm underline" href={`${apiBase}/v1/auth/export`}>
+                    Download all data
+                  </a>
+                  <Button
+                    type="button"
+                    variant="warning"
+                    onClick={async () => {
+                      if (!confirm('Delete your account and stored journeys permanently?')) return;
+                      await api('/v1/auth/account', { method: 'DELETE' });
+                      setMessage('Account deleted.');
+                      toast('Account deleted.');
+                      await refresh();
+                    }}
+                  >
+                    Delete account
+                  </Button>
+                </div>
+                {message ? <p className="text-sm text-mist">{message}</p> : null}
+              </div>
+            ) : (
+              <>
+                <AuthPanel onSuccess={() => void refresh()} />
+                <p className="mt-5 text-sm text-mist">
+                  Estimating stays free. An account is only for sync and history.
+                </p>
+              </>
+            )}
           </Card>
         </m.div>
       </m.div>
