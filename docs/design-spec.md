@@ -831,7 +831,8 @@ deploy:staging / deploy:prod / deploy:preview
 ```
 
 All data and database commands go through `scripts/with-env.mjs` so the target environment is
-explicit, never inferred. `env:setup` copies committed `.example` templates into the gitignored
+explicit, never inferred. `with-env` loads `.env` and `.dev.vars`; an empty value never
+overwrites a filled one. `env:setup` copies committed `.example` templates into the gitignored
 `.env` / `.dev.vars` files when those files are missing. `env:merge` does the same and also
 appends keys that exist in the example but not yet in the dest, without changing existing
 values. Both default to all three environments (`--env dev|staging|prod` to scope) and never

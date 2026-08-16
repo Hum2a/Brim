@@ -38,6 +38,24 @@ describe('mergeEnvMaps', () => {
     const { merged } = mergeEnvMaps([{ A: '1' }, { A: '2' }], 'latter');
     assert.equal(merged.A, '2');
   });
+
+  it('does not let an empty value clobber a filled one', () => {
+    const { merged, conflicts } = mergeEnvMaps(
+      [{ DATABASE_URL: 'postgres://filled' }, { DATABASE_URL: '' }],
+      'latter',
+    );
+    assert.equal(merged.DATABASE_URL, 'postgres://filled');
+    assert.deepEqual(conflicts, []);
+  });
+
+  it('fills an empty key from a later map without treating it as a conflict', () => {
+    const { merged, conflicts } = mergeEnvMaps(
+      [{ DATABASE_URL: '' }, { DATABASE_URL: 'postgres://filled' }],
+      'latter',
+    );
+    assert.equal(merged.DATABASE_URL, 'postgres://filled');
+    assert.deepEqual(conflicts, []);
+  });
 });
 
 describe('envPaths', () => {

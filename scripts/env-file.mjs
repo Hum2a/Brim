@@ -137,6 +137,7 @@ export function pickKeys(map, predicate) {
 /**
  * Union maps. On conflicting values, `conflicts` lists the keys.
  * `prefer` picks a winner for those keys when set.
+ * An empty string never overwrites a non-empty value and is not a conflict.
  */
 export function mergeEnvMaps(maps, prefer) {
   const merged = {};
@@ -152,8 +153,17 @@ export function mergeEnvMaps(maps, prefer) {
         continue;
       }
       if (previous === value) continue;
+      if (value === '' && previous !== '') continue;
+      if (previous === '' && value !== '') {
+        seen.set(key, value);
+        merged[key] = value;
+        continue;
+      }
       conflicts.push(key);
-      if (prefer === 'latter') merged[key] = value;
+      if (prefer === 'latter') {
+        seen.set(key, value);
+        merged[key] = value;
+      }
     }
   }
   return { merged, conflicts: [...new Set(conflicts)].sort() };

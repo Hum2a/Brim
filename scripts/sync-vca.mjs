@@ -156,7 +156,7 @@ async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     fail(
-      'DATABASE_URL is required to upsert. Set it in .env or apps/api/.dev.vars, then npm run env:sync.',
+      'DATABASE_URL is empty or missing. Set it in .env (and apps/api/.dev.vars), then npm run env:sync -- --from env.',
     );
   }
 
