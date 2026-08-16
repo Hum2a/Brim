@@ -39,6 +39,7 @@ describe('api', () => {
       alternatives?: Array<{ id: string; encodedPolyline: string; costPence: number }>;
       price?: { pence: number; unit: string; source: string; observedAt: string };
       warnings: Array<{ code: string }>;
+      hmrc?: { approvedPence: number; deltaPence: number; ytdMiles: number };
     };
     expect(json.cost.totalPence.point).toBeGreaterThan(0);
     expect(json.consumption.label.length).toBeGreaterThan(0);
@@ -54,6 +55,55 @@ describe('api', () => {
     expect(json.price?.unit).toBe('ppl');
     expect(json.price?.observedAt).not.toBe('1970-01-01T00:00:00Z');
     expect(json.warnings.some((w) => w.code === 'price-data-unavailable')).toBe(false);
+    expect(json.hmrc?.approvedPence).toBeGreaterThan(0);
+    expect(json.hmrc?.deltaPence).toBe(json.cost.totalPence.point - (json.hmrc?.approvedPence ?? 0));
+  });
+
+  it('estimates from a fixture Maps directions URL', async () => {
+    const res = await app.request(
+      '/v1/estimate/from-maps-url',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://www.google.com/maps/dir/Crawley/London/' }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { origin?: { label: string }; destination?: { label: string } };
+    expect(json.origin?.label).toBe('Crawley');
+    expect(json.destination?.label).toBe('London');
+  });
+
+  it('follows a dummy Maps short link in fixture mode', async () => {
+    const res = await app.request(
+      '/v1/estimate/from-maps-url',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://maps.app.goo.gl/brimtest' }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { origin?: { label: string }; destination?: { label: string } };
+    expect(json.origin?.label).toBe('Crawley');
+    expect(json.destination?.label).toBe('London');
+  });
+
+  it('rejects an unknown Maps short link without calling the network', async () => {
+    const res = await app.request(
+      '/v1/estimate/from-maps-url',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://maps.app.goo.gl/not-in-fixtures' }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe('invalid_maps_url');
   });
 
   it("accepts coordinate pins on the estimate body", async () => {

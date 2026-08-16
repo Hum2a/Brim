@@ -20,6 +20,17 @@ const MODE_FROM_3E: Record<string, MapsParseOk["travelMode"]> = {
   "3": "transit",
 };
 
+const MODE_FROM_QUERY: Record<string, MapsParseOk["travelMode"]> = {
+  driving: "drive",
+  drive: "drive",
+  walking: "walk",
+  walk: "walk",
+  bicycling: "bike",
+  cycling: "bike",
+  bike: "bike",
+  transit: "transit",
+};
+
 function decodeSegment(raw: string): string {
   try {
     return decodeURIComponent(raw.replace(/\+/g, " "));
@@ -35,6 +46,39 @@ function travelModeFromData(data: string | null): MapsParseOk["travelMode"] {
   return MODE_FROM_3E[match[1]] ?? "unknown";
 }
 
+function travelModeFromQuery(raw: string | null): MapsParseOk["travelMode"] | undefined {
+  if (!raw) return undefined;
+  return MODE_FROM_QUERY[raw.trim().toLowerCase()];
+}
+
+function isGoogleMapsHost(host: string): boolean {
+  const h = host.replace(/^www\./, "").toLowerCase();
+  return (
+    h === "google.com" ||
+    h === "google.co.uk" ||
+    h === "maps.google.com" ||
+    h === "maps.google.co.uk" ||
+    h.endsWith(".google.com") ||
+    h.endsWith(".google.co.uk")
+  );
+}
+
+/** Google Maps short links. Shared never fetches; the API may follow these hosts. */
+export function isMapsShortUrl(input: string): boolean {
+  try {
+    const url = new URL(input.trim());
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (host === "maps.app.goo.gl") return true;
+    if (host === "goo.gl") {
+      const path = url.pathname.replace(/\/+$/, "") || "/";
+      return path === "/maps" || path.startsWith("/maps/");
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Parse a Google Maps directions URL. URL only - never the DOM. Spec §10.2.
  * Never throws; malformed input returns `{ ok: false, reason }`.
@@ -47,9 +91,40 @@ export function parseMapsUrl(input: string): MapsParseResult {
     return { ok: false, reason: "That does not look like a URL. Paste a full maps link or type the places instead." };
   }
 
-  const host = url.hostname.replace(/^www\./, "");
-  if (host !== "google.com" && host !== "maps.google.com" && host !== "google.co.uk" && !host.endsWith(".google.com")) {
+  if (isMapsShortUrl(input)) {
+    return {
+      ok: false,
+      reason: "That is a shortened Maps link. Open it in Google Maps, then paste the full directions URL.",
+    };
+  }
+
+  if (!isGoogleMapsHost(url.hostname)) {
     return { ok: false, reason: "That link is not a Google Maps directions URL." };
+  }
+
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const isDir = path === "/maps/dir" || path.startsWith("/maps/dir/");
+  if (!isDir) {
+    return { ok: false, reason: "That Maps link has no directions. Open a route, then share or copy the link." };
+  }
+
+  const originParam = url.searchParams.get("origin");
+  const destParam = url.searchParams.get("destination");
+  if (originParam && destParam) {
+    const origin = decodeSegment(originParam);
+    const destination = decodeSegment(destParam);
+    if (!origin || !destination) {
+      return { ok: false, reason: "Could not find both a start and a destination in that link." };
+    }
+    const wpRaw = url.searchParams.get("waypoints") ?? "";
+    const waypoints = wpRaw
+      .split(/[|/]/)
+      .map((part) => decodeSegment(part.replace(/^via:/i, "")))
+      .filter((part) => part.length > 0);
+    const travelMode =
+      travelModeFromQuery(url.searchParams.get("travelmode")) ??
+      travelModeFromData(url.searchParams.get("data"));
+    return { ok: true, origin, destination, waypoints, travelMode };
   }
 
   const dir = url.pathname.match(/\/maps\/dir\/(.+)/);
@@ -73,7 +148,9 @@ export function parseMapsUrl(input: string): MapsParseResult {
   }
 
   const waypoints = parts.slice(1, -1);
-  const travelMode = travelModeFromData(url.searchParams.get("data") ?? dir[1]);
+  const travelMode =
+    travelModeFromQuery(url.searchParams.get("travelmode")) ??
+    travelModeFromData(url.searchParams.get("data") ?? dir[1]);
 
   return { ok: true, origin, destination, waypoints, travelMode };
 }

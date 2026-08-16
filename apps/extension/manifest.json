@@ -3,5 +3,12 @@
   "name": "Brim",
   "version": "0.0.0",
   "description": "Estimate UK journey cost from a maps directions page.",
-  "permissions": ["contextMenus", "activeTab"]
+  "permissions": ["contextMenus", "activeTab"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Brim"
+  }
 }

@@ -18,7 +18,8 @@ type AddressFieldProps = {
   onChange: (value: string) => void;
   onSelect: (place: Place) => void;
   onFocusField?: () => void;
-  describedBy?: string;
+  describedBy?: string | undefined;
+  invalid?: boolean;
 };
 
 export function AddressField({
@@ -29,6 +30,7 @@ export function AddressField({
   onSelect,
   onFocusField,
   describedBy,
+  invalid,
 }: AddressFieldProps) {
   const listId = useId();
   const session = useRef(newPlaceSession());
@@ -83,6 +85,7 @@ export function AddressField({
               aria-controls={listId}
               aria-autocomplete="list"
               aria-describedby={describedBy}
+              aria-invalid={invalid || undefined}
               autoComplete="off"
               placeholder="Street, postcode, or place"
               onFocus={() => {

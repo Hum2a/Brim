@@ -141,6 +141,10 @@ export const estimateSchema = z.object({
     .object({
       approvedPence: z.number(),
       deltaPence: z.number(),
+      ytdMiles: z.number().optional(),
+      crossedThreshold: z.boolean().optional(),
+      bandMiles45: z.number().optional(),
+      bandMiles25: z.number().optional(),
     })
     .optional(),
   reasons: z.array(z.string()),

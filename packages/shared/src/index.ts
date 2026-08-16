@@ -61,7 +61,8 @@ export * from './units.js';
 export * from './constants/emissions.2025.js';
 export * from './constants/corrections.js';
 export * from './types.js';
-export { parseMapsUrl, type MapsParseResult } from './maps-url.js';
+export { parseMapsUrl, isMapsShortUrl, type MapsParseResult } from './maps-url.js';
+export { MAPS_SHORT_DUMMY, MAPS_SHORT_FIXTURES, MAPS_SHORT_TARGET } from './fixtures/maps-short.js';
 export { hmrcAmapPence, ukTaxYearStartUtc, HMRC_AMAP_THRESHOLD_MILES } from './hmrc.js';
 export {
   searchPlaces,

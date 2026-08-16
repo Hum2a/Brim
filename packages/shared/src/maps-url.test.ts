@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseMapsUrl } from "./maps-url.js";
+import { isMapsShortUrl, parseMapsUrl } from "./maps-url.js";
 
-const valid: Array<{ url: string; origin: string; destination: string; mode?: string }> = [
+const valid: Array<{
+  url: string;
+  origin: string;
+  destination: string;
+  mode?: string;
+  waypoints?: string[];
+}> = [
   {
     url: "https://www.google.com/maps/dir/Crawley/Manchester/",
     origin: "Crawley",
@@ -64,12 +70,36 @@ const valid: Array<{ url: string; origin: string; destination: string; mode?: st
     origin: "Belfast",
     destination: "Dublin",
   },
+  {
+    url: "https://maps.google.co.uk/maps/dir/Crawley/London/",
+    origin: "Crawley",
+    destination: "London",
+  },
+  {
+    url: "https://www.google.com/maps/dir/?api=1&origin=Crawley&destination=London&travelmode=driving",
+    origin: "Crawley",
+    destination: "London",
+    mode: "drive",
+  },
+  {
+    url: "https://www.google.co.uk/maps/dir/?api=1&origin=Leeds&destination=Manchester&waypoints=Sheffield%7CBarnsley",
+    origin: "Leeds",
+    destination: "Manchester",
+    waypoints: ["Sheffield", "Barnsley"],
+  },
+  {
+    url: "https://maps.google.com/maps/dir/?api=1&origin=Bristol&destination=Bath&waypoints=Keynsham/Saltford",
+    origin: "Bristol",
+    destination: "Bath",
+    waypoints: ["Keynsham", "Saltford"],
+  },
 ];
 
 const malformed = [
   "not a url",
   "https://example.com/maps/dir/a/b",
   "https://www.google.com/maps/place/London/",
+  "https://maps.app.goo.gl/brimtest",
 ];
 
 describe("parseMapsUrl", () => {
@@ -82,6 +112,7 @@ describe("parseMapsUrl", () => {
         expect(result.origin).toBe(row.origin);
         expect(result.destination).toBe(row.destination);
         if (row.mode) expect(result.travelMode).toBe(row.mode);
+        if (row.waypoints) expect(result.waypoints).toEqual(row.waypoints);
       }
     }
   });
@@ -93,5 +124,20 @@ describe("parseMapsUrl", () => {
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.reason.length).toBeGreaterThan(10);
     }
+  });
+
+  it("fails short Maps links with a reason that asks for the full URL", () => {
+    const result = parseMapsUrl("https://maps.app.goo.gl/brimtest");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/shorten/i);
+  });
+});
+
+describe("isMapsShortUrl", () => {
+  it("recognises Google Maps shorteners only", () => {
+    expect(isMapsShortUrl("https://maps.app.goo.gl/brimtest")).toBe(true);
+    expect(isMapsShortUrl("https://goo.gl/maps/brimtest")).toBe(true);
+    expect(isMapsShortUrl("https://www.google.com/maps/dir/Crawley/London/")).toBe(false);
+    expect(isMapsShortUrl("https://goo.gl/notmaps")).toBe(false);
   });
 });

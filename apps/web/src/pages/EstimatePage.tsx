@@ -83,7 +83,7 @@ type Estimate = {
     arrivalStateOfCharge?: { percent: number; verdict: "comfortable" | "tight" | "insufficient"; shortfallKwh?: number };
   };
   co2Kg?: number;
-  hmrc?: { approvedPence: number; ytdMiles: number; crossedThreshold: boolean };
+  hmrc?: { approvedPence: number; deltaPence?: number; ytdMiles: number; crossedThreshold: boolean };
   distanceMeters: number;
   durationSeconds: number;
   charges: Array<{
@@ -206,6 +206,7 @@ export function EstimatePage() {
   const [maps, setMaps] = useState("");
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorSource, setErrorSource] = useState<"maps" | "trip" | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -412,9 +413,11 @@ export function EstimatePage() {
   async function runEstimate(body: unknown) {
     setLoading(true);
     setError(null);
+    setErrorSource(null);
     try {
       applyEstimate(await api<Estimate>("/v1/estimate", { method: "POST", body: JSON.stringify(body) }));
     } catch (err) {
+      setErrorSource("trip");
       setError(
         err instanceof Error ? err.message : "Could not estimate. Check the places and try again.",
       );
@@ -426,6 +429,7 @@ export function EstimatePage() {
   async function runMaps(url: string) {
     setLoading(true);
     setError(null);
+    setErrorSource(null);
     try {
       applyEstimate(
         await api<Estimate>("/v1/estimate/from-maps-url", {
@@ -434,6 +438,7 @@ export function EstimatePage() {
         }),
       );
     } catch (err) {
+      setErrorSource("maps");
       setError(
         err instanceof Error
           ? `${err.message}. Type the places instead.`
@@ -740,7 +745,16 @@ export function EstimatePage() {
     : "";
   const hmrc = useMemo(() => {
     if (!estimate?.hmrc) return null;
-    return `HMRC would allow £${(estimate.hmrc.approvedPence / 100).toFixed(2)} (${estimate.hmrc.ytdMiles.toFixed(0)} miles this tax year).`;
+    const allow = `HMRC would allow £${(estimate.hmrc.approvedPence / 100).toFixed(2)} (${estimate.hmrc.ytdMiles.toFixed(0)} miles this tax year).`;
+    if (estimate.hmrc.deltaPence === undefined) return allow;
+    const abs = (Math.abs(estimate.hmrc.deltaPence) / 100).toFixed(2);
+    const delta =
+      estimate.hmrc.deltaPence > 0
+        ? `This trip is £${abs} over the allowance.`
+        : estimate.hmrc.deltaPence < 0
+          ? `This trip is £${abs} under the allowance.`
+          : "This trip is in line with the allowance.";
+    return `${allow} ${delta}`;
   }, [estimate]);
 
   const viaPins = viaDrafts.map((v) => v.pin).filter((p): p is Place => Boolean(p));
@@ -797,6 +811,11 @@ export function EstimatePage() {
     ...(stationOverlays ? { overlays: stationOverlays } : {}),
   };
 
+  const originDescribedBy = [geoError ? "geo-error" : "", errorSource === "trip" && error ? "trip-error" : ""]
+    .filter((id) => id.length > 0)
+    .join(" ");
+  const destDescribedBy = errorSource === "trip" && error ? "trip-error" : "";
+
   const form = (
     <>
       <p className="mb-1 text-mist">True journey cost</p>
@@ -830,7 +849,8 @@ export function EstimatePage() {
             id="maps"
             value={maps}
             onChange={(ev) => setMaps(ev.target.value)}
-            aria-describedby="maps-help"
+            aria-invalid={errorSource === "maps" && Boolean(error) ? true : undefined}
+            aria-describedby={errorSource === "maps" && error ? "maps-error maps-help" : "maps-help"}
           />
           <p id="maps-help" className="text-xs text-mist">
             A Google Maps directions link. If it cannot be read, type the places below.
@@ -966,6 +986,8 @@ export function EstimatePage() {
               setFocusStop("destination");
               scheduleEstimate();
             }}
+            invalid={errorSource === "trip" && Boolean(error)}
+            {...(originDescribedBy ? { describedBy: originDescribedBy } : {})}
           />
           <Button type="button" variant="ghost" size="sm" onClick={useMyLocation}>
             Use my location
@@ -992,7 +1014,11 @@ export function EstimatePage() {
                 ))}
             </div>
           ) : null}
-          {geoError ? <p className="text-xs text-warning">{geoError}</p> : null}
+          {geoError ? (
+            <p id="geo-error" className="text-xs text-warning" role="alert">
+              {geoError}
+            </p>
+          ) : null}
         </FormItem>
         <FormItem>
           <AddressField
@@ -1009,6 +1035,8 @@ export function EstimatePage() {
               setDestPin(place);
               scheduleEstimate();
             }}
+            invalid={errorSource === "trip" && Boolean(error)}
+            {...(destDescribedBy ? { describedBy: destDescribedBy } : {})}
           />
           {places.some((p) => p.kind === "home" || p.kind === "work") ? (
             <div className="mt-1 flex gap-2">
@@ -1453,7 +1481,15 @@ export function EstimatePage() {
       ) : null}
 
       <div className="absolute right-3 top-3 z-10 w-[min(20rem,calc(100%-1.5rem))]">
-        {error ? <p className="mb-2 text-warning">{error}</p> : null}
+        {error ? (
+          <p
+            id={errorSource === "maps" ? "maps-error" : "trip-error"}
+            className="mb-2 text-warning"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
         {loading ? (
           <Card aria-busy="true">
             <Skeleton className="mb-3 h-16 w-48" />

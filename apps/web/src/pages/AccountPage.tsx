@@ -9,6 +9,8 @@ import { api, apiBase } from '../api.js';
 import { authClient } from '../auth-client.js';
 import { AuthPanel } from '../AuthPanel.js';
 import { AddressField } from '../AddressField.js';
+import { Link } from '../router.js';
+import { openHerald } from '../whats-new.js';
 
 type BrimSession = { kind: 'anon' | 'user'; ownerId: string; email?: string };
 type Place = { id: string; kind: 'home' | 'work' | 'favourite'; label: string; lat: number; lng: number };
@@ -100,7 +102,9 @@ export function AccountPage() {
               </div>
             ) : error ? (
               <div>
-                <p className="mb-3 text-sm text-warning">{error}</p>
+                <p className="mb-3 text-sm text-warning" role="alert">
+                  {error}
+                </p>
                 <Button type="button" variant="ghost" onClick={() => void refresh()}>
                   Try again
                 </Button>
@@ -201,6 +205,14 @@ export function AccountPage() {
               </>
             )}
           </Card>
+        </m.div>
+        <m.div variants={reveal} className="mt-4 flex flex-col items-start gap-2">
+          <Button type="button" variant="ghost" onClick={openHerald}>
+            What's new
+          </Button>
+          <Link href="/kitchen-sink" className="text-sm text-mist hover:text-pump">
+            Lab
+          </Link>
         </m.div>
       </m.div>
     </main>

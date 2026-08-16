@@ -31,4 +31,11 @@ describe("loadFixture", () => {
     expect(dvla.ves.ZZ99ZZZ?.euroStatus).toBe("EURO 5");
     expect(JSON.stringify(dvla)).not.toMatch(/registrationNumber/i);
   });
+
+  it("returns the dummy Maps short-link table when enabled", () => {
+    const table = loadFixture<{ redirects: Record<string, string> }>("maps-short", "1");
+    expect(table.redirects["https://maps.app.goo.gl/brimtest"]).toBe(
+      "https://www.google.com/maps/dir/Crawley/London/",
+    );
+  });
 });

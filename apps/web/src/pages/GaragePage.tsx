@@ -89,6 +89,7 @@ export function GaragePage() {
   const [brim, setBrim] = useState(true);
   const [note, setNote] = useState("");
   const [occurredAt, setOccurredAt] = useState("");
+  const [fillError, setFillError] = useState<{ field: "odo" | "qty"; message: string } | null>(null);
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
   const [catalogueOpen, setCatalogueOpen] = useState(false);
   const [pendingVrm, setPendingVrm] = useState<string | undefined>();
@@ -229,15 +230,22 @@ export function GaragePage() {
       setPrice("");
       setNote("");
       setOccurredAt("");
+      setFillError(null);
       toast("Fill-up stored.");
       const fillsRes = await api<{ fillUps: FillUp[] }>(`/v1/vehicles/${vehicle.id}/fill-ups`);
       setFills(fillsRes.fillUps);
       setCalib(await api<Calibration>(`/v1/vehicles/${vehicle.id}/calibration`));
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
-      if (message === "odometer_rollback") toast("Odometer must be higher than the last fill-up.");
-      else if (message === "unit_mismatch") toast("That quantity unit does not match this car.");
-      else setAuthOpen(true);
+      if (message === "odometer_rollback") {
+        const text = "Odometer must be higher than the last fill-up.";
+        setFillError({ field: "odo", message: text });
+        toast(text);
+      } else if (message === "unit_mismatch") {
+        const text = "That quantity unit does not match this car.";
+        setFillError({ field: "qty", message: text });
+        toast(text);
+      } else setAuthOpen(true);
     }
   }
 
@@ -459,11 +467,27 @@ export function GaragePage() {
                   <Form onSubmit={(e) => void logFill(e)}>
                     <FormItem>
                       <Label htmlFor="odo">Odometer miles</Label>
-                      <Input id="odo" className="tabular" value={odo} onChange={(ev) => setOdo(ev.target.value)} required />
+                      <Input
+                        id="odo"
+                        className="tabular"
+                        value={odo}
+                        onChange={(ev) => setOdo(ev.target.value)}
+                        required
+                        aria-invalid={fillError?.field === "odo" || undefined}
+                        aria-describedby={fillError?.field === "odo" ? "fill-error" : undefined}
+                      />
                     </FormItem>
                     <FormItem>
                       <Label htmlFor="qty">{bev ? "kWh" : "Litres"}</Label>
-                      <Input id="qty" className="tabular" value={qty} onChange={(ev) => setQty(ev.target.value)} required />
+                      <Input
+                        id="qty"
+                        className="tabular"
+                        value={qty}
+                        onChange={(ev) => setQty(ev.target.value)}
+                        required
+                        aria-invalid={fillError?.field === "qty" || undefined}
+                        aria-describedby={fillError?.field === "qty" ? "fill-error" : undefined}
+                      />
                     </FormItem>
                     <FormItem>
                       <Label htmlFor="gbp">Price £</Label>
@@ -491,6 +515,11 @@ export function GaragePage() {
                     <Button type="submit" className="mt-2">
                       {bev ? "Store charge" : "Store fill-up"}
                     </Button>
+                    {fillError ? (
+                      <p id="fill-error" className="mt-2 text-sm text-warning" role="alert">
+                        {fillError.message}
+                      </p>
+                    ) : null}
                   </Form>
                   <ul className="mt-4 grid gap-2">
                     {fills.map((f) => (

@@ -523,7 +523,8 @@ This is a legal position, not modesty. Write it into the UI copy in P7, not into
 ### 10.1 Web app (primary)
 React 19 + Vite + Tailwind + shadcn/ui, deployed to Cloudflare Pages. Installable PWA - this is
 a phone-in-the-car use case and a PWA avoids app-store overhead. Offline: last estimate and
-saved vehicles readable; new estimates need network.
+saved vehicles readable; new estimates need network. Herald is an in-app What's-New list of
+dated entries, shown in a dialog when a new item ships; it is not a third-party service.
 
 ### 10.2 Chrome extension - context-menu first (decision closed)
 

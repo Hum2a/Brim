@@ -6,6 +6,8 @@ import {
   gradeForPropulsion,
   hmrcAmapPence,
   isFixtureMode,
+  isMapsShortUrl,
+  loadFixture,
   parseLatLngString,
   parseMapsUrl,
   propulsionSchema,
@@ -378,6 +380,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
     alternatives,
     hmrc: {
       approvedPence: hmrc.approvedPence,
+      deltaPence: estimate.cost.totalPence.point - hmrc.approvedPence,
       ytdMiles: ytd,
       bandMiles45: hmrc.bandMiles45,
       bandMiles25: hmrc.bandMiles25,
@@ -445,10 +448,32 @@ export async function handleEstimate(c: Context<{ Bindings: ApiBindings }>) {
   return estimateFromBody(c, await c.req.json());
 }
 
+function canonicalMapsUrl(raw: string): string {
+  return raw.trim().replace(/\/+$/, '');
+}
+
+async function expandMapsShortUrl(env: ApiBindings, raw: string): Promise<string | null> {
+  if (isFixtureMode(env.BRIM_FIXTURES)) {
+    const table = loadFixture<{ redirects: Record<string, string> }>('maps-short', env.BRIM_FIXTURES);
+    const key = canonicalMapsUrl(raw);
+    return table.redirects[key] ?? table.redirects[raw.trim()] ?? null;
+  }
+  try {
+    const res = await fetch(raw.trim(), { method: 'GET', redirect: 'follow' });
+    return res.url || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function handleFromMapsUrl(c: Context<{ Bindings: ApiBindings }>) {
   const body = z.object({ url: z.string() }).safeParse(await c.req.json());
   if (!body.success) return c.json({ error: 'invalid_request' }, 400);
-  const parsed = parseMapsUrl(body.data.url);
+  let parsed = parseMapsUrl(body.data.url);
+  if (!parsed.ok && isMapsShortUrl(body.data.url)) {
+    const expanded = await expandMapsShortUrl(c.env, body.data.url);
+    if (expanded) parsed = parseMapsUrl(expanded);
+  }
   if (!parsed.ok) return c.json({ error: 'invalid_maps_url', reason: parsed.reason }, 400);
   return estimateFromBody(c, {
     origin: parsed.origin,

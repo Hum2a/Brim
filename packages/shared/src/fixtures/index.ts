@@ -3,6 +3,7 @@ import { UK_PLACES } from "../places.js";
 import { FUEL_FINDER_FIXTURES } from "./fuel-finder.js";
 import { CARBON_INTENSITY_FIXTURES } from "./carbon-intensity.js";
 import { DVLA_FIXTURES } from "./dvla.js";
+import { MAPS_SHORT_FIXTURES } from "./maps-short.js";
 
 export type FixtureName =
   | "health"
@@ -10,7 +11,8 @@ export type FixtureName =
   | "vca-vehicles"
   | "fuel-finder"
   | "carbon-intensity"
-  | "dvla";
+  | "dvla"
+  | "maps-short";
 
 const registry: Record<FixtureName, unknown> = {
   health: {
@@ -24,6 +26,7 @@ const registry: Record<FixtureName, unknown> = {
   "fuel-finder": FUEL_FINDER_FIXTURES,
   "carbon-intensity": CARBON_INTENSITY_FIXTURES,
   dvla: DVLA_FIXTURES,
+  "maps-short": MAPS_SHORT_FIXTURES,
 };
 
 function envFlag(explicit: string | undefined): string | undefined {
