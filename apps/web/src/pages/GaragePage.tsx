@@ -1,6 +1,12 @@
 import { AnimatePresence, m } from "motion/react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 import { fadeUp, usePrefersReducedMotion } from "@brim/ui-kit";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@brim/ui-kit/accordion";
 import { Button } from "@brim/ui-kit/button";
 import { Card } from "@brim/ui-kit/card";
 import { Form, FormItem } from "@brim/ui-kit/form";
@@ -9,8 +15,7 @@ import { Label } from "@brim/ui-kit/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
-import { api } from "../api.js";
-import { AuthPanel } from "../AuthPanel.js";
+import { api, asList } from "../api.js";
 import { euroFromVes, RegLookup, type VesSummary } from "../RegLookup.js";
 import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
 import {
@@ -20,6 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@brim/ui-kit/dialog";
+
+const AuthPanel = lazy(() => import("../AuthPanel.js").then((mod) => ({ default: mod.AuthPanel })));
 
 type Vehicle = {
   id: string;
@@ -107,8 +114,9 @@ export function GaragePage() {
     setLoading(true);
     try {
       const res = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
-      setVehicles(res.vehicles);
-      setSelected((cur) => cur ?? res.vehicles.find((v) => v.is_default)?.id ?? res.vehicles[0]?.id ?? null);
+      const cars = asList(res.vehicles);
+      setVehicles(cars);
+      setSelected((cur) => cur ?? cars.find((v) => v.is_default)?.id ?? cars[0]?.id ?? null);
     } catch {
       setVehicles([]);
     } finally {
@@ -176,7 +184,7 @@ export function GaragePage() {
         const near = await api<{ stations: NearbyFillStation[] }>(
           `/v1/stations/near?lat=${home.lat}&lng=${home.lng}&grade=${grade}`,
         );
-        setHomeStations(near.stations);
+        setHomeStations(asList(near.stations));
       })
       .catch(() => setHomeStations([]));
   }, [vehicle]);
@@ -368,8 +376,8 @@ export function GaragePage() {
   );
 
   return (
-    <main className="mx-auto w-[min(720px,calc(100%-1.5rem))] py-8">
-      <h1 className="display mb-2 text-4xl">Garage</h1>
+    <main className="mx-auto w-[min(720px,calc(100%-1.5rem))] py-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <h1 className="display mb-2 text-3xl md:text-4xl">Garage</h1>
       <p className="mb-6 text-mist">The cars Brim actually knows, and the fill-ups that correct the brochure.</p>
       {loading ? (
         <Card aria-busy="true">
@@ -393,6 +401,7 @@ export function GaragePage() {
                 <Button
                   type="button"
                   variant={v.id === selected ? "default" : "ghost"}
+                  className="h-auto min-h-11 w-full justify-start whitespace-normal text-left"
                   onClick={() => setSelected(v.id)}
                 >
                   {title(v)}
@@ -417,7 +426,12 @@ export function GaragePage() {
                   >
                     <FormItem>
                       <Label htmlFor="nick">Nickname</Label>
-                      <Input id="nick" value={nickname} onChange={(ev) => setNickname(ev.target.value)} />
+                      <Input
+                        id="nick"
+                        enterKeyHint="next"
+                        value={nickname}
+                        onChange={(ev) => setNickname(ev.target.value)}
+                      />
                     </FormItem>
                     {vehicle.vrm ? (
                       <FormItem>
@@ -450,9 +464,20 @@ export function GaragePage() {
                         </SelectContent>
                       </Select>
                     </FormItem>
+                    <Accordion type="single" collapsible>
+                      <AccordionItem value="details">
+                        <AccordionTrigger>More details</AccordionTrigger>
+                        <AccordionContent>
                     <FormItem>
                       <Label htmlFor="year">Year of first registration</Label>
-                      <Input id="year" className="tabular" value={year} onChange={(ev) => setYear(ev.target.value)} />
+                      <Input
+                        id="year"
+                        className="tabular"
+                        inputMode="numeric"
+                        enterKeyHint="next"
+                        value={year}
+                        onChange={(ev) => setYear(ev.target.value)}
+                      />
                     </FormItem>
                     <FormItem>
                       <Label htmlFor="euro">Euro standard</Label>
@@ -462,22 +487,43 @@ export function GaragePage() {
                       <>
                         <FormItem>
                           <Label htmlFor="batt">Usable battery kWh</Label>
-                          <Input id="batt" className="tabular" value={battery} onChange={(ev) => setBattery(ev.target.value)} />
+                          <Input
+                            id="batt"
+                            className="tabular"
+                            inputMode="decimal"
+                            enterKeyHint="next"
+                            value={battery}
+                            onChange={(ev) => setBattery(ev.target.value)}
+                          />
                         </FormItem>
                         <FormItem>
                           <Label htmlFor="tariff">Home p/kWh</Label>
-                          <Input id="tariff" className="tabular" value={homePence} onChange={(ev) => setHomePence(ev.target.value)} />
+                          <Input
+                            id="tariff"
+                            className="tabular"
+                            inputMode="decimal"
+                            enterKeyHint="next"
+                            value={homePence}
+                            onChange={(ev) => setHomePence(ev.target.value)}
+                          />
                         </FormItem>
                         <FormItem>
                           <Label htmlFor="offpeak">Off-peak p/kWh</Label>
-                          <Input id="offpeak" className="tabular" value={offpeakPence} onChange={(ev) => setOffpeakPence(ev.target.value)} />
+                          <Input
+                            id="offpeak"
+                            className="tabular"
+                            inputMode="decimal"
+                            enterKeyHint="next"
+                            value={offpeakPence}
+                            onChange={(ev) => setOffpeakPence(ev.target.value)}
+                          />
                         </FormItem>
                         <FormItem>
                           <Label htmlFor="offpeak-window">Off-peak window</Label>
                           <Input id="offpeak-window" value={offpeakWindow} onChange={(ev) => setOffpeakWindow(ev.target.value)} placeholder="00:30-05:30" />
                         </FormItem>
                         <FormItem>
-                          <label className="flex items-center gap-2 text-sm">
+                          <label className="flex min-h-11 items-center gap-2 text-sm">
                             <input
                               type="checkbox"
                               checked={hasHeatPump}
@@ -490,9 +536,19 @@ export function GaragePage() {
                     ) : (
                       <FormItem>
                         <Label htmlFor="tank">Tank litres</Label>
-                        <Input id="tank" className="tabular" value={tank} onChange={(ev) => setTank(ev.target.value)} />
+                        <Input
+                          id="tank"
+                          className="tabular"
+                          inputMode="decimal"
+                          enterKeyHint="done"
+                          value={tank}
+                          onChange={(ev) => setTank(ev.target.value)}
+                        />
                       </FormItem>
                     )}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button type="submit">Save details</Button>
                       <Button type="button" variant="ghost" onClick={() => void setDefault()}>
@@ -526,6 +582,8 @@ export function GaragePage() {
                       <Input
                         id="odo"
                         className="tabular"
+                        inputMode="decimal"
+                        enterKeyHint="next"
                         value={odo}
                         onChange={(ev) => setOdo(ev.target.value)}
                         required
@@ -538,6 +596,8 @@ export function GaragePage() {
                       <Input
                         id="qty"
                         className="tabular"
+                        inputMode="decimal"
+                        enterKeyHint="next"
                         value={qty}
                         onChange={(ev) => setQty(ev.target.value)}
                         required
@@ -547,10 +607,17 @@ export function GaragePage() {
                     </FormItem>
                     <FormItem>
                       <Label htmlFor="gbp">Price £</Label>
-                      <Input id="gbp" className="tabular" value={price} onChange={(ev) => setPrice(ev.target.value)} />
+                      <Input
+                        id="gbp"
+                        className="tabular"
+                        inputMode="decimal"
+                        enterKeyHint="next"
+                        value={price}
+                        onChange={(ev) => setPrice(ev.target.value)}
+                      />
                     </FormItem>
                     <FormItem>
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="flex min-h-11 items-center gap-2 text-sm">
                         <input type="checkbox" checked={brim} onChange={(ev) => setBrim(ev.target.checked)} />
                         {bev ? "Charged to full" : "Filled to brim"}
                       </label>
@@ -597,14 +664,14 @@ export function GaragePage() {
                   </Form>
                   <ul className="mt-4 grid gap-2">
                     {fills.map((f) => (
-                      <li key={f.id} className="flex items-center justify-between gap-2 text-sm">
+                      <li key={f.id} className="flex flex-col gap-2 border-t border-border pt-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                         <span className="tabular text-mist">
                           {f.occurredAt.slice(0, 10)} · {f.odometerMiles.toFixed(0)} mi · {f.quantity} {f.unit}
                           {f.brim ? (bev ? " · full" : " · brim") : ""}
                           {f.stationName ? ` · ${f.stationName}` : ""}
                           {f.pricePence > 0 ? ` · £${(f.pricePence / 100).toFixed(2)}` : ""}
                         </span>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => void removeFill(f.id)}>
+                        <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={() => void removeFill(f.id)}>
                           Delete
                         </Button>
                       </li>
@@ -622,7 +689,9 @@ export function GaragePage() {
             <DialogTitle>Keep this on other devices</DialogTitle>
             <DialogDescription>You can log fill-ups on this device. Sign in to sync.</DialogDescription>
           </DialogHeader>
-          <AuthPanel defaultTab="signup" idPrefix="garage-auth" onSuccess={() => { setAuthOpen(false); void refresh(); }} />
+          <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+            <AuthPanel defaultTab="signup" idPrefix="garage-auth" onSuccess={() => { setAuthOpen(false); void refresh(); }} />
+          </Suspense>
         </DialogContent>
       </Dialog>
     </main>

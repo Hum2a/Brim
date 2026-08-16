@@ -27,21 +27,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@brim/ui-kit/dialog";
-import { Drawer, DrawerContent } from "@brim/ui-kit/drawer";
+import { Drawer, DrawerContent, DrawerTitle } from "@brim/ui-kit/drawer";
 import { Form, FormItem } from "@brim/ui-kit/form";
 import { Input } from "@brim/ui-kit/input";
 import { Label } from "@brim/ui-kit/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
-import { api } from "../api.js";
+import { api, asList } from "../api.js";
 import { AddressField } from "../AddressField.js";
-import { AuthPanel } from "../AuthPanel.js";
 import { reversePlace } from "../places-client.js";
 import { euroFromVes, RegLookup, type VesSummary } from "../RegLookup.js";
 import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
+import { useMediaQuery } from "../use-media-query.js";
 
 const RouteMap = lazy(() => import("../RouteMap.js"));
+const AuthPanel = lazy(() => import("../AuthPanel.js").then((mod) => ({ default: mod.AuthPanel })));
 
 type Health = { status: string; fixtureMode: boolean };
 type Place = { label: string; lat: number; lng: number };
@@ -233,24 +234,17 @@ export function EstimatePage() {
   const [fillStationId, setFillStationId] = useState("none");
   const [stale, setStale] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
+  const [resultOpen, setResultOpen] = useState(false);
   const [stationId, setStationId] = useState<string | undefined>();
   const [priceStrategy, setPriceStrategy] = useState<string | undefined>();
   const [nearbyStations, setNearbyStations] = useState<NearbyStation[]>([]);
-  const [wide, setWide] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
-  );
+  const wide = useMediaQuery("(min-width: 1024px)");
   const estimateTimer = useRef(0);
 
   useEffect(() => () => window.clearTimeout(estimateTimer.current), []);
 
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const onChange = () => setWide(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
+  const garage = asList(vehicles);
+  const selectedVehicle = garage.find((v) => v.id === vehicleId);
   const savedElectric =
     selectedVehicle?.propulsion === "bev" || selectedVehicle?.propulsion === "phev";
   const savedBev = selectedVehicle?.propulsion === "bev";
@@ -258,7 +252,7 @@ export function EstimatePage() {
 
   const fillStations = useMemo(() => {
     const byId = new Map<string, { id: string; name: string }>();
-    for (const s of nearbyStations) byId.set(s.id, { id: s.id, name: s.brand ? `${s.brand} · ${s.name}` : s.name });
+    for (const s of nearbyStations ?? []) byId.set(s.id, { id: s.id, name: s.brand ? `${s.brand} · ${s.name}` : s.name });
     for (const s of estimate?.cheapestFill?.stations ?? []) {
       byId.set(s.stationId, { id: s.stationId, name: s.brand ? `${s.brand} · ${s.name}` : s.name });
     }
@@ -317,7 +311,8 @@ export function EstimatePage() {
     if (!savedElectric || vehicleId === "inline") return;
     void api<{ tariffs: Tariff[] }>(`/v1/vehicles/${vehicleId}/tariffs`)
       .then((r) => {
-        const home = r.tariffs.find((t) => t.is_default) ?? r.tariffs[0];
+        const tariffs = asList(r.tariffs);
+        const home = tariffs.find((t) => t.is_default) ?? tariffs[0];
         if (home) {
           setHomePence(String(home.pence_per_kwh));
           setOffpeakPence(home.offpeak_pence !== undefined ? String(home.offpeak_pence) : "");
@@ -336,7 +331,7 @@ export function EstimatePage() {
 
   useEffect(() => {
     void api<{ networks: EvNetworkRow[] }>("/v1/meta/ev-tariffs")
-      .then((r) => setEvNetworks(r.networks))
+      .then((r) => setEvNetworks(asList(r.networks)))
       .catch(() => setEvNetworks([]));
   }, []);
 
@@ -349,7 +344,7 @@ export function EstimatePage() {
     void api<{
       stations: Array<{ id: string; lat: number; lng: number; name: string; brand?: string }>;
     }>(`/v1/stations/near?lat=${originPin.lat}&lng=${originPin.lng}&grade=${grade}`)
-      .then((r) => setNearbyStations(r.stations))
+      .then((r) => setNearbyStations(asList(r.stations)))
       .catch(() => setNearbyStations([]));
   }, [originPin, propulsion]);
 
@@ -359,14 +354,15 @@ export function EstimatePage() {
       .catch(() => setHealth(null));
     void api<{ vehicles: Vehicle[] }>("/v1/vehicles")
       .then((r) => {
-        setVehicles(r.vehicles);
+        const cars = asList(r.vehicles);
+        setVehicles(cars);
         if (new URLSearchParams(window.location.search).get("journey")) return;
-        const def = r.vehicles.find((v) => v.is_default) ?? r.vehicles[0];
+        const def = cars.find((v) => v.is_default) ?? cars[0];
         if (def) setVehicleId(def.id);
       })
       .catch(() => undefined);
     void api<{ places: SavedPlace[] }>("/v1/saved-places")
-      .then((r) => setPlaces(r.places))
+      .then((r) => setPlaces(asList(r.places)))
       .catch(() => undefined);
     const cached = localStorage.getItem("brim:last-estimate");
     if (cached) {
@@ -730,7 +726,7 @@ export function EstimatePage() {
         }),
       });
       const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
-      setVehicles(list.vehicles);
+      setVehicles(asList(list.vehicles));
       flashSaved("vehicle");
       toast("Saved. Sign in to keep this car on other devices.");
     } catch {
@@ -768,7 +764,7 @@ export function EstimatePage() {
     if (pending === "journey") await saveJourney();
     if (pending === "fill") setFillOpen(true);
     const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles").catch(() => null);
-    if (list) setVehicles(list.vehicles);
+    if (list) setVehicles(asList(list.vehicles));
   }
 
   const pounds = estimate ? estimate.cost.totalPence.point / 100 : 0;
@@ -792,7 +788,7 @@ export function EstimatePage() {
   const viaPins = viaDrafts.map((v) => v.pin).filter((p): p is Place => Boolean(p));
   const stationOverlays = useMemo(() => {
     const byId = new Map<string, NearbyStation>();
-    for (const s of nearbyStations) byId.set(s.id, s);
+    for (const s of nearbyStations ?? []) byId.set(s.id, s);
     for (const s of estimate?.cheapestFill?.stations ?? []) {
       byId.set(s.stationId, {
         id: s.stationId,
@@ -881,6 +877,9 @@ export function EstimatePage() {
             id="maps"
             value={maps}
             onChange={(ev) => setMaps(ev.target.value)}
+            inputMode="url"
+            enterKeyHint="go"
+            autoComplete="off"
             aria-invalid={errorSource === "maps" && Boolean(error) ? true : undefined}
             aria-describedby={errorSource === "maps" && error ? "maps-error maps-help" : "maps-help"}
           />
@@ -894,7 +893,7 @@ export function EstimatePage() {
       </Form>
 
       <Form onSubmit={onSubmit}>
-        {vehicles.length > 0 ? (
+        {garage.length > 0 ? (
           <FormItem>
             <Label>Saved vehicle</Label>
             <Select value={vehicleId} onValueChange={setVehicleId}>
@@ -903,7 +902,7 @@ export function EstimatePage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="inline">Type details this time</SelectItem>
-                {vehicles.map((v) => (
+                {garage.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
                     {v.nickname ?? [v.make, v.model].filter(Boolean).join(" ") ?? v.propulsion}
                   </SelectItem>
@@ -966,6 +965,8 @@ export function EstimatePage() {
                 value={homePence}
                 onChange={(ev) => setHomePence(ev.target.value)}
                 className="tabular"
+                inputMode="decimal"
+                enterKeyHint="next"
               />
             </FormItem>
             {chargingLocation === "home" ? (
@@ -977,6 +978,8 @@ export function EstimatePage() {
                     value={offpeakPence}
                     onChange={(ev) => setOffpeakPence(ev.target.value)}
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="next"
                   />
                 </FormItem>
                 <FormItem>
@@ -991,7 +994,7 @@ export function EstimatePage() {
               </>
             ) : null}
             <FormItem>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex min-h-11 items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={hasHeatPump}
@@ -1144,6 +1147,7 @@ export function EstimatePage() {
           <Input
             id="leave"
             type="datetime-local"
+            enterKeyHint="next"
             value={departsAt}
             onChange={(ev) => setDepartsAt(ev.target.value)}
           />
@@ -1213,6 +1217,7 @@ export function EstimatePage() {
                 id="year"
                 className="tabular"
                 inputMode="numeric"
+                enterKeyHint="next"
                 value={vehicleYear}
                 onChange={(ev) => setVehicleYear(ev.target.value)}
                 placeholder="Optional"
@@ -1250,6 +1255,8 @@ export function EstimatePage() {
                       catalogue ? setOverrideMiKwh(ev.target.value) : setMiKwh(ev.target.value)
                     }
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="next"
                     {...(catalogue ? { placeholder: "Leave blank to use the official figure" } : {})}
                   />
                 </FormItem>
@@ -1260,6 +1267,8 @@ export function EstimatePage() {
                     value={battery}
                     onChange={(ev) => setBattery(ev.target.value)}
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="next"
                   />
                 </FormItem>
                 <FormItem>
@@ -1269,6 +1278,8 @@ export function EstimatePage() {
                     value={start}
                     onChange={(ev) => setStart(ev.target.value)}
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="done"
                   />
                 </FormItem>
               </>
@@ -1282,6 +1293,8 @@ export function EstimatePage() {
                     value={battery}
                     onChange={(ev) => setBattery(ev.target.value)}
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="next"
                   />
                 </FormItem>
                 <FormItem>
@@ -1291,6 +1304,8 @@ export function EstimatePage() {
                     value={start}
                     onChange={(ev) => setStart(ev.target.value)}
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="next"
                   />
                 </FormItem>
               </>
@@ -1307,6 +1322,8 @@ export function EstimatePage() {
                         catalogue ? setOverrideMpg(ev.target.value) : setMpg(ev.target.value)
                       }
                       className="tabular"
+                      inputMode="decimal"
+                      enterKeyHint="next"
                       {...(catalogue ? { placeholder: "Leave blank to use the official figure" } : {})}
                     />
                   </FormItem>
@@ -1318,6 +1335,8 @@ export function EstimatePage() {
                     value={tank}
                     onChange={(ev) => setTank(ev.target.value)}
                     className="tabular"
+                    inputMode="decimal"
+                    enterKeyHint="done"
                   />
                 </FormItem>
               </>
@@ -1330,6 +1349,7 @@ export function EstimatePage() {
   );
 
   const shouldStagger = Boolean(estimate) && !revealed.current && !reduce;
+  const showResultDetail = wide || resultOpen;
   const result: ReactNode =
     estimate ? (
       <m.section
@@ -1341,7 +1361,11 @@ export function EstimatePage() {
         animate="animate"
         exit={reduce ? fade.exit : fadeUp.exit}
         transition={fadeUp.transition}
-        className="relative rounded-[2px] border border-border bg-card p-4"
+        className={
+          wide
+            ? "cq relative rounded-[2px] border border-border bg-card p-4"
+            : "cq relative bg-card p-3"
+        }
       >
         {loading ? <div className="absolute inset-0 z-10 bg-forecourt/40" aria-busy="true" /> : null}
         <m.div {...(shouldStagger ? { variants: reveal } : {})}>
@@ -1350,207 +1374,239 @@ export function EstimatePage() {
         <m.p {...(shouldStagger ? { variants: reveal } : {})} className="tabular mt-2 text-mist">
           {band}
         </m.p>
-        {estimate.price ? (
-          <p
-            className={
-              estimate.price.source === "hardcoded-fallback"
-                ? "mt-2 text-sm text-warning"
-                : "mt-2 text-sm text-mist"
-            }
-          >
-            <span className="tabular">
-              {estimate.price.pence.toFixed(1)} {estimate.price.unit}
-            </span>
-            {" · "}
-            {priceSourceLabel(estimate.price.source)}
-            {estimate.price.source !== "hardcoded-fallback"
-              ? ` · ${formatObservedAt(estimate.price.observedAt)}`
-              : null}
-          </p>
-        ) : null}
-        {estimate.cheapestFill?.stations[0] ? (
-          <div className="mt-3">
-            <button
-              type="button"
-              className="pressable w-full rounded-[2px] border border-border p-3 text-left transition-transform duration-150 hover:-translate-y-px active:scale-[0.99] motion-reduce:transform-none"
-              onClick={() => {
-                const picked = estimate.cheapestFill?.stations[0];
-                if (!picked) return;
-                setStationId(picked.stationId);
-                setPriceStrategy("cheapest-on-route");
-                tripRef.current = {
-                  ...tripRef.current,
-                  stationId: picked.stationId,
-                  priceStrategy: "cheapest-on-route",
-                };
-                scheduleEstimate();
-              }}
-            >
-              <p className="text-sm">
-                {estimate.cheapestFill.stations[0].brand
-                  ? `${estimate.cheapestFill.stations[0].brand} · ${estimate.cheapestFill.stations[0].name}`
-                  : estimate.cheapestFill.stations[0].name}
-              </p>
-              <p className="tabular text-sm">
-                {estimate.cheapestFill.stations[0].pence.toFixed(1)} ppl
-                {" · "}
-                {formatObservedAt(estimate.cheapestFill.stations[0].observedAt)}
-              </p>
-              <p className="tabular mt-1 text-sm text-mist">
-                {estimate.cheapestFill.stations[0].detourKm.toFixed(1)} km assumed detour · save £
-                {(estimate.cheapestFill.stations[0].savingPence / 100).toFixed(2)} versus filling{" "}
-                {estimate.cheapestFill.baseline.label}
-              </p>
-              {estimate.cheapestFill.stations[0].openingHours ? (
-                <p className="mt-1 text-sm text-mist">{estimate.cheapestFill.stations[0].openingHours}</p>
-              ) : null}
-            </button>
-          </div>
-        ) : null}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge variant="diesel">{estimate.consumption.label}</Badge>
-          <span className="tabular text-sm">{estimate.consumption.display}</span>
-        </div>
-        {estimate.energy.arrivalStateOfCharge ? (
-          <p className="mt-2 text-sm">
-            {arrivalCopy(estimate.energy.arrivalStateOfCharge)}
-          </p>
-        ) : null}
-        {typeof estimate.co2Kg === "number" ? (
-          <p className="tabular mt-2 text-sm text-mist">
-            About {estimate.co2Kg.toFixed(1)} kg CO₂
-          </p>
-        ) : null}
-        {hmrc ? (
-          <p className="tabular mt-2 text-sm text-mist">
-            {hmrc}
-          </p>
-        ) : null}
         {estimate.warnings.map((w) => (
           <p key={w.message} className="mt-2 text-warning">
             {w.message}
           </p>
         ))}
-        <div>
-          <Accordion type="single" collapsible className="mt-2">
-            <AccordionItem value="reasons">
-              <AccordionTrigger>How we got there</AccordionTrigger>
-              <AccordionContent>
-                <ul className="list-disc space-y-1 pl-4">
-                  {estimate.reasons.map((r) => (
-                    <li key={r}>{r}</li>
-                  ))}
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </div>
-        {estimate.charges.length > 0 ? (
-          <ul className="mt-3 grid gap-2 text-sm">
-            {estimate.charges.map((charge) => (
-              <li key={charge.id} className="flex flex-wrap items-baseline justify-between gap-2">
-                <span>
-                  {charge.name}
-                  {charge.kind === "restriction" ? (
-                    <span className="block text-warning">
-                      {charge.note ?? "Your vehicle cannot enter this zone."}
-                    </span>
-                  ) : null}
+        {wide ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-3 w-full"
+            aria-expanded={resultOpen}
+            onClick={() => setResultOpen((open) => !open)}
+          >
+            {resultOpen ? "Hide breakdown" : "Breakdown"}
+          </Button>
+        )}
+        {showResultDetail ? (
+          <>
+            {estimate.price ? (
+              <p
+                className={
+                  estimate.price.source === "hardcoded-fallback"
+                    ? "mt-2 text-sm text-warning"
+                    : "mt-2 text-sm text-mist"
+                }
+              >
+                <span className="tabular">
+                  {estimate.price.pence.toFixed(1)} {estimate.price.unit}
                 </span>
-                {charge.kind === "restriction" ? (
-                  <span className="text-mist">No charge</span>
-                ) : (
-                  <span className="tabular">£{(charge.pence / 100).toFixed(2)}</span>
-                )}
-                {charge.operatorUrl ? (
-                  <a
-                    href={charge.operatorUrl}
-                    className="basis-full text-sm underline"
-                    target="_blank"
-                    rel="noreferrer"
+                {" · "}
+                {priceSourceLabel(estimate.price.source)}
+                {estimate.price.source !== "hardcoded-fallback"
+                  ? ` · ${formatObservedAt(estimate.price.observedAt)}`
+                  : null}
+              </p>
+            ) : null}
+            {estimate.cheapestFill?.stations[0] ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="pressable min-h-11 w-full rounded-[2px] border border-border p-3 text-left transition-transform duration-150 hover:-translate-y-px active:scale-[0.99] motion-reduce:transform-none"
+                  onClick={() => {
+                    const picked = estimate.cheapestFill?.stations[0];
+                    if (!picked) return;
+                    setStationId(picked.stationId);
+                    setPriceStrategy("cheapest-on-route");
+                    tripRef.current = {
+                      ...tripRef.current,
+                      stationId: picked.stationId,
+                      priceStrategy: "cheapest-on-route",
+                    };
+                    scheduleEstimate();
+                  }}
+                >
+                  <p className="text-sm" title={estimate.cheapestFill.stations[0].name}>
+                    {estimate.cheapestFill.stations[0].brand
+                      ? `${estimate.cheapestFill.stations[0].brand} · ${estimate.cheapestFill.stations[0].name}`
+                      : estimate.cheapestFill.stations[0].name}
+                  </p>
+                  <p className="tabular text-sm">
+                    {estimate.cheapestFill.stations[0].pence.toFixed(1)} ppl
+                    {" · "}
+                    {formatObservedAt(estimate.cheapestFill.stations[0].observedAt)}
+                  </p>
+                  <p className="tabular mt-1 text-sm text-mist">
+                    {estimate.cheapestFill.stations[0].detourKm.toFixed(1)} km assumed detour · save £
+                    {(estimate.cheapestFill.stations[0].savingPence / 100).toFixed(2)} versus filling{" "}
+                    {estimate.cheapestFill.baseline.label}
+                  </p>
+                  {estimate.cheapestFill.stations[0].openingHours ? (
+                    <p className="mt-1 text-sm text-mist">{estimate.cheapestFill.stations[0].openingHours}</p>
+                  ) : null}
+                </button>
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant="diesel">{estimate.consumption.label}</Badge>
+              <span className="tabular text-sm">{estimate.consumption.display}</span>
+            </div>
+            {estimate.energy.arrivalStateOfCharge ? (
+              <p className="mt-2 text-sm">{arrivalCopy(estimate.energy.arrivalStateOfCharge)}</p>
+            ) : null}
+            {typeof estimate.co2Kg === "number" ? (
+              <p className="tabular mt-2 text-sm text-mist">About {estimate.co2Kg.toFixed(1)} kg CO₂</p>
+            ) : null}
+            {hmrc ? <p className="tabular mt-2 text-sm text-mist">{hmrc}</p> : null}
+            <div>
+              <Accordion type="single" collapsible className="mt-2">
+                <AccordionItem value="reasons">
+                  <AccordionTrigger>How we got there</AccordionTrigger>
+                  <AccordionContent>
+                    <ul className="list-disc space-y-1 pl-4">
+                      {estimate.reasons.map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+            {estimate.charges.length > 0 ? (
+              <ul className="mt-3 grid gap-2 text-sm">
+                {estimate.charges.map((charge) => (
+                  <li
+                    key={charge.id}
+                    className="cq-stack flex flex-wrap items-baseline justify-between gap-2"
+                    title={charge.name}
                   >
-                    Check with the operator
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                    <span>
+                      {charge.name}
+                      {charge.kind === "restriction" ? (
+                        <span className="block text-warning">
+                          {charge.note ?? "Your vehicle cannot enter this zone."}
+                        </span>
+                      ) : null}
+                    </span>
+                    {charge.kind === "restriction" ? (
+                      <span className="text-mist">No charge</span>
+                    ) : (
+                      <span className="tabular">£{(charge.pence / 100).toFixed(2)}</span>
+                    )}
+                    {charge.operatorUrl ? (
+                      <a
+                        href={charge.operatorUrl}
+                        className="basis-full text-sm underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Check with the operator
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="mt-3 text-sm text-mist">
+              Brim is an estimate. You remain responsible for paying or staying out. Cars, vans and
+              motorcycles only; HGV, bus and taxi classes are not modelled.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>
+                {savedLabel === "vehicle" ? "Saved" : "Save this car"}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => void saveJourney()}>
+                {savedLabel === "journey" ? "Saved" : "Save journey"}
+              </Button>
+              {vehicleId !== "inline" ? (
+                <Button type="button" variant="ghost" onClick={() => setFillOpen(true)}>
+                  {savedBev ? "Log a charge" : "Log a fill-up"}
+                </Button>
+              ) : null}
+              <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
+                Sign in to sync
+              </Button>
+            </div>
+          </>
         ) : null}
-        <p className="mt-3 text-sm text-mist">
-          Brim is an estimate. You remain responsible for paying or staying out. Cars, vans and
-          motorcycles only; HGV, bus and taxi classes are not modelled.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="ghost" onClick={() => void saveVehicle()}>
-            {savedLabel === "vehicle" ? "Saved" : "Save this car"}
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => void saveJourney()}>
-            {savedLabel === "journey" ? "Saved" : "Save journey"}
-          </Button>
-          {vehicleId !== "inline" ? (
-            <Button type="button" variant="ghost" onClick={() => setFillOpen(true)}>
-              {savedBev ? "Log a charge" : "Log a fill-up"}
-            </Button>
-          ) : null}
-          <Button type="button" variant="ghost" onClick={() => setAuthOpen(true)}>
-            Sign in to sync
-          </Button>
-        </div>
       </m.section>
     ) : null;
 
-  return (
-    <main className="relative mx-3 mb-3 h-[calc(100dvh-5.75rem)] overflow-hidden rounded-[2px] border border-border">
-      <Suspense
-        fallback={
-          <div className="flex h-full items-center justify-center" aria-busy="true">
-            <Skeleton className="h-full w-full" />
-          </div>
-        }
-      >
-        <RouteMap {...mapProps} />
-      </Suspense>
-
-      {wide ? (
-        <aside className="absolute left-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-[min(22rem,calc(100%-1.5rem))] overflow-y-auto">
-          <Card>{form}</Card>
-        </aside>
-      ) : null}
-
-      <div className="absolute right-3 top-3 z-10 w-[min(20rem,calc(100%-1.5rem))]">
-        {error ? (
-          <p
-            id={errorSource === "maps" ? "maps-error" : "trip-error"}
-            className="mb-2 text-warning"
-            role="alert"
-          >
-            {error}
-          </p>
+  const resultSlot = (
+    <div className={wide ? "relative min-h-[7rem]" : "relative min-h-[4.5rem]"}>
+      <AnimatePresence initial={false}>
+        {loading && !estimate ? (
+          <m.div key="skeleton" {...fade} aria-busy="true">
+            <Card {...(wide ? {} : { className: "border-0 p-0" })}>
+              <Skeleton className="mb-3 h-16 w-48" />
+              <Skeleton className="h-4 w-24" />
+            </Card>
+          </m.div>
         ) : null}
-        <div className="relative min-h-[7rem]">
-          <AnimatePresence initial={false}>
-            {loading && !estimate ? (
-              <m.div key="skeleton" {...fade} aria-busy="true">
-                <Card>
-                  <Skeleton className="mb-3 h-16 w-48" />
-                  <Skeleton className="h-4 w-24" />
-                </Card>
-              </m.div>
-            ) : null}
-            {result}
-          </AnimatePresence>
+        {result}
+      </AnimatePresence>
+    </div>
+  );
+
+  const errorLine = error ? (
+    <p
+      id={errorSource === "maps" ? "maps-error" : "trip-error"}
+      className={wide ? "mb-2 text-warning" : "px-3 pt-2 text-warning"}
+      role="alert"
+    >
+      {error}
+    </p>
+  ) : null;
+
+  return (
+    <main className="relative mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2px] border border-border">
+      <div className="relative min-h-0 flex-1">
+        <div className="absolute inset-0">
+          <Suspense
+            fallback={
+              <div className="h-full min-h-40" aria-busy="true">
+                <Skeleton className="h-full w-full" />
+              </div>
+            }
+          >
+            <RouteMap {...mapProps} />
+          </Suspense>
         </div>
+
+        {wide ? (
+          <aside className="absolute left-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-[min(22rem,calc(100%-1.5rem))] overflow-y-auto">
+            <Card>{form}</Card>
+          </aside>
+        ) : null}
+
+        {wide ? (
+          <div className="absolute right-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-[min(20rem,calc(100%-1.5rem))] overflow-y-auto">
+            {errorLine}
+            {resultSlot}
+          </div>
+        ) : null}
       </div>
 
       {wide ? null : (
         <>
-          <div className="absolute bottom-3 left-3 z-10">
-            <Button type="button" onClick={() => setTripOpen(true)}>
+          {error || loading || estimate ? (
+            <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border bg-card">
+              {errorLine}
+              {resultSlot}
+            </div>
+          ) : null}
+          <div className="shrink-0 border-t border-border bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+            <Button type="button" className="w-full" onClick={() => setTripOpen(true)}>
               Edit trip
             </Button>
           </div>
           <Drawer open={tripOpen} onOpenChange={setTripOpen}>
-            <DrawerContent className="max-h-[85vh] overflow-y-auto">{form}</DrawerContent>
+            <DrawerContent className="max-h-[min(85dvh,100%)]">
+              <DrawerTitle className="display mb-3 text-xl">Edit trip</DrawerTitle>
+              {form}
+            </DrawerContent>
           </Drawer>
         </>
       )}
@@ -1564,11 +1620,13 @@ export function EstimatePage() {
               devices.
             </DialogDescription>
           </DialogHeader>
-          <AuthPanel
-            defaultTab="signup"
-            idPrefix="estimate-auth"
-            onSuccess={() => void onAuthSuccess()}
-          />
+          <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+            <AuthPanel
+              defaultTab="signup"
+              idPrefix="estimate-auth"
+              onSuccess={() => void onAuthSuccess()}
+            />
+          </Suspense>
         </DialogContent>
       </Dialog>
       <Dialog open={fillOpen} onOpenChange={setFillOpen}>
@@ -1635,18 +1693,41 @@ export function EstimatePage() {
           >
             <FormItem>
               <Label htmlFor="est-odo">Odometer miles</Label>
-              <Input id="est-odo" className="tabular" value={fillOdo} onChange={(ev) => setFillOdo(ev.target.value)} required />
+              <Input
+                id="est-odo"
+                className="tabular"
+                inputMode="decimal"
+                enterKeyHint="next"
+                value={fillOdo}
+                onChange={(ev) => setFillOdo(ev.target.value)}
+                required
+              />
             </FormItem>
             <FormItem>
               <Label htmlFor="est-qty">{savedBev ? "kWh" : "Litres"}</Label>
-              <Input id="est-qty" className="tabular" value={fillQty} onChange={(ev) => setFillQty(ev.target.value)} required />
+              <Input
+                id="est-qty"
+                className="tabular"
+                inputMode="decimal"
+                enterKeyHint="next"
+                value={fillQty}
+                onChange={(ev) => setFillQty(ev.target.value)}
+                required
+              />
             </FormItem>
             <FormItem>
               <Label htmlFor="est-gbp">Price £</Label>
-              <Input id="est-gbp" className="tabular" value={fillPrice} onChange={(ev) => setFillPrice(ev.target.value)} />
+              <Input
+                id="est-gbp"
+                className="tabular"
+                inputMode="decimal"
+                enterKeyHint="next"
+                value={fillPrice}
+                onChange={(ev) => setFillPrice(ev.target.value)}
+              />
             </FormItem>
             <FormItem>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex min-h-11 items-center gap-2 text-sm">
                 <input type="checkbox" checked={fillBrim} onChange={(ev) => setFillBrim(ev.target.checked)} />
                 {savedBev ? "Charged to full" : "Filled to brim"}
               </label>
@@ -1656,6 +1737,7 @@ export function EstimatePage() {
               <Input
                 id="est-when"
                 type="datetime-local"
+                enterKeyHint="done"
                 value={fillWhen}
                 onChange={(ev) => setFillWhen(ev.target.value)}
               />

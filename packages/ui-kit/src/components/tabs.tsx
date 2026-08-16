@@ -141,7 +141,7 @@ export const TabsTrigger = forwardRef<
       ref={ref}
       value={value}
       className={cn(
-        "relative z-10 rounded-[2px] px-3 py-1.5 text-sm text-mist transition-colors data-[state=active]:text-pump",
+        "relative z-10 min-h-11 rounded-[2px] px-3 py-2 text-sm text-mist transition-colors data-[state=active]:text-pump",
         className,
       )}
       {...props}

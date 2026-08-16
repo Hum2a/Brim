@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, asList } from "./api.js";
 
 export type Place = { label: string; lat: number; lng: number; placeId?: string };
 
@@ -18,10 +18,10 @@ export async function fetchPlaceSuggestions(
   session: string,
 ): Promise<PlaceSuggestion[]> {
   if (q.trim().length < 2) return [];
-  const res = await api<{ places: PlaceSuggestion[] }>(
+  const res = await api<{ places?: PlaceSuggestion[] }>(
     `/v1/places?q=${encodeURIComponent(q.trim())}&session=${encodeURIComponent(session)}`,
   );
-  return res.places;
+  return asList(res.places);
 }
 
 export async function resolvePlaceSuggestion(

@@ -22,7 +22,7 @@ export const CommandInput = forwardRef<
   <CommandPrimitive.Input
     ref={ref}
     className={cn(
-      "h-10 w-full border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground",
+      "min-h-11 w-full border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground",
       className,
     )}
     {...props}
@@ -45,7 +45,7 @@ export const CommandItem = forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "flex cursor-pointer items-center rounded-[2px] px-2 py-1.5 text-sm outline-none aria-selected:bg-white/10",
+      "flex min-h-11 cursor-pointer items-center rounded-[2px] px-2 py-2 text-sm outline-none aria-selected:bg-white/10",
       className,
     )}
     {...props}

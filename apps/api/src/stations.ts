@@ -45,7 +45,7 @@ export async function handleStationsNear(c: Context<{ Bindings: ApiBindings }>) 
     radiusMeters,
     ...(grade ? { grade } : {}),
   });
-  return c.json({ stations });
+  return c.json({ stations: Array.isArray(stations) ? stations : [] });
 }
 
 export async function handleMetaPrices(c: Context<{ Bindings: ApiBindings }>) {

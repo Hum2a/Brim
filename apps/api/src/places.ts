@@ -37,7 +37,7 @@ export async function handlePlaces(c: Context<{ Bindings: ApiBindings }>) {
   const opts = session ? { session } : undefined;
   try {
     const places = await geo.autocomplete(q, opts);
-    return c.json({ places });
+    return c.json({ places: Array.isArray(places) ? places : [] });
   } catch {
     log.info({ error: 'places_autocomplete_failed' });
     return c.json({ error: 'upstream' }, 502);

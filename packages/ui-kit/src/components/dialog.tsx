@@ -6,6 +6,7 @@ import { forwardRef } from "react";
 import { cn } from "../lib/utils.js";
 import { duration, easeOut, fadeScale } from "../motion.js";
 import { OverlayOpenProvider, useControllableOpen, useOverlayOpen } from "../overlay-open.js";
+import { useVisualViewportBottomInset } from "../visual-viewport.js";
 
 export function Dialog({
   open,
@@ -36,11 +37,15 @@ export const DialogOverlay = forwardRef<
 ));
 DialogOverlay.displayName = "DialogOverlay";
 
+const closeClass =
+  "absolute right-1 top-1 flex min-h-11 min-w-11 items-center justify-center rounded-[2px] text-pump opacity-70 hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:right-2 md:top-2";
+
 export const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+>(({ className, children, style, ...props }, ref) => {
   const open = useOverlayOpen();
+  const keyboardInset = useVisualViewportBottomInset();
   return (
     <DialogPortal forceMount>
       <AnimatePresence>
@@ -57,19 +62,33 @@ export const DialogContent = forwardRef<
             <DialogPrimitive.Content
               ref={ref}
               className={cn(
-                "fixed left-1/2 top-1/2 z-50 w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-[2px] border border-border bg-card p-6 text-pump",
+                "fixed z-50 flex max-h-[min(85dvh,100%)] flex-col overflow-hidden border border-border bg-card p-6 text-pump",
+                "inset-x-0 bottom-0 top-auto w-full translate-x-0 translate-y-0 rounded-t-[2px] pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+                "md:inset-auto md:left-1/2 md:top-1/2 md:w-[min(92vw,28rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[2px] md:pb-6",
                 className,
+                "max-md:inset-x-0 max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:top-auto max-md:w-full max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-[2px]",
               )}
+              {...(keyboardInset > 0
+                ? {
+                    style: {
+                      ...style,
+                      paddingBottom: `calc(${keyboardInset}px + env(safe-area-inset-bottom, 0px))`,
+                    },
+                  }
+                : style
+                  ? { style }
+                  : {})}
               {...props}
             >
               <m.div
+                className="flex min-h-0 flex-1 flex-col overflow-y-auto"
                 initial={{ y: 12, scale: 0.98 }}
                 animate={{ y: 0, scale: 1 }}
                 transition={fadeScale.transition}
               >
                 {children}
               </m.div>
-              <DialogPrimitive.Close className="absolute right-3 top-3 opacity-70 hover:opacity-100">
+              <DialogPrimitive.Close className={closeClass}>
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
               </DialogPrimitive.Close>
@@ -83,7 +102,7 @@ export const DialogContent = forwardRef<
 DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mb-4 space-y-1", className)} {...props} />;
+  return <div className={cn("mb-4 space-y-1 pr-10", className)} {...props} />;
 }
 
 export function DialogTitle({ className, ...props }: ComponentPropsWithoutRef<typeof DialogPrimitive.Title>) {

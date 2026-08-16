@@ -5,7 +5,7 @@ import { Button } from '@brim/ui-kit/button';
 import { Card } from '@brim/ui-kit/card';
 import { Skeleton } from '@brim/ui-kit/skeleton';
 import { toast } from '@brim/ui-kit/toast';
-import { api, apiBase } from '../api.js';
+import { api, apiBase, asList } from '../api.js';
 import { authClient } from '../auth-client.js';
 import { AuthPanel } from '../AuthPanel.js';
 import { AddressField } from '../AddressField.js';
@@ -39,14 +39,15 @@ export function AccountPage() {
       const res = await api<{ session: BrimSession | null }>('/v1/auth/session');
       setSession(res.session);
       const places = await api<{ places: Place[] }>('/v1/saved-places');
-      const nextHome = places.places.find((p) => p.kind === 'home') ?? null;
-      const nextWork = places.places.find((p) => p.kind === 'work') ?? null;
+      const nextHome = asList(places.places).find((p) => p.kind === 'home') ?? null;
+      const nextWork = asList(places.places).find((p) => p.kind === 'work') ?? null;
       setHome(nextHome);
       setWork(nextWork);
       setHomeText(nextHome?.label ?? '');
       setWorkText(nextWork?.label ?? '');
       const cars = await api<{ vehicles: Vehicle[] }>('/v1/vehicles');
-      const def = cars.vehicles.find((v) => v.is_default) ?? cars.vehicles[0];
+      const list = asList(cars.vehicles);
+      const def = list.find((v) => v.is_default) ?? list[0];
       setDefaultCar(
         def ? (def.nickname ?? [def.make, def.model].filter(Boolean).join(' ') ?? 'Saved car') : 'None',
       );
@@ -83,8 +84,8 @@ export function AccountPage() {
   }
 
   return (
-    <main className="mx-auto w-[min(560px,calc(100%-1.5rem))] py-8">
-      <h1 className="display mb-2 text-4xl">{signedIn ? 'Account' : 'Sign in'}</h1>
+    <main className="mx-auto w-[min(560px,calc(100%-1.5rem))] py-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <h1 className="display mb-2 text-3xl md:text-4xl">{signedIn ? 'Account' : 'Sign in'}</h1>
       <p className="mb-6 text-mist">
         {signedIn
           ? 'This is the copy of Brim that travels with you.'

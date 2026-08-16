@@ -55,10 +55,15 @@ export const SheetContent = forwardRef<
               )}
               {...props}
             >
-              <m.div className="h-full" initial={motion.initial} animate={motion.animate} transition={motion.transition}>
+              <m.div
+                className="h-full overflow-y-auto pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+                initial={motion.initial}
+                animate={motion.animate}
+                transition={motion.transition}
+              >
                 {children}
               </m.div>
-              <DialogPrimitive.Close className="absolute right-3 top-3 opacity-70 hover:opacity-100">
+              <DialogPrimitive.Close className="absolute right-[max(0.25rem,env(safe-area-inset-right))] top-[max(0.25rem,env(safe-area-inset-top))] flex min-h-11 min-w-11 items-center justify-center rounded-[2px] opacity-70 hover:opacity-100">
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
               </DialogPrimitive.Close>

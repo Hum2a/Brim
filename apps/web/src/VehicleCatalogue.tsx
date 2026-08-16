@@ -9,7 +9,7 @@ import {
 } from '@brim/ui-kit/dialog';
 import { Input } from '@brim/ui-kit/input';
 import { Label } from '@brim/ui-kit/label';
-import { api } from './api.js';
+import { api, asList } from './api.js';
 
 export type CatalogueVehicle = {
   id: string;
@@ -97,7 +97,7 @@ function FacetButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-10 w-full items-center justify-between rounded-[2px] px-3 text-left text-sm hover:bg-white/5"
+      className="flex h-11 w-full items-center justify-between rounded-[2px] px-3 text-left text-sm hover:bg-white/5"
     >
       <span>{name}</span>
       <span className="tabular text-xs text-mist">{count}</span>
@@ -116,7 +116,7 @@ function TrimButton({
     <button
       type="button"
       onClick={() => onPick(vehicle)}
-      className="flex min-h-10 w-full flex-col items-start justify-center rounded-[2px] px-3 py-2 text-left text-sm hover:bg-white/5"
+      className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] px-3 py-2 text-left text-sm hover:bg-white/5"
     >
       <span>{vehicle.derivative ?? `${vehicle.make} ${vehicle.model}`}</span>
       <span className="tabular text-xs text-mist">
@@ -169,7 +169,7 @@ export function VehicleCatalogue({
         void api<{ vehicles: CatalogueVehicle[] }>(
           `/v1/vehicles/catalogue?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`,
         )
-          .then((r) => setTrims(r.vehicles))
+          .then((r) => setTrims(asList(r.vehicles)))
           .catch(() => setTrims([]));
       }, 0);
       return () => clearTimeout(handle);
@@ -178,12 +178,12 @@ export function VehicleCatalogue({
       void api<{ models: Facet[] }>(
         `/v1/vehicles/catalogue/models?make=${encodeURIComponent(make)}`,
       )
-        .then((r) => setModels(r.models))
+        .then((r) => setModels(asList(r.models)))
         .catch(() => setModels([]));
       return;
     }
     void api<{ makes: Facet[] }>('/v1/vehicles/catalogue/makes')
-      .then((r) => setMakes(r.makes))
+      .then((r) => setMakes(asList(r.makes)))
       .catch(() => setMakes([]));
   }, [open, searching, make, model]);
 
@@ -199,7 +199,7 @@ export function VehicleCatalogue({
         .then((r) => {
           const next: Group[] = [];
           const index = new Map<string, Group>();
-          for (const vehicle of r.vehicles) {
+          for (const vehicle of asList(r.vehicles)) {
             const key = `${vehicle.make}\0${vehicle.model}`;
             let group = index.get(key);
             if (!group) {
@@ -243,7 +243,7 @@ export function VehicleCatalogue({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-10 w-full flex-col items-start justify-center rounded-[2px] border border-input bg-black/25 px-3 py-2 text-left text-sm text-pump"
+        className="flex min-h-11 w-full flex-col items-start justify-center rounded-[2px] border border-input bg-black/25 px-3 py-2 text-left text-sm text-pump"
       >
         {selected ? (
           <>
@@ -276,7 +276,7 @@ export function VehicleCatalogue({
           if (!next) resetBrowse();
         }}
       >
-        <DialogContent className="flex max-h-[min(85dvh,36rem)] w-[min(92vw,36rem)] flex-col gap-3 p-4">
+        <DialogContent className="flex max-h-[min(92dvh,36rem)] w-full flex-col gap-3 p-4 md:w-[min(92vw,36rem)]">
           <DialogHeader className="mb-0 pr-8">
             <DialogTitle>Find your car</DialogTitle>
             <DialogDescription>Search, or pick a make then a model.</DialogDescription>
@@ -286,6 +286,8 @@ export function VehicleCatalogue({
             onChange={(ev) => setQ(ev.target.value)}
             placeholder="Ford Focus, Nissan Leaf…"
             aria-label="Search cars"
+            inputMode="search"
+            enterKeyHint="search"
             autoFocus
           />
           {!searching ? (
@@ -295,7 +297,7 @@ export function VehicleCatalogue({
             >
               <button
                 type="button"
-                className="hover:text-pump"
+                className="min-h-11 hover:text-pump"
                 onClick={() => {
                   setMake(null);
                   setModel(null);
@@ -306,7 +308,7 @@ export function VehicleCatalogue({
               {make ? (
                 <>
                   <span>/</span>
-                  <button type="button" className="hover:text-pump" onClick={() => setModel(null)}>
+                  <button type="button" className="min-h-11 hover:text-pump" onClick={() => setModel(null)}>
                     {make}
                   </button>
                 </>

@@ -5,6 +5,7 @@ import { Link, usePathname } from "./router.js";
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { EstimatePage } from "./pages/EstimatePage.js";
 import { HeraldDialog } from "./HeraldDialog.js";
+import { useMediaQuery } from "./use-media-query.js";
 
 const KitchenSink = lazy(() => import("./pages/KitchenSink.js").then((mod) => ({ default: mod.KitchenSink })));
 const HistoryPage = lazy(() => import("./pages/HistoryPage.js").then((mod) => ({ default: mod.HistoryPage })));
@@ -15,8 +16,8 @@ function NavLink({ href, label, current }: { href: string; label: string; curren
   return (
     <Link
       href={href}
-      data-current={current ? "true" : undefined}
-      className={`relative z-10 px-2 py-1 text-sm ${current ? "text-pump" : "text-mist hover:text-pump"}`}
+      className={`relative z-10 flex min-h-11 flex-1 items-center justify-center px-1 py-2 text-center text-xs leading-tight md:flex-none md:px-2 md:text-sm ${current ? "text-pump" : "text-mist hover:text-pump"}`}
+      {...(current ? { "data-current": "true", "aria-current": "page" as const } : {})}
     >
       {label}
     </Link>
@@ -31,16 +32,26 @@ function PrimaryNav({ path }: { path: string }) {
   useLayoutEffect(() => {
     const nav = ref.current;
     if (!nav) return;
-    const active = nav.querySelector("[data-current='true']");
-    if (!(active instanceof HTMLElement)) return;
-    setInk({ x: active.offsetLeft, width: Math.max(active.offsetWidth, 1) });
+    const measure = () => {
+      const active = nav.querySelector("[data-current='true']");
+      if (!(active instanceof HTMLElement)) return;
+      setInk({ x: active.offsetLeft, width: Math.max(active.offsetWidth, 1) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(nav);
+    return () => ro.disconnect();
   }, [path]);
 
   const x = ink.x + 4;
   const scaleX = Math.max(ink.width - 8, 1);
 
   return (
-    <nav ref={ref} className="relative flex items-center gap-1" aria-label="Primary">
+    <nav
+      ref={ref}
+      className="relative flex w-full items-stretch gap-0 md:w-auto md:items-center md:gap-1"
+      aria-label="Primary"
+    >
       {reduce ? (
         <span
           className="pointer-events-none absolute bottom-0 left-0 h-px w-px bg-pump/50"
@@ -73,37 +84,51 @@ function RouteBody({ path }: { path: string }) {
 export function AppShell() {
   const path = usePathname();
   const reduce = usePrefersReducedMotion();
-  const transition = motionSafe(reduce, fadeUp);
+  const wideNav = useMediaQuery("(min-width: 768px)");
+  const transition = motionSafe(reduce || !wideNav, fadeUp);
+  const estimateRoute = path === "/";
 
   return (
     <MotionRoot>
-      <div className="relative min-h-dvh">
+      <div className={estimateRoute ? "flex h-dvh flex-col overflow-hidden" : "relative min-h-dvh"}>
         <a
           href="#main"
           className="absolute left-4 top-4 z-[100] -translate-y-[200%] bg-forecourt px-3 py-2 text-pump focus:translate-y-0"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-40 mx-auto mt-3 w-[min(960px,calc(100%-1.5rem))] rounded-[2px] border border-border bg-card px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <Link href="/" className="display text-2xl tracking-wide">
+        <header className="sticky top-0 z-40 mx-auto w-[min(960px,calc(100%-1.5rem))] shrink-0 rounded-[2px] border border-border bg-card px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] md:mt-3 md:py-3">
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-4">
+            <Link href="/" className="display text-xl tracking-wide md:text-2xl">
               Brim
             </Link>
             <PrimaryNav path={path} />
           </div>
         </header>
-        <div id="main" tabIndex={-1} className="relative">
+        <div
+          id="main"
+          tabIndex={-1}
+          className={estimateRoute ? "relative flex min-h-0 flex-1 flex-col" : "relative"}
+        >
           <Suspense
             fallback={
-              <div className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8" aria-busy="true">
-                <Skeleton className="mb-3 h-10 w-48" />
-                <Skeleton className="h-40 w-full" />
+              <div
+                className={
+                  estimateRoute
+                    ? "min-h-0 flex-1 px-3 pb-3"
+                    : "mx-auto w-[min(960px,calc(100%-1.5rem))] py-8"
+                }
+                aria-busy="true"
+              >
+                <Skeleton className={estimateRoute ? "h-full min-h-40 w-full" : "mb-3 h-10 w-48"} />
+                {estimateRoute ? null : <Skeleton className="h-40 w-full" />}
               </div>
             }
           >
             <AnimatePresence initial={false}>
               <m.div
                 key={path}
+                {...(estimateRoute ? { className: "flex min-h-0 flex-1 flex-col" } : {})}
                 initial={transition.initial}
                 animate={transition.animate}
                 exit={{ ...transition.exit, position: "absolute", width: "100%" }}

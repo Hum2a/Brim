@@ -14,9 +14,9 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90",
       },
       size: {
-        default: "h-10",
-        sm: "h-8 px-2 text-xs",
-        lg: "h-12 px-5",
+        default: "min-h-11 min-w-11",
+        sm: "min-h-11 min-w-11 px-2 text-xs",
+        lg: "h-12 min-w-11 px-5",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
