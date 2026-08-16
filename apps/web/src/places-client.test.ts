@@ -43,6 +43,20 @@ describe("fetchPlaceSuggestions", () => {
     expect(hits[0]?.lat).toBeCloseTo(51.1139, 3);
     vi.unstubAllGlobals();
   });
+
+  it("passes map-center bias on the query string", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        expect(url).toContain("lat=51.11");
+        expect(url).toContain("lng=-0.18");
+        return new Response(JSON.stringify({ places: [] }), { status: 200 });
+      }),
+    );
+    await fetchPlaceSuggestions("Station", "sess-1", { lat: 51.11, lng: -0.18 });
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("reversePlace", () => {

@@ -1,4 +1,5 @@
 export const THEME_STORAGE_KEY = "brim-theme";
+export const THEME_CHANGE_EVENT = "brim-theme-change";
 export const DEFAULT_THEME_ID = "wet-tarmac";
 
 export type ThemeTokens = {
@@ -490,5 +491,6 @@ export function applyTheme(id: string | null | undefined): BrimTheme {
   } catch {
     /* private mode */
   }
+  root.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   return theme;
 }

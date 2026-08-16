@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Command, CommandEmpty, CommandItem, CommandList } from "@brim/ui-kit/command";
+import { Button } from "@brim/ui-kit/button";
 import { Input } from "@brim/ui-kit/input";
 import { Label } from "@brim/ui-kit/label";
 import { Popover, PopoverAnchor, PopoverContent } from "@brim/ui-kit/popover";
@@ -11,6 +12,7 @@ import {
   type PlaceSuggestion,
 } from "./places-client.js";
 import { useMediaQuery } from "./use-media-query.js";
+import type { MapBias } from "./estimate/types.js";
 
 type AddressFieldProps = {
   id: string;
@@ -19,8 +21,12 @@ type AddressFieldProps = {
   onChange: (value: string) => void;
   onSelect: (place: Place) => void;
   onFocusField?: () => void;
+  onClear?: () => void;
   describedBy?: string | undefined;
   invalid?: boolean;
+  committed?: boolean;
+  shortcuts?: ReactNode;
+  bias?: MapBias;
 };
 
 export function AddressField({
@@ -30,8 +36,12 @@ export function AddressField({
   onChange,
   onSelect,
   onFocusField,
+  onClear,
   describedBy,
   invalid,
+  committed,
+  shortcuts,
+  bias,
 }: AddressFieldProps) {
   const listId = useId();
   const session = useRef(newPlaceSession());
@@ -39,7 +49,8 @@ export function AddressField({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const timer = useRef(0);
-  const narrow = useMediaQuery("(max-width: 767px)");
+  const wide = useMediaQuery("(min-width: 1024px)");
+  const showClear = Boolean(committed || value.trim());
 
   useEffect(() => {
     window.clearTimeout(timer.current);
@@ -50,27 +61,65 @@ export function AddressField({
       return;
     }
     timer.current = window.setTimeout(() => {
-      void fetchPlaceSuggestions(q, session.current).then((next) => {
-        setHits(next);
-        setOpen(next.length > 0);
-      });
+      void fetchPlaceSuggestions(q, session.current, bias)
+        .then((next) => {
+          setHits(next);
+          setOpen(true);
+        })
+        .catch(() => {
+          setHits([]);
+          setOpen(false);
+        });
     }, 250);
     return () => window.clearTimeout(timer.current);
-  }, [value]);
+  }, [value, bias?.lat, bias?.lng]);
+
+  async function applyHit(hit: PlaceSuggestion) {
+    const place = await resolvePlaceSuggestion(hit, session.current);
+    if (!place) return;
+    onChange(place.label);
+    onSelect(place);
+    setHits([]);
+    setOpen(false);
+    session.current = newPlaceSession();
+  }
 
   async function pick(hit: PlaceSuggestion) {
     setBusy(true);
     try {
-      const place = await resolvePlaceSuggestion(hit, session.current);
-      if (!place) return;
-      onChange(place.label);
-      onSelect(place);
-      setHits([]);
-      setOpen(false);
-      session.current = newPlaceSession();
+      await applyHit(hit);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function confirm() {
+    if (busy) return;
+    const q = value.trim();
+    if (q.length < 2) return;
+    setBusy(true);
+    try {
+      const next = hits.length > 0 ? hits : await fetchPlaceSuggestions(q, session.current, bias);
+      const first = next[0];
+      if (!first) {
+        setHits(next);
+        setOpen(true);
+        return;
+      }
+      await applyHit(first);
+    } catch {
+      setHits([]);
+      setOpen(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clear() {
+    onChange("");
+    onClear?.();
+    setHits([]);
+    setOpen(false);
   }
 
   const input = (
@@ -83,7 +132,7 @@ export function AddressField({
       aria-autocomplete="list"
       autoComplete="off"
       enterKeyHint="search"
-      placeholder="Street, postcode, or place"
+      placeholder="Type a UK street, or tap Pin then the map."
       {...(describedBy ? { "aria-describedby": describedBy } : {})}
       {...(invalid ? { "aria-invalid": true as const } : {})}
       onFocus={() => {
@@ -94,7 +143,14 @@ export function AddressField({
         onChange(ev.target.value);
       }}
       onKeyDown={(ev) => {
-        if (ev.key === "Escape") setOpen(false);
+        if (ev.key === "Escape") {
+          setOpen(false);
+          return;
+        }
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          void confirm();
+        }
       }}
     />
   );
@@ -116,33 +172,46 @@ export function AddressField({
     </Command>
   );
 
+  const field = wide ? (
+    <Popover open={open && !busy} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <div>{input}</div>
+      </PopoverAnchor>
+      <PopoverContent
+        align="start"
+        onOpenAutoFocus={(ev) => ev.preventDefault()}
+        onCloseAutoFocus={(ev) => ev.preventDefault()}
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-1"
+      >
+        {list}
+      </PopoverContent>
+    </Popover>
+  ) : (
+    <>
+      {input}
+      {open && !busy ? (
+        <div className="mt-1 max-h-48 overflow-y-auto rounded-[2px] border border-border bg-card p-1">
+          {list}
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="relative">
       <Label htmlFor={id}>{label}</Label>
-      {narrow ? (
-        <>
-          {input}
-          {open && !busy ? (
-            <div className="mt-1 max-h-48 overflow-y-auto rounded-[2px] border border-border bg-card p-1">
-              {list}
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <Popover open={open && !busy} onOpenChange={setOpen}>
-          <PopoverAnchor asChild>
-            <div>{input}</div>
-          </PopoverAnchor>
-          <PopoverContent
-            align="start"
-            onOpenAutoFocus={(ev) => ev.preventDefault()}
-            onCloseAutoFocus={(ev) => ev.preventDefault()}
-            className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-1"
-          >
-            {list}
-          </PopoverContent>
-        </Popover>
-      )}
+      <div className="flex gap-1">
+        <div className="min-w-0 flex-1">{field}</div>
+        <Button type="button" variant="ghost" size="sm" onClick={() => void confirm()} disabled={busy}>
+          Set
+        </Button>
+        {showClear ? (
+          <Button type="button" variant="ghost" size="sm" onClick={clear} aria-label={`Clear ${label}`}>
+            Clear
+          </Button>
+        ) : null}
+      </div>
+      {shortcuts ? <div className="mt-1 flex flex-wrap gap-1">{shortcuts}</div> : null}
     </div>
   );
 }

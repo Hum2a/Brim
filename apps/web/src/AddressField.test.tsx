@@ -112,4 +112,53 @@ describe("AddressField", () => {
     expect(selected[0]?.lat).toBeCloseTo(51.1139, 3);
     expect(selected[0]?.lng).toBeCloseTo(-0.187, 3);
   });
+
+  it("Set confirms the first suggestion", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/v1/places?")) {
+          return new Response(
+            JSON.stringify({
+              places: [
+                {
+                  label: "Station Road, Crawley",
+                  lat: 51.1139,
+                  lng: -0.187,
+                  placeId: "fixture:station-road-crawley",
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      }),
+    );
+
+    const selected: Array<{ label: string; lat: number; lng: number }> = [];
+    await act(async () => {
+      root.render(<Harness onSelect={(place) => selected.push(place)} />);
+    });
+
+    const input = host.querySelector("#from");
+    await act(async () => {
+      const native = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+      native?.call(input, "Station");
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    });
+
+    const setBtn = [...host.querySelectorAll("button")].find((el) => el.textContent === "Set");
+    expect(setBtn).toBeTruthy();
+    await act(async () => {
+      setBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(selected[0]?.label).toBe("Station Road, Crawley");
+    expect(selected[0]?.lat).toBeCloseTo(51.1139, 3);
+  });
 });

@@ -35,27 +35,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
 import { api, asList } from "../api.js";
-import { AddressField } from "../AddressField.js";
 import { reversePlace } from "../places-client.js";
-import { euroFromVes, RegLookup, type VesSummary } from "../RegLookup.js";
-import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
+import { euroFromVes, savedPlaceChipLabel, vehicleChipLabel } from "../estimate/vehicle-label.js";
+import type { VesSummary } from "../RegLookup.js";
+import { type CatalogueVehicle } from "../VehicleCatalogue.js";
 import { useMediaQuery } from "../use-media-query.js";
+import { PinHud } from "../estimate/PinHud.js";
+import { TripComposer } from "../estimate/TripComposer.js";
+import type {
+  EvNetworkRow,
+  FocusStop,
+  Health,
+  MapBias,
+  Place,
+  Propulsion,
+  SavedPlace,
+  Vehicle,
+  VehicleKind,
+  ViaDraft,
+} from "../estimate/types.js";
 
 const RouteMap = lazy(() => import("../RouteMap.js"));
 const AuthPanel = lazy(() => import("../AuthPanel.js").then((mod) => ({ default: mod.AuthPanel })));
+const VehicleSheet = lazy(() =>
+  import("../estimate/VehicleSheet.js").then((mod) => ({ default: mod.VehicleSheet })),
+);
 
-type Health = { status: string; fixtureMode: boolean };
-type Place = { label: string; lat: number; lng: number };
-type Vehicle = {
-  id: string;
-  nickname?: string;
-  propulsion: string;
-  make?: string;
-  model?: string;
-  is_default?: boolean;
-  has_heat_pump?: boolean;
-};
-type SavedPlace = { id: string; kind: "home" | "work" | "favourite"; label: string; lat: number; lng: number };
 type Tariff = {
   id: string;
   pence_per_kwh: number;
@@ -63,14 +68,6 @@ type Tariff = {
   offpeak_pence?: number;
   offpeak_window?: string;
 };
-type EvNetworkRow = {
-  id: string;
-  network: string;
-  speed: "ac" | "dc";
-  pencePerKwh: number;
-};
-type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
-type VehicleKind = "car" | "van" | "motorcycle";
 type Estimate = {
   cost: {
     totalPence: { point: number; low: number; high: number };
@@ -174,10 +171,6 @@ type NearbyStation = {
   brand?: string;
 };
 
-type ViaDraft = { id: string; text: string; pin: Place | null };
-
-type FocusStop = "origin" | "destination" | number;
-
 export function EstimatePage() {
   const reduce = usePrefersReducedMotion();
   const [health, setHealth] = useState<Health | null>(null);
@@ -234,6 +227,11 @@ export function EstimatePage() {
   const [fillStationId, setFillStationId] = useState("none");
   const [stale, setStale] = useState(false);
   const [tripOpen, setTripOpen] = useState(false);
+  const [carOpen, setCarOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(true);
+  const [pinArmed, setPinArmed] = useState(true);
+  const [recents, setRecents] = useState<Place[]>([]);
+  const [mapBias, setMapBias] = useState<MapBias | undefined>();
   const [resultOpen, setResultOpen] = useState(false);
   const [stationId, setStationId] = useState<string | undefined>();
   const [priceStrategy, setPriceStrategy] = useState<string | undefined>();
@@ -383,6 +381,9 @@ export function EstimatePage() {
         );
       }
       setSelectedRouteId(parsed.alternatives?.[0]?.id);
+      if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+        setComposerOpen(false);
+      }
     }
     const params = new URLSearchParams(window.location.search);
     const shared = params.get("url") ?? params.get("text");
@@ -410,7 +411,7 @@ export function EstimatePage() {
     }
   }, []);
 
-  function applyEstimate(json: Estimate) {
+  function applyEstimate(json: Estimate, collapse = false) {
     setEstimate(json);
     setStale(false);
     localStorage.setItem("brim:last-estimate", JSON.stringify(json));
@@ -428,14 +429,15 @@ export function EstimatePage() {
       );
     }
     setSelectedRouteId(json.alternatives?.[0]?.id);
+    if (collapse) setComposerOpen(false);
   }
 
-  async function runEstimate(body: unknown) {
+  async function runEstimate(body: unknown, collapse = false) {
     setLoading(true);
     setError(null);
     setErrorSource(null);
     try {
-      applyEstimate(await api<Estimate>("/v1/estimate", { method: "POST", body: JSON.stringify(body) }));
+      applyEstimate(await api<Estimate>("/v1/estimate", { method: "POST", body: JSON.stringify(body) }), collapse);
     } catch (err) {
       setErrorSource("trip");
       setError(
@@ -456,6 +458,7 @@ export function EstimatePage() {
           method: "POST",
           body: JSON.stringify({ url }),
         }),
+        true,
       );
     } catch (err) {
       setErrorSource("maps");
@@ -467,6 +470,22 @@ export function EstimatePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function rememberPlace(place: Place) {
+    setRecents((prev) => {
+      const next = [
+        place,
+        ...prev.filter((p) => p.label !== place.label && (p.lat !== place.lat || p.lng !== place.lng)),
+      ];
+      return next.slice(0, 5);
+    });
+  }
+
+  function armPin(stop: FocusStop) {
+    setFocusStop(stop);
+    setPinArmed(true);
+    setTripOpen(false);
   }
 
   async function namePin(lat: number, lng: number): Promise<Place> {
@@ -481,11 +500,14 @@ export function EstimatePage() {
   }
 
   function onMapClick(pin: { lat: number; lng: number }) {
+    if (!pinArmed) return;
     void namePin(pin.lat, pin.lng).then((place) => {
+      rememberPlace(place);
       if (focusStop === "origin" || !originPin) {
         setOriginPin(place);
         setOrigin(place.label);
         setFocusStop("destination");
+        setPinArmed(true);
       } else if (typeof focusStop === "number") {
         setViaDrafts((drafts) =>
           drafts.map((d, i) => (i === focusStop ? { ...d, text: place.label, pin: place } : d)),
@@ -500,6 +522,7 @@ export function EstimatePage() {
 
   function onOriginDrag(pin: { lat: number; lng: number }) {
     void namePin(pin.lat, pin.lng).then((place) => {
+      rememberPlace(place);
       setOriginPin(place);
       setOrigin(place.label);
       scheduleEstimate();
@@ -508,6 +531,7 @@ export function EstimatePage() {
 
   function onDestinationDrag(pin: { lat: number; lng: number }) {
     void namePin(pin.lat, pin.lng).then((place) => {
+      rememberPlace(place);
       setDestPin(place);
       setDestination(place.label);
       scheduleEstimate();
@@ -516,6 +540,7 @@ export function EstimatePage() {
 
   function onWaypointDrag(index: number, pin: { lat: number; lng: number }) {
     void namePin(pin.lat, pin.lng).then((place) => {
+      rememberPlace(place);
       setViaDrafts((drafts) =>
         drafts.map((d, i) => (i === index ? { ...d, text: place.label, pin: place } : d)),
       );
@@ -532,8 +557,11 @@ export function EstimatePage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         void namePin(pos.coords.latitude, pos.coords.longitude).then((place) => {
+          rememberPlace(place);
           setOriginPin(place);
           setOrigin(place.label);
+          setFocusStop("destination");
+          setPinArmed(true);
           scheduleEstimate();
         });
       },
@@ -706,7 +734,7 @@ export function EstimatePage() {
         body: JSON.stringify({ hasHeatPump }),
       }).catch(() => undefined);
     }
-    void runEstimate(body);
+    void runEstimate(body, true);
   }
 
   function flashSaved(kind: "vehicle" | "journey") {
@@ -837,515 +865,172 @@ export function EstimatePage() {
       scheduleEstimate();
     },
     ...(stationOverlays ? { overlays: stationOverlays } : {}),
+    pinArmed,
+    onViewChange: (center: { lat: number; lng: number }) => setMapBias(center),
   };
 
   const originDescribedBy = [geoError ? "geo-error" : "", errorSource === "trip" && error ? "trip-error" : ""]
     .filter((id) => id.length > 0)
     .join(" ");
   const destDescribedBy = errorSource === "trip" && error ? "trip-error" : "";
+  const bias = mapBias ?? (originPin ? { lat: originPin.lat, lng: originPin.lng } : undefined);
+  const carLabel = vehicleChipLabel({
+    vehicleId,
+    ...(selectedVehicle ? { selected: selectedVehicle } : {}),
+    catalogue,
+    propulsion,
+    vehicleKind,
+  });
 
-  const form = (
-    <>
-      <p className="mb-1 text-mist">True journey cost</p>
-      <h1 className="display mb-4 text-2xl">Add your car and we will stop guessing.</h1>
-      {health ? (
-        <p className="tabular mb-4 text-xs text-mist">
-          API {health.status}
-          {health.fixtureMode ? " · fixtures" : ""}
-        </p>
-      ) : (
-        <p className="mb-4 text-sm text-warning">
-          Could not reach the API - start it with npm run dev:fixtures, then retry.
-        </p>
-      )}
-      {stale ? (
-        <p className="mb-4 text-sm text-warning">
-          Showing the last estimate stored on this device. Move a pin or tap Estimate to refresh.
-        </p>
-      ) : null}
+  function applySaved(stop: FocusStop, place: Place) {
+    rememberPlace(place);
+    if (stop === "origin") {
+      setOrigin(place.label);
+      setOriginPin(place);
+      setFocusStop("destination");
+      setPinArmed(true);
+    } else if (typeof stop === "number") {
+      setViaDrafts((drafts) =>
+        drafts.map((d, i) => (i === stop ? { ...d, text: place.label, pin: place } : d)),
+      );
+    } else {
+      setDestination(place.label);
+      setDestPin(place);
+    }
+    scheduleEstimate();
+  }
 
-      <Form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void runMaps(maps);
-        }}
-        className="mb-6"
-      >
-        <FormItem>
-          <Label htmlFor="maps">Paste a Maps link</Label>
-          <Input
-            id="maps"
-            value={maps}
-            onChange={(ev) => setMaps(ev.target.value)}
-            inputMode="url"
-            enterKeyHint="go"
-            autoComplete="off"
-            aria-invalid={errorSource === "maps" && Boolean(error) ? true : undefined}
-            aria-describedby={errorSource === "maps" && error ? "maps-error maps-help" : "maps-help"}
-          />
-          <p id="maps-help" className="text-xs text-mist">
-            A Google, Apple, or Bing Maps directions link. If it cannot be read, type the places below.
-          </p>
-        </FormItem>
-        <Button type="submit" variant="ghost">
-          Estimate from link
-        </Button>
-      </Form>
-
-      <Form onSubmit={onSubmit}>
-        {garage.length > 0 ? (
-          <FormItem>
-            <Label>Saved vehicle</Label>
-            <Select value={vehicleId} onValueChange={setVehicleId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Type details this time" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inline">Type details this time</SelectItem>
-                {garage.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.nickname ?? [v.make, v.model].filter(Boolean).join(" ") ?? v.propulsion}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormItem>
-        ) : null}
-        {electricTrip ? (
-          <>
-            <p className="text-sm text-mist">
-              Petrol prices are live from the government feed. EV charging prices are estimates you
-              can correct.
-            </p>
-            <FormItem>
-              <Label>Charge where</Label>
-              <Select
-                value={chargingLocation}
-                onValueChange={(v) => setChargingLocation(v as "home" | "public")}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="home">Home</SelectItem>
-                  <SelectItem value="public">Public network</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-            {chargingLocation === "public" ? (
-              <FormItem>
-                <Label>Network</Label>
-                <Select
-                  value={networkId}
-                  onValueChange={(id) => {
-                    setNetworkId(id);
-                    const row = evNetworks.find((n) => n.id === id);
-                    if (row) setHomePence(String(row.pencePerKwh));
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pick a network" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {evNetworks.map((n) => (
-                      <SelectItem key={n.id} value={n.id}>
-                        {n.network} ({n.speed.toUpperCase()})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            ) : null}
-            <FormItem>
-              <Label htmlFor="home-pence">
-                {chargingLocation === "public" ? "p/kWh (editable)" : "Home p/kWh"}
-              </Label>
-              <Input
-                id="home-pence"
-                value={homePence}
-                onChange={(ev) => setHomePence(ev.target.value)}
-                className="tabular"
-                inputMode="decimal"
-                enterKeyHint="next"
-              />
-            </FormItem>
-            {chargingLocation === "home" ? (
-              <>
-                <FormItem>
-                  <Label htmlFor="offpeak-pence">Off-peak p/kWh (optional)</Label>
-                  <Input
-                    id="offpeak-pence"
-                    value={offpeakPence}
-                    onChange={(ev) => setOffpeakPence(ev.target.value)}
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                  />
-                </FormItem>
-                <FormItem>
-                  <Label htmlFor="offpeak-window">Off-peak window</Label>
-                  <Input
-                    id="offpeak-window"
-                    value={offpeakWindow}
-                    onChange={(ev) => setOffpeakWindow(ev.target.value)}
-                    placeholder="00:30-05:30"
-                  />
-                </FormItem>
-              </>
-            ) : null}
-            <FormItem>
-              <label className="flex min-h-11 items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={hasHeatPump}
-                  onChange={(ev) => setHasHeatPump(ev.target.checked)}
-                />
-                Heat pump
-              </label>
-            </FormItem>
-          </>
-        ) : null}
-        <FormItem>
-          <AddressField
-            id="origin"
-            label="From"
-            value={origin}
-            onChange={(text) => {
-              setOrigin(text);
-              if (originPin && text !== originPin.label) setOriginPin(null);
-            }}
-            onFocusField={() => setFocusStop("origin")}
-            onSelect={(place) => {
-              setOrigin(place.label);
-              setOriginPin(place);
-              setFocusStop("destination");
-              scheduleEstimate();
-            }}
-            invalid={errorSource === "trip" && Boolean(error)}
-            {...(originDescribedBy ? { describedBy: originDescribedBy } : {})}
-          />
-          <Button type="button" variant="ghost" size="sm" onClick={useMyLocation}>
-            Use my location
-          </Button>
-          {places.some((p) => p.kind === "home" || p.kind === "work") ? (
-            <div className="mt-1 flex gap-2">
-              {places
-                .filter((p) => p.kind === "home" || p.kind === "work")
-                .map((p) => (
-                  <Button
-                    key={`from-${p.id}`}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setOrigin(p.label);
-                      setOriginPin({ label: p.label, lat: p.lat, lng: p.lng });
-                      setFocusStop("destination");
-                      scheduleEstimate();
-                    }}
-                  >
-                    {p.kind === "home" ? "Home" : "Work"}
-                  </Button>
-                ))}
-            </div>
-          ) : null}
-          {geoError ? (
-            <p id="geo-error" className="text-xs text-warning" role="alert">
-              {geoError}
-            </p>
-          ) : null}
-        </FormItem>
-        <FormItem>
-          <AddressField
-            id="destination"
-            label="To"
-            value={destination}
-            onChange={(text) => {
-              setDestination(text);
-              if (destPin && text !== destPin.label) setDestPin(null);
-            }}
-            onFocusField={() => setFocusStop("destination")}
-            onSelect={(place) => {
-              setDestination(place.label);
-              setDestPin(place);
-              scheduleEstimate();
-            }}
-            invalid={errorSource === "trip" && Boolean(error)}
-            {...(destDescribedBy ? { describedBy: destDescribedBy } : {})}
-          />
-          {places.some((p) => p.kind === "home" || p.kind === "work") ? (
-            <div className="mt-1 flex gap-2">
-              {places
-                .filter((p) => p.kind === "home" || p.kind === "work")
-                .map((p) => (
-                  <Button
-                    key={`to-${p.id}`}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setDestination(p.label);
-                      setDestPin({ label: p.label, lat: p.lat, lng: p.lng });
-                      scheduleEstimate();
-                    }}
-                  >
-                    {p.kind === "home" ? "Home" : "Work"}
-                  </Button>
-                ))}
-            </div>
-          ) : null}
-        </FormItem>
-        {viaDrafts.map((via, index) => (
-          <FormItem key={via.id}>
-            <AddressField
-              id={`via-${via.id}`}
-              label={`Stop ${index + 1}`}
-              value={via.text}
-              onChange={(text) =>
-                setViaDrafts((drafts) =>
-                  drafts.map((d, i) =>
-                    i === index
-                      ? { ...d, text, pin: d.pin && text === d.pin.label ? d.pin : null }
-                      : d,
-                  ),
-                )
-              }
-              onFocusField={() => setFocusStop(index)}
-              onSelect={(place) => {
-                setViaDrafts((drafts) =>
-                  drafts.map((d, i) => (i === index ? { ...d, text: place.label, pin: place } : d)),
-                );
-                scheduleEstimate();
-              }}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setViaDrafts((drafts) => drafts.filter((_, i) => i !== index));
-                setFocusStop("destination");
-              }}
-            >
-              Remove stop
-            </Button>
-          </FormItem>
-        ))}
+  function shortcutButtons(stop: FocusStop) {
+    const chips: ReactNode[] = [];
+    if (stop === "origin") {
+      chips.push(
+        <Button key="loc" type="button" variant="ghost" size="sm" onClick={useMyLocation}>
+          My location
+        </Button>,
+      );
+    }
+    for (const p of places) {
+      chips.push(
         <Button
+          key={`${stop}-${p.id}`}
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => {
-            setViaDrafts((drafts) => [...drafts, { id: crypto.randomUUID(), text: "", pin: null }]);
-            setFocusStop(viaDrafts.length);
-          }}
+          onClick={() => applySaved(stop, { label: p.label, lat: p.lat, lng: p.lng })}
         >
-          Add stop
-        </Button>
-        <FormItem>
-          <Label htmlFor="leave">Leave</Label>
-          <Input
-            id="leave"
-            type="datetime-local"
-            enterKeyHint="next"
-            value={departsAt}
-            onChange={(ev) => setDepartsAt(ev.target.value)}
-          />
-        </FormItem>
-        {vehicleId === "inline" ? (
-          <>
-            <FormItem>
-              <RegLookup
-                onPick={onPickFromReg}
-                onChangeCar={() => setCatalogueOpen(true)}
-                onVesOnly={applyVes}
-              />
-            </FormItem>
-            <FormItem>
-              <VehicleCatalogue
-                selected={catalogue}
-                onSelect={onPickCar}
-                open={catalogueOpen}
-                onOpenChange={setCatalogueOpen}
-              />
-            </FormItem>
-            <FormItem>
-              <Label>Propulsion</Label>
-              {catalogue ? (
-                <Badge>
-                  {catalogue.propulsion === "bev"
-                    ? "Electric"
-                    : catalogue.propulsion === "phev"
-                      ? "Plug-in hybrid"
-                      : catalogue.propulsion === "hybrid"
-                        ? "Hybrid"
-                        : catalogue.propulsion === "diesel"
-                          ? "Diesel"
-                          : "Petrol"}
-                </Badge>
-              ) : (
-                <Select value={propulsion} onValueChange={(v) => setPropulsion(v as Propulsion)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="petrol">Petrol</SelectItem>
-                    <SelectItem value="diesel">Diesel</SelectItem>
-                    <SelectItem value="hybrid">Hybrid</SelectItem>
-                    <SelectItem value="phev">Plug-in hybrid</SelectItem>
-                    <SelectItem value="bev">Electric</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </FormItem>
-            <FormItem>
-              <Label>Vehicle class</Label>
-              <Select value={vehicleKind} onValueChange={(v) => setVehicleKind(v as VehicleKind)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="car">Car</SelectItem>
-                  <SelectItem value="van">Van</SelectItem>
-                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-            <FormItem>
-              <Label htmlFor="year">Year of first registration</Label>
-              <Input
-                id="year"
-                className="tabular"
-                inputMode="numeric"
-                enterKeyHint="next"
-                value={vehicleYear}
-                onChange={(ev) => setVehicleYear(ev.target.value)}
-                placeholder="Optional"
-              />
-            </FormItem>
-            <FormItem>
-              <Label>Euro standard</Label>
-              <Select
-                value={euroStatus || "unknown"}
-                onValueChange={(v) => {
-                  setEuroStatus(v === "unknown" ? "" : v);
-                  setEuroFromDvla(false);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Unknown" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unknown">Unknown</SelectItem>
-                  <SelectItem value="Euro 3">Euro 3</SelectItem>
-                  <SelectItem value="Euro 4">Euro 4</SelectItem>
-                  <SelectItem value="Euro 5">Euro 5</SelectItem>
-                  <SelectItem value="Euro 6">Euro 6</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormItem>
-            {propulsion === "bev" || (propulsion === "phev" && !catalogue) ? (
-              <>
-                <FormItem>
-                  <Label htmlFor="mikwh">{catalogue ? "Your mi/kWh (optional)" : "mi/kWh"}</Label>
-                  <Input
-                    id="mikwh"
-                    value={catalogue ? overrideMiKwh : miKwh}
-                    onChange={(ev) =>
-                      catalogue ? setOverrideMiKwh(ev.target.value) : setMiKwh(ev.target.value)
-                    }
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                    {...(catalogue ? { placeholder: "Leave blank to use the official figure" } : {})}
-                  />
-                </FormItem>
-                <FormItem>
-                  <Label htmlFor="battery">Usable battery kWh</Label>
-                  <Input
-                    id="battery"
-                    value={battery}
-                    onChange={(ev) => setBattery(ev.target.value)}
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                  />
-                </FormItem>
-                <FormItem>
-                  <Label htmlFor="start">Starting charge %</Label>
-                  <Input
-                    id="start"
-                    value={start}
-                    onChange={(ev) => setStart(ev.target.value)}
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="done"
-                  />
-                </FormItem>
-              </>
-            ) : null}
-            {propulsion === "phev" && catalogue ? (
-              <>
-                <FormItem>
-                  <Label htmlFor="battery">Usable battery kWh</Label>
-                  <Input
-                    id="battery"
-                    value={battery}
-                    onChange={(ev) => setBattery(ev.target.value)}
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                  />
-                </FormItem>
-                <FormItem>
-                  <Label htmlFor="start">Starting charge %</Label>
-                  <Input
-                    id="start"
-                    value={start}
-                    onChange={(ev) => setStart(ev.target.value)}
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                  />
-                </FormItem>
-              </>
-            ) : null}
-            {propulsion !== "bev" ? (
-              <>
-                {propulsion !== "phev" || catalogue ? (
-                  <FormItem>
-                    <Label htmlFor="mpg">{catalogue ? "Your mpg (optional)" : "mpg"}</Label>
-                    <Input
-                      id="mpg"
-                      value={catalogue ? overrideMpg : mpg}
-                      onChange={(ev) =>
-                        catalogue ? setOverrideMpg(ev.target.value) : setMpg(ev.target.value)
-                      }
-                      className="tabular"
-                      inputMode="decimal"
-                      enterKeyHint="next"
-                      {...(catalogue ? { placeholder: "Leave blank to use the official figure" } : {})}
-                    />
-                  </FormItem>
-                ) : null}
-                <FormItem>
-                  <Label htmlFor="tank">Tank size (litres)</Label>
-                  <Input
-                    id="tank"
-                    value={tank}
-                    onChange={(ev) => setTank(ev.target.value)}
-                    className="tabular"
-                    inputMode="decimal"
-                    enterKeyHint="done"
-                  />
-                </FormItem>
-              </>
-            ) : null}
-          </>
-        ) : null}
-        <Button type="submit">{loading ? "Working out the number…" : "Estimate"}</Button>
-      </Form>
-    </>
+          {savedPlaceChipLabel(p.kind, p.label)}
+        </Button>,
+      );
+    }
+    for (const p of recents) {
+      if (places.some((s) => s.label === p.label)) continue;
+      if (stop === "origin" && originPin?.label === p.label) continue;
+      if (stop === "destination" && destPin?.label === p.label) continue;
+      chips.push(
+        <Button
+          key={`${stop}-recent-${p.label}`}
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => applySaved(stop, p)}
+        >
+          {p.label.split(",")[0] ?? p.label}
+        </Button>,
+      );
+    }
+    return chips;
+  }
+
+  const composer = (
+    <TripComposer
+      collapsed={Boolean(wide && estimate && !composerOpen)}
+      onExpand={() => setComposerOpen(true)}
+      health={health}
+      stale={stale}
+      maps={maps}
+      setMaps={setMaps}
+      mapsInvalid={errorSource === "maps" && Boolean(error)}
+      onMapsSubmit={() => void runMaps(maps)}
+      origin={origin}
+      destination={destination}
+      originPin={originPin}
+      destPin={destPin}
+      viaDrafts={viaDrafts}
+      focusStop={focusStop}
+      pinArmed={pinArmed}
+      onArmPin={armPin}
+      onFocusStop={(stop) => setFocusStop(stop)}
+      onOriginChange={(text) => {
+        setOrigin(text);
+        if (originPin && text !== originPin.label) setOriginPin(null);
+      }}
+      onOriginSelect={(place) => {
+        rememberPlace(place);
+        setOrigin(place.label);
+        setOriginPin(place);
+        setFocusStop("destination");
+        setPinArmed(true);
+        scheduleEstimate();
+      }}
+      onOriginClear={() => {
+        setOrigin("");
+        setOriginPin(null);
+      }}
+      onDestinationChange={(text) => {
+        setDestination(text);
+        if (destPin && text !== destPin.label) setDestPin(null);
+      }}
+      onDestinationSelect={(place) => {
+        rememberPlace(place);
+        setDestination(place.label);
+        setDestPin(place);
+        scheduleEstimate();
+      }}
+      onDestinationClear={() => {
+        setDestination("");
+        setDestPin(null);
+      }}
+      onViaChange={(index, text) =>
+        setViaDrafts((drafts) =>
+          drafts.map((d, i) =>
+            i === index ? { ...d, text, pin: d.pin && text === d.pin.label ? d.pin : null } : d,
+          ),
+        )
+      }
+      onViaSelect={(index, place) => {
+        rememberPlace(place);
+        setViaDrafts((drafts) =>
+          drafts.map((d, i) => (i === index ? { ...d, text: place.label, pin: place } : d)),
+        );
+        scheduleEstimate();
+      }}
+      onViaClear={(index) =>
+        setViaDrafts((drafts) => drafts.map((d, i) => (i === index ? { ...d, text: "", pin: null } : d)))
+      }
+      onRemoveVia={(index) => {
+        setViaDrafts((drafts) => drafts.filter((_, i) => i !== index));
+        setFocusStop("destination");
+      }}
+      onAddStop={() => {
+        setViaDrafts((drafts) => [...drafts, { id: crypto.randomUUID(), text: "", pin: null }]);
+        armPin(viaDrafts.length);
+      }}
+      departsAt={departsAt}
+      setDepartsAt={setDepartsAt}
+      onNow={() => setDepartsAt(nowLocal())}
+      loading={loading}
+      onSubmit={onSubmit}
+      geoError={geoError}
+      originDescribedBy={originDescribedBy}
+      destDescribedBy={destDescribedBy}
+      tripInvalid={errorSource === "trip" && Boolean(error)}
+      originShortcuts={shortcutButtons("origin")}
+      destShortcuts={shortcutButtons("destination")}
+      viaShortcuts={(index) => shortcutButtons(index)}
+      vehicleLabel={carLabel}
+      onOpenVehicle={() => setCarOpen(true)}
+      {...(bias ? { bias } : {})}
+    />
   );
 
   const shouldStagger = Boolean(estimate) && !revealed.current && !reduce;
@@ -1575,9 +1260,11 @@ export function EstimatePage() {
           </Suspense>
         </div>
 
+        {pinArmed ? <PinHud focusStop={focusStop} onCancel={() => setPinArmed(false)} /> : null}
+
         {wide ? (
           <aside className="absolute left-3 top-3 z-10 max-h-[calc(100%-1.5rem)] w-[min(22rem,calc(100%-1.5rem))] overflow-y-auto">
-            <Card>{form}</Card>
+            <Card>{composer}</Card>
           </aside>
         ) : null}
 
@@ -1598,18 +1285,112 @@ export function EstimatePage() {
             </div>
           ) : null}
           <div className="shrink-0 border-t border-border bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-            <Button type="button" className="w-full" onClick={() => setTripOpen(true)}>
-              Edit trip
-            </Button>
+            <div className="grid grid-cols-3 gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-w-0 flex-col items-stretch py-1"
+                onClick={() => {
+                  setFocusStop("origin");
+                  setComposerOpen(true);
+                  setTripOpen(true);
+                }}
+              >
+                <span className="text-xs text-mist">From</span>
+                <span className="truncate text-sm">{origin || "Set"}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-w-0 flex-col items-stretch py-1"
+                onClick={() => {
+                  setFocusStop("destination");
+                  setComposerOpen(true);
+                  setTripOpen(true);
+                }}
+              >
+                <span className="text-xs text-mist">To</span>
+                <span className="truncate text-sm">{destination || "Set"}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-w-0 flex-col items-stretch py-1"
+                onClick={() => setCarOpen(true)}
+              >
+                <span className="text-xs text-mist">Car</span>
+                <span className="truncate text-sm">{carLabel}</span>
+              </Button>
+            </div>
           </div>
           <Drawer open={tripOpen} onOpenChange={setTripOpen}>
             <DrawerContent className="max-h-[min(85dvh,100%)]">
               <DrawerTitle className="display mb-3 text-xl">Edit trip</DrawerTitle>
-              {form}
+              {composer}
             </DrawerContent>
           </Drawer>
         </>
       )}
+
+      {carOpen ? (
+        <Suspense fallback={null}>
+          <VehicleSheet
+        open={carOpen}
+        onOpenChange={setCarOpen}
+        wide={wide}
+        garage={garage}
+        vehicleId={vehicleId}
+        setVehicleId={setVehicleId}
+        electricTrip={electricTrip}
+        chargingLocation={chargingLocation}
+        setChargingLocation={setChargingLocation}
+        networkId={networkId}
+        setNetworkId={setNetworkId}
+        evNetworks={evNetworks}
+        homePence={homePence}
+        setHomePence={setHomePence}
+        offpeakPence={offpeakPence}
+        setOffpeakPence={setOffpeakPence}
+        offpeakWindow={offpeakWindow}
+        setOffpeakWindow={setOffpeakWindow}
+        hasHeatPump={hasHeatPump}
+        setHasHeatPump={setHasHeatPump}
+        catalogue={catalogue}
+        catalogueOpen={catalogueOpen}
+        setCatalogueOpen={setCatalogueOpen}
+        onPickCar={onPickCar}
+        onPickFromReg={onPickFromReg}
+        applyVes={applyVes}
+        propulsion={propulsion}
+        setPropulsion={setPropulsion}
+        vehicleKind={vehicleKind}
+        setVehicleKind={setVehicleKind}
+        vehicleYear={vehicleYear}
+        setVehicleYear={setVehicleYear}
+        euroStatus={euroStatus}
+        setEuroStatus={setEuroStatus}
+        setEuroFromDvla={setEuroFromDvla}
+        mpg={mpg}
+        setMpg={setMpg}
+        overrideMpg={overrideMpg}
+        setOverrideMpg={setOverrideMpg}
+        miKwh={miKwh}
+        setMiKwh={setMiKwh}
+        overrideMiKwh={overrideMiKwh}
+        setOverrideMiKwh={setOverrideMiKwh}
+        tank={tank}
+        setTank={setTank}
+        battery={battery}
+        setBattery={setBattery}
+        start={start}
+        setStart={setStart}
+        onUseCar={() => {
+          setCarOpen(false);
+          scheduleEstimate();
+        }}
+          />
+        </Suspense>
+      ) : null}
 
       <Dialog open={authOpen} onOpenChange={setAuthOpen}>
         <DialogContent>

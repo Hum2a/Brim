@@ -33,10 +33,23 @@ export async function handlePlaces(c: Context<{ Bindings: ApiBindings }>) {
   const q = (c.req.query('q') ?? '').trim();
   if (q.length < 2) return c.json({ places: [] });
   const session = c.req.query('session');
+  const lat = Number(c.req.query('lat'));
+  const lng = Number(c.req.query('lng'));
   const geo = geocoderFor(c);
-  const opts = session ? { session } : undefined;
+  const opts: { session?: string; bias?: { lat: number; lng: number } } = {};
+  if (session) opts.session = session;
+  if (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  ) {
+    opts.bias = { lat, lng };
+  }
   try {
-    const places = await geo.autocomplete(q, opts);
+    const places = await geo.autocomplete(q, Object.keys(opts).length > 0 ? opts : undefined);
     return c.json({ places: Array.isArray(places) ? places : [] });
   } catch {
     log.info({ error: 'places_autocomplete_failed' });

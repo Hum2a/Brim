@@ -29,6 +29,8 @@ export type RouteMapProps = {
   onWaypointDrag?: (index: number, pin: { lat: number; lng: number }) => void;
   onSelectAlternative?: (id: string) => void;
   onSelectStation?: (id: string) => void;
+  pinArmed?: boolean;
+  onViewChange?: (center: { lat: number; lng: number }) => void;
 };
 
 type LineCollection = {
@@ -125,6 +127,8 @@ export default function RouteMap(props: RouteMapProps) {
     onSelectAlternative,
     onSelectStation,
     overlays,
+    pinArmed = false,
+    onViewChange,
   } = props;
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -140,12 +144,14 @@ export default function RouteMap(props: RouteMapProps) {
   const viaDragRef = useRef(onWaypointDrag);
   const selectRef = useRef(onSelectAlternative);
   const stationClickRef = useRef(onSelectStation);
+  const viewRef = useRef(onViewChange);
   clickRef.current = onMapClick;
   originDragRef.current = onOriginDrag;
   destDragRef.current = onDestinationDrag;
   viaDragRef.current = onWaypointDrag;
   selectRef.current = onSelectAlternative;
   stationClickRef.current = onSelectStation;
+  viewRef.current = onViewChange;
 
   useEffect(() => {
     const node = rootRef.current;
@@ -170,6 +176,12 @@ export default function RouteMap(props: RouteMapProps) {
     map.on("load", () => {
       resize();
       ensureRouteLayers(map);
+      const c = map.getCenter();
+      viewRef.current?.({ lat: c.lat, lng: c.lng });
+    });
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      viewRef.current?.({ lat: c.lat, lng: c.lng });
     });
     const ro = new ResizeObserver(resize);
     ro.observe(node);
@@ -317,12 +329,22 @@ export default function RouteMap(props: RouteMapProps) {
     whenStyleReady(map, apply);
   }, [overlays]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = pinArmed ? "crosshair" : "";
+  }, [pinArmed]);
+
   return (
     <div
       ref={rootRef}
       tabIndex={0}
-      className="h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      aria-label="Trip map. Type an address or tap to set origin, then destination."
+      className={
+        pinArmed
+          ? "h-full w-full cursor-crosshair focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          : "h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      }
+      aria-label="Trip map. Type an address, or tap Pin then tap the map to set origin, then destination."
     />
   );
 }

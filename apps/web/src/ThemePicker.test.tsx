@@ -32,7 +32,7 @@ describe("ThemePicker", () => {
       root.render(<ThemePicker initialId="wet-tarmac" />);
     });
 
-    const radios = host.querySelectorAll('input[name="brim-theme"]');
+    const radios = host.querySelectorAll('[role="radiogroup"] input[type="radio"]');
     expect(radios).toHaveLength(40);
     expect(host.textContent).toContain("Wet Tarmac");
     expect(host.textContent).toContain("Temporary Traffic Lights");

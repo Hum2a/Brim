@@ -4,6 +4,7 @@ export { cn } from "./lib/utils.js";
 export {
   THEMES,
   THEME_STORAGE_KEY,
+  THEME_CHANGE_EVENT,
   DEFAULT_THEME_ID,
   applyTheme,
   readStoredTheme,

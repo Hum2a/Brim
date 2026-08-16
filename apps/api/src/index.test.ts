@@ -435,6 +435,17 @@ describe('api', () => {
     expect(json.places.some((p) => p.label.includes('Station Road'))).toBe(true);
   });
 
+  it('accepts optional lat lng bias on places autocomplete', async () => {
+    const res = await app.request(
+      '/v1/places?q=Station&lat=51.11&lng=-0.18',
+      {},
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { places: Array<{ label: string }> };
+    expect(json.places.some((p) => p.label.includes('Station Road'))).toBe(true);
+  });
+
   it('returns no places for a one-letter query', async () => {
     const res = await app.request('/v1/places?q=C', {}, { BRIM_FIXTURES: '1' });
     const json = (await res.json()) as { places: unknown[] };

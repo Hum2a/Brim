@@ -5,6 +5,7 @@ import { Link, usePathname } from "./router.js";
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { EstimatePage } from "./pages/EstimatePage.js";
 import { HeraldDialog } from "./HeraldDialog.js";
+import { ThemeMenu } from "./ThemePicker.js";
 import { useMediaQuery } from "./use-media-query.js";
 
 const KitchenSink = lazy(() => import("./pages/KitchenSink.js").then((mod) => ({ default: mod.KitchenSink })));
@@ -99,9 +100,12 @@ export function AppShell() {
         </a>
         <header className="sticky top-0 z-40 mx-auto w-[min(960px,calc(100%-1.5rem))] shrink-0 rounded-[2px] border border-border bg-card px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] md:mt-3 md:py-3">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-4">
-            <Link href="/" className="display text-xl tracking-wide md:text-2xl">
-              Brim
-            </Link>
+            <div className="flex items-center justify-between gap-3">
+              <Link href="/" className="display text-xl tracking-wide md:text-2xl">
+                Brim
+              </Link>
+              <ThemeMenu />
+            </div>
             <PrimaryNav path={path} />
           </div>
         </header>

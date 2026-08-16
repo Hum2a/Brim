@@ -16,11 +16,18 @@ export function newPlaceSession(): string {
 export async function fetchPlaceSuggestions(
   q: string,
   session: string,
+  bias?: { lat: number; lng: number },
 ): Promise<PlaceSuggestion[]> {
   if (q.trim().length < 2) return [];
-  const res = await api<{ places?: PlaceSuggestion[] }>(
-    `/v1/places?q=${encodeURIComponent(q.trim())}&session=${encodeURIComponent(session)}`,
-  );
+  const params = new URLSearchParams({
+    q: q.trim(),
+    session,
+  });
+  if (bias && Number.isFinite(bias.lat) && Number.isFinite(bias.lng)) {
+    params.set("lat", String(bias.lat));
+    params.set("lng", String(bias.lng));
+  }
+  const res = await api<{ places?: PlaceSuggestion[] }>(`/v1/places?${params.toString()}`);
   return asList(res.places);
 }
 

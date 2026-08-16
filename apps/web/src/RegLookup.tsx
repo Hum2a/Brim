@@ -5,6 +5,8 @@ import { Label } from "@brim/ui-kit/label";
 import { api } from "./api.js";
 import type { CatalogueVehicle } from "./VehicleCatalogue.js";
 
+export { euroFromVes } from "./estimate/vehicle-label.js";
+
 export type VesSummary = {
   make: string;
   propulsion: CatalogueVehicle["propulsion"];
@@ -22,12 +24,6 @@ function figure(v: CatalogueVehicle): string {
 
 function trimLine(v: CatalogueVehicle): string {
   return [v.derivative, v.transmission, figure(v), v.officialCycle].filter(Boolean).join(" · ");
-}
-
-export function euroFromVes(raw: string | undefined): string {
-  if (!raw) return "";
-  const n = raw.match(/(\d+)/);
-  return n?.[1] ? `Euro ${n[1]}` : raw;
 }
 
 export function RegLookup({

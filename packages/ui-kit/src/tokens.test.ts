@@ -60,6 +60,7 @@ describe("theme catalog", () => {
           },
           getPropertyValue: (name: string) => vars.get(name) ?? "",
         },
+        dispatchEvent: () => true,
       },
       querySelector: () => ({
         setAttribute: (...args: string[]) => {
