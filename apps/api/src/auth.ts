@@ -1,6 +1,5 @@
 import { isFixtureMode } from '@brim/shared';
 import type { ApiBindings } from './env.js';
-import { getMemoryDb } from './db/memory.js';
 
 export type Session = {
   ownerId: string;
@@ -41,14 +40,12 @@ export function authSecret(env: ApiBindings): string {
 
 export function cookieHeader(token: string, requestUrl: string): string {
   const secure = requestUrl.startsWith('https:');
-  const sameSite = secure ? 'None' : 'Lax';
-  return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=31536000${secure ? '; Secure' : ''}`;
+  return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${secure ? '; Secure' : ''}`;
 }
 
 export function clearCookieHeader(requestUrl: string): string {
   const secure = requestUrl.startsWith('https:');
-  const sameSite = secure ? 'None' : 'Lax';
-  return `${COOKIE}=; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=0${secure ? '; Secure' : ''}`;
+  return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`;
 }
 
 export async function encodeSession(env: ApiBindings, session: Session): Promise<string> {
@@ -77,9 +74,7 @@ export async function readSession(
 
 export async function ensureAnon(_env: ApiBindings, existing: Session | null): Promise<Session> {
   if (existing?.kind === 'anon') return existing;
-  const id = crypto.randomUUID();
-  getMemoryDb().anon.set(id, { id, created_at: new Date().toISOString() });
-  return { ownerId: id, kind: 'anon' };
+  return { ownerId: crypto.randomUUID(), kind: 'anon' };
 }
 
 function fromAddress(env: ApiBindings): string {
@@ -107,24 +102,27 @@ export async function sendAuthEmail(
 
 export const LOCAL_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 
+export const CANONICAL_WEB_ORIGINS = [
+  'https://brim.humza-butt.space',
+  'https://brim-staging.humza-butt.space',
+] as const;
+
+const WORKER_WEB_ORIGINS = [
+  'https://brim-api-staging.humzab1711.workers.dev',
+  'https://brim-api-production.humzab1711.workers.dev',
+  'https://brim-api.humzab1711.workers.dev',
+];
+
 export function allowedWebOrigin(origin: string, webOrigin?: string): string | undefined {
   if (LOCAL_ORIGINS.includes(origin)) return origin;
-  if (origin === 'https://brim-web-staging.pages.dev') return origin;
-  if (origin === 'https://brim-web.pages.dev') return origin;
-  if (/^https:\/\/[\w-]+\.brim-web-staging\.pages\.dev$/.test(origin)) return origin;
-  if (/^https:\/\/[\w-]+\.brim-web\.pages\.dev$/.test(origin)) return origin;
+  if ((CANONICAL_WEB_ORIGINS as readonly string[]).includes(origin)) return origin;
+  if (WORKER_WEB_ORIGINS.includes(origin)) return origin;
   if (webOrigin && origin === webOrigin) return origin;
   return undefined;
 }
 
 export function trustedOrigins(env: ApiBindings): string[] {
-  const origins = [
-    ...LOCAL_ORIGINS,
-    'https://brim-web-staging.pages.dev',
-    'https://*.brim-web-staging.pages.dev',
-    'https://brim-web.pages.dev',
-    'https://*.brim-web.pages.dev',
-  ];
-  if (env.WEB_ORIGIN) origins.push(env.WEB_ORIGIN);
+  const origins = [...LOCAL_ORIGINS, ...CANONICAL_WEB_ORIGINS, ...WORKER_WEB_ORIGINS];
+  if (env.WEB_ORIGIN && !origins.includes(env.WEB_ORIGIN)) origins.push(env.WEB_ORIGIN);
   return origins;
 }

@@ -1,5 +1,6 @@
 const VRM = /\b[A-Z]{2}[0-9]{2}\s?[A-Z]{3}\b/i;
-const SENSITIVE_KEYS = new Set(["vrm", "reg", "registration", "plate"]);
+const VRM_KEYS = new Set(["vrm", "reg", "registration", "plate"]);
+const ADDRESS_KEYS = new Set(["address", "formattedaddress", "formatted_address"]);
 
 export function redact(value: unknown): unknown {
   if (typeof value === "string") return value.replace(VRM, "[REDACTED_VRM]");
@@ -7,7 +8,10 @@ export function redact(value: unknown): unknown {
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = SENSITIVE_KEYS.has(k.toLowerCase()) ? "[REDACTED_VRM]" : redact(v);
+      const key = k.toLowerCase();
+      if (VRM_KEYS.has(key)) out[k] = "[REDACTED_VRM]";
+      else if (ADDRESS_KEYS.has(key)) out[k] = "[REDACTED]";
+      else out[k] = redact(v);
     }
     return out;
   }

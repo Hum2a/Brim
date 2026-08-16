@@ -36,12 +36,17 @@ describe('api', () => {
       encodedPolyline: string;
       origin?: { label: string; lat: number; lng: number };
       destination?: { label: string; lat: number; lng: number };
+      alternatives?: Array<{ id: string; encodedPolyline: string; costPence: number }>;
     };
     expect(json.cost.totalPence.point).toBeGreaterThan(0);
     expect(json.consumption.label.length).toBeGreaterThan(0);
     expect(json.encodedPolyline.length).toBeGreaterThan(0);
     expect(json.origin?.label).toBe("Crawley");
     expect(json.destination?.label).toBe("London");
+    expect(json.alternatives?.length).toBeGreaterThanOrEqual(1);
+    expect(json.alternatives?.[0]?.encodedPolyline.length).toBeGreaterThan(0);
+    expect(json.alternatives?.[0]?.costPence).toBeGreaterThan(0);
+    expect(json.alternatives?.[1]?.costPence).toBeGreaterThan(json.alternatives?.[0]?.costPence ?? 0);
   });
 
   it("accepts coordinate pins on the estimate body", async () => {
@@ -61,6 +66,53 @@ describe('api', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { encodedPolyline: string };
     expect(json.encodedPolyline.length).toBeGreaterThan(0);
+  });
+
+  it('autocompletes fixture streets', async () => {
+    const res = await app.request('/v1/places?q=Station', {}, { BRIM_FIXTURES: '1' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { places: Array<{ label: string; lat?: number }> };
+    expect(json.places.some((p) => p.label.includes('Station Road'))).toBe(true);
+  });
+
+  it('returns no places for a one-letter query', async () => {
+    const res = await app.request('/v1/places?q=C', {}, { BRIM_FIXTURES: '1' });
+    const json = (await res.json()) as { places: unknown[] };
+    expect(json.places).toEqual([]);
+  });
+
+  it('resolves a fixture place id', async () => {
+    const list = await app.request('/v1/places?q=Deansgate', {}, { BRIM_FIXTURES: '1' });
+    const { places } = (await list.json()) as { places: Array<{ placeId: string; label: string }> };
+    const placeId = places[0]?.placeId;
+    expect(placeId).toBeTruthy();
+    const res = await app.request(
+      '/v1/places/resolve',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { place: { label: string; lat: number } };
+    expect(json.place.label).toBe('Deansgate, Manchester');
+  });
+
+  it('reverse geocodes a pin far from towns without inventing a street', async () => {
+    const res = await app.request(
+      '/v1/places/reverse',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: 50, lng: -5 }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { place: { label: string } };
+    expect(json.place.label.startsWith('Pinned location')).toBe(true);
   });
 
   it('searches the fixture VCA catalogue', async () => {
@@ -181,5 +233,33 @@ describe('api', () => {
     const json = (await res.json()) as { consumption: { label: string; tier: number } };
     expect(json.consumption.tier).toBe(1);
     expect(json.consumption.label).toBe('You told us');
+  });
+
+  it('saves a vehicle on the anon session and lists it back', async () => {
+    const created = await app.request(
+      '/v1/vehicles',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nickname: 'Fixture car',
+          kind: 'car',
+          propulsion: 'petrol',
+          make: 'Ford',
+          model: 'Focus',
+        }),
+      },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(created.status).toBe(201);
+    const cookie = created.headers.get('set-cookie') ?? '';
+    const listed = await app.request(
+      '/v1/vehicles',
+      { headers: { Cookie: cookie.split(';')[0] ?? '' } },
+      { BRIM_FIXTURES: '1' },
+    );
+    expect(listed.status).toBe(200);
+    const json = (await listed.json()) as { vehicles: Array<{ nickname?: string }> };
+    expect(json.vehicles.some((v) => v.nickname === 'Fixture car')).toBe(true);
   });
 });

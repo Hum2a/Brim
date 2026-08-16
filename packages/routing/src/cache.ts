@@ -18,9 +18,11 @@ export function routeCacheKey(input: {
   mode: string;
   provider: string;
   departureTime?: string | undefined;
+  waypoints?: string | undefined;
 }): string {
   const time = input.mode === "advanced" && input.departureTime ? String(hourOfWeek(input.departureTime)) : "";
-  return `${input.provider}|${input.mode}|${input.origin}|${input.dest}|${time}`;
+  const via = input.waypoints ?? "";
+  return `${input.provider}|${input.mode}|${input.origin}|${input.dest}|${via}|${time}`;
 }
 
 export async function cachedRoute<T>(

@@ -2,9 +2,13 @@
  * Drizzle table map matching apps/api/src/db/migrations/0001_init.sql.
  * Runtime queries in fixture mode use the memory store; Neon uses this schema
  * once DATABASE_URL is supplied to createDb().
+ *
+ * Geography columns (origin_point, dest_point, station location, zone geometry)
+ * are omitted until P7/P8. vrm_encrypted is stored but never written in P4.
  */
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -75,10 +79,22 @@ export const vehicles = pgTable('vehicles', {
   propulsion: text('propulsion').notNull(),
   make: text('make'),
   model: text('model'),
+  derivative: text('derivative'),
+  transmission: text('transmission'),
+  year: integer('year'),
+  engineCc: integer('engine_cc'),
+  co2Gkm: integer('co2_gkm'),
   euroStatus: text('euro_status'),
   euroStatusSource: text('euro_status_source'),
+  officialConsumption: doublePrecision('official_consumption'),
+  officialUnit: text('official_unit'),
+  officialCycle: text('official_cycle'),
   tankLitres: doublePrecision('tank_litres'),
   batteryKwhUsable: doublePrecision('battery_kwh_usable'),
+  hasHeatPump: boolean('has_heat_pump'),
+  vcaMatchId: text('vca_match_id'),
+  vrmEncrypted: text('vrm_encrypted'),
+  vrmHash: text('vrm_hash'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 });
 
@@ -99,6 +115,8 @@ export const calibrations = pgTable('calibrations', {
   calculatedValue: doublePrecision('calculated_value').notNull(),
   unit: text('unit').notNull(),
   sampleCount: integer('sample_count').notNull(),
+  stddev: doublePrecision('stddev'),
+  lastComputedAt: timestamp('last_computed_at', { withTimezone: true }).notNull(),
 });
 
 export const fillUps = pgTable('fill_ups', {
@@ -108,8 +126,10 @@ export const fillUps = pgTable('fill_ups', {
   quantity: doublePrecision('quantity').notNull(),
   unit: text('unit').notNull(),
   pricePence: integer('price_pence').notNull(),
+  stationId: text('station_id'),
   filledToBrim: boolean('filled_to_brim').notNull(),
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+  note: text('note'),
 });
 
 export const journeys = pgTable('journeys', {
@@ -120,6 +140,8 @@ export const journeys = pgTable('journeys', {
   destLabel: text('dest_label').notNull(),
   distanceMeters: doublePrecision('distance_meters').notNull(),
   durationSeconds: doublePrecision('duration_seconds').notNull(),
+  polyline: text('polyline'),
+  departsAt: timestamp('departs_at', { withTimezone: true }),
   estimateJson: jsonb('estimate_json').notNull(),
   chargesJson: jsonb('charges_json').notNull(),
   isSaved: boolean('is_saved').notNull(),
@@ -128,7 +150,13 @@ export const journeys = pgTable('journeys', {
 
 export const stations = pgTable('stations', {
   id: text('id').primaryKey(),
+  brand: text('brand'),
+  brandCanonical: text('brand_canonical'),
   name: text('name').notNull(),
+  address: text('address'),
+  postcode: text('postcode'),
+  openingHoursJson: jsonb('opening_hours_json'),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   isStale: boolean('is_stale').notNull(),
 });
 
@@ -139,6 +167,7 @@ export const stationPrices = pgTable(
     grade: text('grade').notNull(),
     priceTenthsPence: integer('price_tenths_pence').notNull(),
     observedAt: timestamp('observed_at', { withTimezone: true }).notNull(),
+    rawPayloadJson: jsonb('raw_payload_json'),
   },
   (t) => ({ pk: primaryKey({ columns: [t.stationId, t.grade] }) }),
 );
@@ -146,12 +175,25 @@ export const stationPrices = pgTable(
 export const zones = pgTable('zones', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  authority: text('authority'),
   kind: text('kind').notNull(),
+  cazClass: text('caz_class'),
+  chargePence: integer('charge_pence'),
+  isRestriction: boolean('is_restriction').notNull(),
+  appliesHoursJson: jsonb('applies_hours_json'),
+  sourceUrl: text('source_url'),
+  verifiedOn: date('verified_on'),
+  datasetVersion: text('dataset_version'),
 });
 
 export const tolls = pgTable('tolls', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  operator: text('operator'),
+  chargePenceByClassJson: jsonb('charge_pence_by_class_json'),
+  appliesHoursJson: jsonb('applies_hours_json'),
+  sourceUrl: text('source_url'),
+  verifiedOn: date('verified_on'),
 });
 
 export const vcaVehicles = pgTable(

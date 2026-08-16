@@ -11,37 +11,48 @@ export type RouteMapOverlays = {
   zones?: Array<{ id: string; name: string; geojson: unknown }>;
 };
 
+export type RouteLine = { id: string; encodedPolyline: string };
+
 export type RouteMapProps = {
   origin?: MapPin;
   destination?: MapPin;
+  waypoints?: MapPin[];
   encodedPolyline?: string;
+  alternatives?: RouteLine[];
+  selectedRouteId?: string;
   overlays?: RouteMapOverlays;
   reduceMotion?: boolean;
   onMapClick: (pin: { lat: number; lng: number }) => void;
   onOriginDrag: (pin: { lat: number; lng: number }) => void;
   onDestinationDrag: (pin: { lat: number; lng: number }) => void;
+  onWaypointDrag?: (index: number, pin: { lat: number; lng: number }) => void;
+  onSelectAlternative?: (id: string) => void;
 };
 
-type LineFeature = {
-  type: "Feature";
-  properties: Record<string, never>;
-  geometry: { type: "LineString"; coordinates: Array<[number, number]> };
+type LineCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    properties: { id: string; selected: number };
+    geometry: { type: "LineString"; coordinates: Array<[number, number]> };
+  }>;
 };
 
-const emptyLine: LineFeature = {
-  type: "Feature",
-  properties: {},
-  geometry: { type: "LineString", coordinates: [] },
-};
+const emptyCollection: LineCollection = { type: "FeatureCollection", features: [] };
 
-function markerEl(kind: "origin" | "destination"): HTMLDivElement {
+function markerEl(kind: "origin" | "destination" | "via"): HTMLDivElement {
   const el = document.createElement("div");
   el.className =
     kind === "origin"
       ? "h-3 w-3 rounded-[2px] border border-forecourt bg-pump"
-      : "h-3 w-3 rounded-[2px] border border-forecourt bg-diesel";
+      : kind === "destination"
+        ? "h-3 w-3 rounded-[2px] border border-forecourt bg-diesel"
+        : "h-3 w-3 rounded-[2px] border-2 border-diesel bg-transparent";
   el.setAttribute("role", "img");
-  el.setAttribute("aria-label", kind === "origin" ? "Origin" : "Destination");
+  el.setAttribute(
+    "aria-label",
+    kind === "origin" ? "Origin" : kind === "destination" ? "Destination" : "Stop",
+  );
   return el;
 }
 
@@ -50,15 +61,56 @@ function whenStyleReady(map: maplibregl.Map, fn: () => void): void {
   else map.once("load", fn);
 }
 
+function ensureRouteLayers(map: maplibregl.Map): void {
+  if (map.getSource("routes")) return;
+  map.addSource("routes", { type: "geojson", data: emptyCollection });
+  map.addLayer({
+    id: "routes-hit",
+    type: "line",
+    source: "routes",
+    paint: {
+      "line-color": "#000000",
+      "line-width": 12,
+      "line-opacity": 0,
+    },
+  });
+  map.addLayer({
+    id: "routes-alt",
+    type: "line",
+    source: "routes",
+    filter: ["!=", ["get", "selected"], 1],
+    paint: {
+      "line-color": "#F2F0EB",
+      "line-width": 2,
+      "line-opacity": 0.75,
+    },
+  });
+  map.addLayer({
+    id: "routes-sel",
+    type: "line",
+    source: "routes",
+    filter: ["==", ["get", "selected"], 1],
+    paint: {
+      "line-color": "#1F6F63",
+      "line-width": 4,
+    },
+  });
+}
+
 export default function RouteMap(props: RouteMapProps) {
   const {
     origin,
     destination,
+    waypoints = [],
     encodedPolyline,
+    alternatives,
+    selectedRouteId,
     reduceMotion = false,
     onMapClick,
     onOriginDrag,
     onDestinationDrag,
+    onWaypointDrag,
+    onSelectAlternative,
   } = props;
   void props.overlays;
 
@@ -66,13 +118,18 @@ export default function RouteMap(props: RouteMapProps) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const originMarker = useRef<maplibregl.Marker | null>(null);
   const destMarker = useRef<maplibregl.Marker | null>(null);
+  const viaMarkers = useRef<maplibregl.Marker[]>([]);
   const dragging = useRef(false);
   const clickRef = useRef(onMapClick);
   const originDragRef = useRef(onOriginDrag);
   const destDragRef = useRef(onDestinationDrag);
+  const viaDragRef = useRef(onWaypointDrag);
+  const selectRef = useRef(onSelectAlternative);
   clickRef.current = onMapClick;
   originDragRef.current = onOriginDrag;
   destDragRef.current = onDestinationDrag;
+  viaDragRef.current = onWaypointDrag;
+  selectRef.current = onSelectAlternative;
 
   useEffect(() => {
     const node = rootRef.current;
@@ -86,27 +143,24 @@ export default function RouteMap(props: RouteMapProps) {
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    map.on("load", () => {
-      if (!map.getSource("route")) {
-        map.addSource("route", { type: "geojson", data: emptyLine });
-        map.addLayer({
-          id: "route-line",
-          type: "line",
-          source: "route",
-          paint: {
-            "line-color": "#1F6F63",
-            "line-width": 4,
-          },
-        });
-      }
-    });
+    map.on("load", () => ensureRouteLayers(map));
     map.on("click", (ev) => {
       if (dragging.current) return;
+      const hits = map.queryRenderedFeatures(ev.point, {
+        layers: ["routes-hit", "routes-alt", "routes-sel"],
+      });
+      const id = hits[0]?.properties?.id;
+      if (typeof id === "string" && selectRef.current) {
+        selectRef.current(id);
+        return;
+      }
       clickRef.current({ lat: ev.lngLat.lat, lng: ev.lngLat.lng });
     });
     return () => {
       originMarker.current?.remove();
       destMarker.current?.remove();
+      for (const m of viaMarkers.current) m.remove();
+      viaMarkers.current = [];
       originMarker.current = null;
       destMarker.current = null;
       map.remove();
@@ -119,7 +173,7 @@ export default function RouteMap(props: RouteMapProps) {
     if (!map) return;
 
     const syncMarker = (
-      slot: "origin" | "destination",
+      slot: "origin" | "destination" | "via",
       pin: MapPin | undefined,
       current: maplibregl.Marker | null,
       onDrag: (pin: { lat: number; lng: number }) => void,
@@ -155,47 +209,67 @@ export default function RouteMap(props: RouteMapProps) {
       destMarker.current = syncMarker("destination", destination, destMarker.current, (p) =>
         destDragRef.current(p),
       );
+      const nextVias: maplibregl.Marker[] = [];
+      for (let i = 0; i < waypoints.length; i++) {
+        const pin = waypoints[i];
+        const existing = viaMarkers.current[i] ?? null;
+        const marker = syncMarker("via", pin, existing, (p) => viaDragRef.current?.(i, p));
+        if (marker) nextVias.push(marker);
+      }
+      for (let i = waypoints.length; i < viaMarkers.current.length; i++) {
+        viaMarkers.current[i]?.remove();
+      }
+      viaMarkers.current = nextVias;
     };
     whenStyleReady(map, apply);
-  }, [origin, destination]);
+  }, [origin, destination, waypoints]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const lines: RouteLine[] =
+      alternatives && alternatives.length > 0
+        ? alternatives
+        : encodedPolyline
+          ? [{ id: "route-0", encodedPolyline }]
+          : [];
     const apply = () => {
-      const source = map.getSource("route") as maplibregl.GeoJSONSource | undefined;
-      if (!encodedPolyline) {
-        source?.setData(emptyLine);
-        return;
-      }
-      const points = polylinePoints(encodedPolyline);
-      const data: LineFeature = {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates: points.map((p) => [p.lng, p.lat]),
-        },
+      ensureRouteLayers(map);
+      const source = map.getSource("routes") as maplibregl.GeoJSONSource | undefined;
+      const selected = selectedRouteId ?? lines[0]?.id;
+      const collection: LineCollection = {
+        type: "FeatureCollection",
+        features: lines.map((line) => ({
+          type: "Feature",
+          properties: { id: line.id, selected: line.id === selected ? 1 : 0 },
+          geometry: {
+            type: "LineString",
+            coordinates: polylinePoints(line.encodedPolyline).map((p) => [p.lng, p.lat]),
+          },
+        })),
       };
-      source?.setData(data);
-      const bounds = boundsFromPoints(points);
-      if (bounds) {
-        map.fitBounds(bounds, {
-          padding: 48,
-          duration: reduceMotion ? 0 : 400,
-          maxZoom: 12,
-        });
+      source?.setData(collection);
+      const selectedLine = lines.find((l) => l.id === selected) ?? lines[0];
+      if (selectedLine) {
+        const bounds = boundsFromPoints(polylinePoints(selectedLine.encodedPolyline));
+        if (bounds) {
+          map.fitBounds(bounds, {
+            padding: 48,
+            duration: reduceMotion ? 0 : 400,
+            maxZoom: 12,
+          });
+        }
       }
     };
     whenStyleReady(map, apply);
-  }, [encodedPolyline, reduceMotion]);
+  }, [encodedPolyline, alternatives, selectedRouteId, reduceMotion]);
 
   return (
     <div
       ref={rootRef}
       tabIndex={0}
       className="h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      aria-label="Trip map. Tap to set origin, then destination."
+      aria-label="Trip map. Type an address or tap to set origin, then destination."
     />
   );
 }

@@ -3,7 +3,8 @@ import { Hono } from 'hono';
 import { isFixtureMode } from '@brim/shared';
 import type { ApiBindings } from './env.js';
 import { allowedWebOrigin } from './auth.js';
-import { cacheStats, handleEstimate, handleFromMapsUrl, handlePlaces } from './estimate.js';
+import { cacheStats, handleEstimate, handleFromMapsUrl } from './estimate.js';
+import { handlePlaceResolve, handlePlaceReverse, handlePlaces } from './places.js';
 import {
   betterAuthHandler,
   claimAnonHandler,
@@ -55,6 +56,8 @@ app.get('/health', (c) => {
 });
 
 app.get('/v1/places', handlePlaces);
+app.post('/v1/places/resolve', handlePlaceResolve);
+app.post('/v1/places/reverse', handlePlaceReverse);
 app.post('/v1/estimate', handleEstimate);
 app.post('/v1/estimate/from-maps-url', handleFromMapsUrl);
 

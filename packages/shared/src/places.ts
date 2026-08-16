@@ -2,7 +2,12 @@ export type PlaceHit = {
   label: string;
   lat: number;
   lng: number;
+  placeId?: string;
 };
+
+export function fixturePlaceId(label: string): string {
+  return `fixture:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
 
 export const UK_PLACES: PlaceHit[] = [
   { label: "Crawley", lat: 51.1092, lng: -0.1872 },
@@ -17,7 +22,11 @@ export const UK_PLACES: PlaceHit[] = [
   { label: "Swansea", lat: 51.6214, lng: -3.9436 },
   { label: "Newcastle", lat: 54.9783, lng: -1.6178 },
   { label: "York", lat: 53.96, lng: -1.0873 },
-];
+  { label: "Station Road, Crawley", lat: 51.1139, lng: -0.187 },
+  { label: "High Street, Crawley", lat: 51.1145, lng: -0.1878 },
+  { label: "Victoria Street, London", lat: 51.4975, lng: -0.1372 },
+  { label: "Deansgate, Manchester", lat: 53.4787, lng: -2.248 },
+].map((p) => ({ ...p, placeId: fixturePlaceId(p.label) }));
 
 export function searchPlaces(query: string, places: PlaceHit[] = UK_PLACES): PlaceHit[] {
   const q = query.trim().toLowerCase();
@@ -45,4 +54,38 @@ export function nearestPlace(
     }
   }
   return best;
+}
+
+export function distanceMeters(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+export function findPlaceById(placeId: string, places: PlaceHit[] = UK_PLACES): PlaceHit | undefined {
+  return places.find((p) => p.placeId === placeId);
+}
+
+/** Reverse-geocode a pin against the gazetteer. Beyond 200 m we do not invent a street. */
+export function reverseGazetteer(
+  lat: number,
+  lng: number,
+  places: PlaceHit[] = UK_PLACES,
+  maxMeters = 200,
+): PlaceHit {
+  const near = nearestPlace(lat, lng, places);
+  if (near && distanceMeters({ lat, lng }, near) <= maxMeters) return near;
+  return {
+    label: `Pinned location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+    lat,
+    lng,
+  };
 }

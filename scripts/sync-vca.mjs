@@ -160,38 +160,49 @@ async function main() {
     );
   }
 
-  const { neon } = await import('@neondatabase/serverless');
-  const sql = neon(databaseUrl);
-  const chunkSize = 25;
-  for (let i = 0; i < vehicles.length; i += chunkSize) {
-    const chunk = vehicles.slice(i, i + chunkSize);
-    await Promise.all(
-      chunk.map(
-        (row) => sql`
-          INSERT INTO vca_vehicles (
-            id, make, model, derivative, fuel, engine_cc, transmission,
-            co2_gkm, consumption_combined, unit, cycle, dataset_version
-          ) VALUES (
-            ${row.id}, ${row.make}, ${row.model}, ${row.derivative ?? null},
-            ${row.fuel}, ${row.engineCc ?? null}, ${row.transmission ?? null},
-            ${row.co2Gkm ?? null}, ${row.consumptionCombined}, ${row.unit},
-            ${row.cycle}, ${row.datasetVersion}
-          )
-          ON CONFLICT (id) DO UPDATE SET
-            make = EXCLUDED.make,
-            model = EXCLUDED.model,
-            derivative = EXCLUDED.derivative,
-            fuel = EXCLUDED.fuel,
-            engine_cc = EXCLUDED.engine_cc,
-            transmission = EXCLUDED.transmission,
-            co2_gkm = EXCLUDED.co2_gkm,
-            consumption_combined = EXCLUDED.consumption_combined,
-            unit = EXCLUDED.unit,
-            cycle = EXCLUDED.cycle,
-            dataset_version = EXCLUDED.dataset_version
-        `,
-      ),
-    );
+  const pg = await import('pg');
+  const Client = pg.Client ?? pg.default.Client;
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  const insertSql = `
+    INSERT INTO vca_vehicles (
+      id, make, model, derivative, fuel, engine_cc, transmission,
+      co2_gkm, consumption_combined, unit, cycle, dataset_version
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    ON CONFLICT (id) DO UPDATE SET
+      make = EXCLUDED.make,
+      model = EXCLUDED.model,
+      derivative = EXCLUDED.derivative,
+      fuel = EXCLUDED.fuel,
+      engine_cc = EXCLUDED.engine_cc,
+      transmission = EXCLUDED.transmission,
+      co2_gkm = EXCLUDED.co2_gkm,
+      consumption_combined = EXCLUDED.consumption_combined,
+      unit = EXCLUDED.unit,
+      cycle = EXCLUDED.cycle,
+      dataset_version = EXCLUDED.dataset_version
+  `;
+  try {
+    await client.query("SET ROLE brim_rls");
+    await client.query("SELECT set_config('brim.service_role', '1', false)");
+    for (const row of vehicles) {
+      await client.query(insertSql, [
+        row.id,
+        row.make,
+        row.model,
+        row.derivative ?? null,
+        row.fuel,
+        row.engineCc ?? null,
+        row.transmission ?? null,
+        row.co2Gkm ?? null,
+        row.consumptionCombined,
+        row.unit,
+        row.cycle,
+        row.datasetVersion,
+      ]);
+    }
+  } finally {
+    await client.end();
   }
   console.log(`upserted ${vehicles.length} rows into vca_vehicles (${brimEnv})`);
 }

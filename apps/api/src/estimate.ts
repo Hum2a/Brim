@@ -4,16 +4,15 @@ import {
   decodePolyline,
   findPlaceByLabel,
   hmrcAmapPence,
+  isFixtureMode,
   parseLatLngString,
   parseMapsUrl,
   propulsionSchema,
-  searchPlaces,
   ukTaxYearStartUtc,
   vehicleProfileSchema,
 } from '@brim/shared';
 import type { RoutePlace } from '@brim/routing';
 import {
-  DurableNoopCache,
   KvCache,
   MemoryCache,
   cachePlaceKey,
@@ -25,8 +24,10 @@ import type { Context } from 'hono';
 import type { ApiBindings } from './env.js';
 import { createLogger } from './logger.js';
 import { createDb } from './db/client.js';
+import { NeonRouteCache } from './db/route-cache.js';
 import { ownerFromContext } from './session.js';
-import { getVehicle, ytdMiles } from './db/repo.js';
+import { getDefaultTariff, getVehicle, persistLive, ytdMiles } from './db/repo.js';
+import type { BrimDb } from './db/types.js';
 import type { VehicleRow } from './db/memory.js';
 
 const placePinSchema = z.object({
@@ -53,9 +54,9 @@ const isolateCache = new MemoryCache();
 const log = createLogger();
 let providerCalls = 0;
 
-function cacheFor(env: ApiBindings) {
+function cacheFor(env: ApiBindings, db: BrimDb) {
   if (env.ROUTE_CACHE) return new KvCache(env.ROUTE_CACHE);
-  if (env.DATABASE_URL) return new DurableNoopCache();
+  if (persistLive(db)) return new NeonRouteCache(db);
   return isolateCache;
 }
 
@@ -99,7 +100,7 @@ function vehicleFromRow(row: VehicleRow) {
 }
 
 async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unknown) {
-  createDb(c.env);
+  const db = createDb(c.env);
   const parsed = estimateBodySchema.safeParse(raw);
   if (!parsed.success) {
     return c.json({ error: 'invalid_request', details: parsed.error.flatten() }, 400);
@@ -107,12 +108,12 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   const body = parsed.data;
   const session = await ownerFromContext(c);
 
-  const saved = body.vehicleId ? getVehicle(session.ownerId, body.vehicleId) : undefined;
+  const saved = body.vehicleId ? await getVehicle(db, session.ownerId, body.vehicleId) : undefined;
   const vehicleInline = body.vehicleInline ?? (saved ? vehicleFromRow(saved) : undefined);
   const propulsion = vehicleInline?.propulsion ?? body.propulsion ?? 'petrol';
   const hasProfile = Boolean(vehicleInline);
   const chosen = chooseProvider({
-    fixtureMode: c.env.BRIM_FIXTURES === '1',
+    fixtureMode: isFixtureMode(c.env.BRIM_FIXTURES),
     googleKey: c.env.GOOGLE_MAPS_API_KEY,
     osrmUrl: c.env.OSRM_URL,
     spentUsd: Number(c.env.ROUTING_SPENT_USD ?? 0),
@@ -122,13 +123,14 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   const origin = resolvePlace(body.origin);
   const destination = resolvePlace(body.destination);
   const waypoints = body.waypoints?.map(resolvePlace);
-  const cache = cacheFor(c.env);
+  const cache = cacheFor(c.env, db);
   const key = routeCacheKey({
     origin: cachePlaceKey(origin.route),
     dest: cachePlaceKey(destination.route),
     mode: chosen.mode,
     provider: chosen.provider.name,
     departureTime: body.departsAt,
+    waypoints: waypoints?.map((w) => cachePlaceKey(w.route)).join(";"),
   });
   const ttl = chosen.mode === 'advanced' ? 6 * 3600 : 30 * 24 * 3600;
   const { value: route, hit } = await cachedRoute(cache, key, ttl, () => {
@@ -144,6 +146,7 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
       mode: chosen.mode,
     };
     if (waypoints && waypoints.length > 0) req.waypoints = waypoints.map((w) => w.route);
+    if (body.departsAt) req.departureTime = body.departsAt;
     return chosen.provider.computeRoute(req);
   });
 
@@ -157,35 +160,54 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
         : 'l/100km';
 
   const nowIso = body.nowIso ?? body.departsAt ?? '1970-01-01T00:00:00Z';
-  const estimate = computeEstimate({
-    distanceMeters: route.distanceMeters,
-    durationSeconds: route.durationSeconds,
-    propulsion,
-    vehicle: vehicleInline,
-    official:
-      vehicleInline?.officialConsumption !== undefined
-        ? {
-            value: vehicleInline.officialConsumption,
-            unit,
-            cycle: vehicleInline.officialCycle ?? 'WLTP',
-          }
-        : undefined,
-    userEntered:
-      body.vehicleInline?.userEnteredConsumption !== undefined
-        ? {
-            value: body.vehicleInline.userEnteredConsumption,
-            unit: body.vehicleInline.userEnteredUnit ?? 'mpg',
-          }
-        : undefined,
-    providerEstimate: route.providerFuelLitres ? { litres: route.providerFuelLitres } : undefined,
-    roadComposition: route.roadComposition,
-    pricePence: body.pricePence ?? (propulsion === 'bev' ? 7.5 : 140),
-    priceUnit: propulsion === 'bev' ? 'p/kWh' : 'ppl',
-    priceSource: body.priceStrategy === 'user-tariff' ? 'user-tariff' : 'national-median',
-    priceObservedAt: nowIso,
-    charges: [],
-    gridIntensityGPerKwh: 150,
-  });
+  const tariff =
+    body.priceStrategy === 'user-tariff' && body.vehicleId
+      ? await getDefaultTariff(db, session.ownerId, body.vehicleId)
+      : undefined;
+  const fallbackPence = propulsion === 'bev' ? 7.5 : 140;
+  const pricePence = body.pricePence ?? tariff?.pence_per_kwh ?? fallbackPence;
+  const priceUnit = propulsion === 'bev' ? 'p/kWh' : 'ppl';
+  const priceSource =
+    body.priceStrategy === 'user-tariff' && (tariff || body.pricePence !== undefined)
+      ? 'user-tariff'
+      : 'national-median';
+
+  const estimateFor = (distanceMeters: number, durationSeconds: number, providerFuel?: number) =>
+    computeEstimate({
+      distanceMeters,
+      durationSeconds,
+      propulsion,
+      vehicle: vehicleInline,
+      official:
+        vehicleInline?.officialConsumption !== undefined
+          ? {
+              value: vehicleInline.officialConsumption,
+              unit,
+              cycle: vehicleInline.officialCycle ?? 'WLTP',
+            }
+          : undefined,
+      userEntered:
+        body.vehicleInline?.userEnteredConsumption !== undefined
+          ? {
+              value: body.vehicleInline.userEnteredConsumption,
+              unit: body.vehicleInline.userEnteredUnit ?? 'mpg',
+            }
+          : undefined,
+      providerEstimate: providerFuel ? { litres: providerFuel } : undefined,
+      roadComposition: route.roadComposition,
+      pricePence,
+      priceUnit,
+      priceSource,
+      priceObservedAt: nowIso,
+      charges: [],
+      gridIntensityGPerKwh: 150,
+    });
+
+  const estimate = estimateFor(
+    route.distanceMeters,
+    route.durationSeconds,
+    route.providerFuelLitres,
+  );
 
   if (chosen.exceeded) {
     estimate.reasons.push(
@@ -194,17 +216,32 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
   }
 
   const miles = route.distanceMeters / 1609.344;
-  const ytd = ytdMiles(session.ownerId, ukTaxYearStartUtc(nowIso), nowIso);
+  const ytd = await ytdMiles(db, session.ownerId, ukTaxYearStartUtc(nowIso), nowIso);
   const hmrc = hmrcAmapPence(miles, ytd);
   const shape = decodePolyline(route.encodedPolyline);
-  const start = shape[0];
-  const end = shape[shape.length - 1];
+  const start = route.start ?? shape[0];
+  const end = route.end ?? shape[shape.length - 1];
+  const alternatives = (route.alternatives ?? []).map((alt) => {
+    const priced = estimateFor(alt.distanceMeters, alt.durationSeconds);
+    return {
+      id: alt.id,
+      label: alt.label,
+      distanceMeters: alt.distanceMeters,
+      durationSeconds: alt.durationSeconds,
+      encodedPolyline: alt.encodedPolyline,
+      costPence: priced.cost.totalPence.point,
+    };
+  });
+  const waypointPins = (waypoints ?? [])
+    .map((w) => pinFrom(w, undefined))
+    .filter((p): p is { label: string; lat: number; lng: number } => Boolean(p));
 
-  return c.json({
+  const payload: Record<string, unknown> = {
     ...estimate,
     encodedPolyline: route.encodedPolyline,
     origin: pinFrom(origin, start),
     destination: pinFrom(destination, end),
+    alternatives,
     hmrc: {
       approvedPence: hmrc.approvedPence,
       ytdMiles: ytd,
@@ -212,7 +249,13 @@ async function estimateFromBody(c: Context<{ Bindings: ApiBindings }>, raw: unkn
       bandMiles25: hmrc.bandMiles25,
       crossedThreshold: hmrc.crossedThreshold,
     },
-  });
+  };
+  if (route.routeLabel) payload.routeLabel = route.routeLabel;
+  if (route.durationTrafficSeconds !== undefined) {
+    payload.durationTrafficSeconds = route.durationTrafficSeconds;
+  }
+  if (waypointPins.length > 0) payload.waypoints = waypointPins;
+  return c.json(payload);
 }
 
 function pinFrom(
@@ -268,11 +311,6 @@ export async function handleFromMapsUrl(c: Context<{ Bindings: ApiBindings }>) {
     destination: parsed.destination,
     waypoints: parsed.waypoints,
   });
-}
-
-export function handlePlaces(c: Context<{ Bindings: ApiBindings }>) {
-  const q = c.req.query('q') ?? '';
-  return c.json({ places: searchPlaces(q) });
 }
 
 export function cacheStats() {

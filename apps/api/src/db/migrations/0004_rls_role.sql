@@ -1,0 +1,17 @@
+-- Neon’s default owner role has BYPASSRLS, which ignores FORCE ROW LEVEL SECURITY.
+-- Session user remains the owner; queries SET LOCAL ROLE brim_rls so policies bind.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'brim_rls') THEN
+    CREATE ROLE brim_rls NOLOGIN NOBYPASSRLS;
+  END IF;
+END $$;
+
+GRANT brim_rls TO CURRENT_USER;
+
+GRANT USAGE ON SCHEMA public TO brim_rls;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO brim_rls;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO brim_rls;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO brim_rls;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO brim_rls;

@@ -96,6 +96,7 @@ Glob: `apps/web/**`, `packages/ui-kit/**`, `apps/extension/**`
 - Browser never calls Google, DVLA, or Fuel Finder directly.
 - shadcn for behaviour, Brim tokens for appearance. `--radius: 2px`. Amber (`--gauge`) once per screen.
 - Numbers use `.tabular`. No gradients, no glass, no card shadows.
+- Password fields use `@brim/ui-kit/input` (`Input type="password"` or `PasswordInput`). Never a bare `<input type="password">`. The control always includes a show/hide toggle (`type="button"`, labelled Show password / Hide password).
 - Extension: URL parsing only, never DOM scraping. Manifest V3, minimal permissions.
 
 ## Data (data, scripts)

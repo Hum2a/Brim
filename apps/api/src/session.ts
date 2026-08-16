@@ -1,7 +1,8 @@
 import type { Context } from 'hono';
 import type { ApiBindings } from './env.js';
 import { cookieHeader, encodeSession, ensureAnon, readSession, type Session } from './auth.js';
-import { createAuth } from './db/client.js';
+import { createAuth, createDb } from './db/client.js';
+import { ensureAnonProfile } from './db/repo.js';
 
 export async function betterAuthUser(env: ApiBindings, request: Request): Promise<Session | null> {
   const auth = createAuth(env, request);
@@ -22,6 +23,7 @@ export async function resolveOwner(
   const existing = await readSession(env, request.headers.get('Cookie') ?? undefined);
   const session = await ensureAnon(env, existing);
   if (existing?.kind === 'anon') return { session };
+  await ensureAnonProfile(createDb(env), session.ownerId);
   return { session, setCookie: cookieHeader(await encodeSession(env, session), request.url) };
 }
 

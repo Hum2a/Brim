@@ -5,6 +5,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "@brim/api#build": {
+      "dependsOn": ["@brim/web#build", "^build"],
+      "outputs": ["dist/**"]
+    },
     "test": {
       "dependsOn": ["^build"]
     },

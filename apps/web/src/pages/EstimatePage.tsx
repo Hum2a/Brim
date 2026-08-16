@@ -1,6 +1,15 @@
 import { AnimatePresence, m } from "motion/react";
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { findPlaceByLabel, nearestPlace } from "@brim/shared";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { findPlaceByLabel } from "@brim/shared";
 import { PumpReadout, reveal, staggerChildren, usePrefersReducedMotion } from "@brim/ui-kit";
 import {
   Accordion,
@@ -26,15 +35,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@brim/ui-kit/skeleton";
 import { toast } from "@brim/ui-kit/toast";
 import { api } from "../api.js";
+import { AddressField } from "../AddressField.js";
 import { AuthPanel } from "../AuthPanel.js";
-import { formatCoordLabel } from "../map-geometry.js";
+import { reversePlace } from "../places-client.js";
 import { VehicleCatalogue, type CatalogueVehicle } from "../VehicleCatalogue.js";
 
 const RouteMap = lazy(() => import("../RouteMap.js"));
 
 type Health = { status: string; fixtureMode: boolean };
 type Place = { label: string; lat: number; lng: number };
-type Vehicle = { id: string; nickname?: string; propulsion: string; make?: string; model?: string };
+type Vehicle = {
+  id: string;
+  nickname?: string;
+  propulsion: string;
+  make?: string;
+  model?: string;
+};
+type Tariff = { id: string; pence_per_kwh: number; is_default: boolean };
 type Propulsion = "petrol" | "diesel" | "hybrid" | "phev" | "bev";
 type Estimate = {
   cost: {
@@ -53,6 +70,17 @@ type Estimate = {
   encodedPolyline?: string;
   origin?: Place;
   destination?: Place;
+  waypoints?: Place[];
+  routeLabel?: string;
+  durationTrafficSeconds?: number;
+  alternatives?: Array<{
+    id: string;
+    label: string;
+    distanceMeters: number;
+    durationSeconds: number;
+    encodedPolyline: string;
+    costPence: number;
+  }>;
 };
 
 const nowLocal = () => {
@@ -61,16 +89,14 @@ const nowLocal = () => {
   return d.toISOString().slice(0, 16);
 };
 
-function pinLabel(lat: number, lng: number): string {
-  const named = nearestPlace(lat, lng);
-  if (named && Math.hypot(named.lat - lat, named.lng - lng) < 0.03) return named.label;
-  return formatCoordLabel(lat, lng);
-}
-
 function tripPlace(label: string, pin: Place | null) {
   if (!pin) return label;
   return { lat: pin.lat, lng: pin.lng, label };
 }
+
+type ViaDraft = { id: string; text: string; pin: Place | null };
+
+type FocusStop = "origin" | "destination" | number;
 
 export function EstimatePage() {
   const reduce = usePrefersReducedMotion();
@@ -79,8 +105,9 @@ export function EstimatePage() {
   const [destination, setDestination] = useState("London");
   const [originPin, setOriginPin] = useState<Place | null>(() => findPlaceByLabel("Crawley") ?? null);
   const [destPin, setDestPin] = useState<Place | null>(() => findPlaceByLabel("London") ?? null);
-  const [originHits, setOriginHits] = useState<Place[]>([]);
-  const [destHits, setDestHits] = useState<Place[]>([]);
+  const [viaDrafts, setViaDrafts] = useState<ViaDraft[]>([]);
+  const [focusStop, setFocusStop] = useState<FocusStop>("origin");
+  const [selectedRouteId, setSelectedRouteId] = useState<string | undefined>();
   const [propulsion, setPropulsion] = useState<Propulsion>("petrol");
   const [catalogue, setCatalogue] = useState<CatalogueVehicle | null>(null);
   const [mpg, setMpg] = useState("40");
@@ -98,6 +125,7 @@ export function EstimatePage() {
   const [loading, setLoading] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("inline");
+  const [homePence, setHomePence] = useState("7.5");
   const [authOpen, setAuthOpen] = useState(false);
   const [pendingSave, setPendingSave] = useState<"vehicle" | "journey" | null>(null);
   const [stale, setStale] = useState(false);
@@ -105,6 +133,9 @@ export function EstimatePage() {
   const [wide, setWide] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
   );
+  const estimateTimer = useRef(0);
+
+  useEffect(() => () => window.clearTimeout(estimateTimer.current), []);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -112,6 +143,45 @@ export function EstimatePage() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  const selectedVehicle = vehicles.find((v) => v.id === vehicleId);
+  const savedElectric =
+    selectedVehicle?.propulsion === "bev" || selectedVehicle?.propulsion === "phev";
+
+  const tripRef = useRef({
+    origin,
+    originPin,
+    destination,
+    destPin,
+    viaDrafts,
+    departsAt,
+    propulsion,
+    vehicleId,
+    savedElectric,
+    homePence,
+  });
+  tripRef.current = {
+    origin,
+    originPin,
+    destination,
+    destPin,
+    viaDrafts,
+    departsAt,
+    propulsion,
+    vehicleId,
+    savedElectric,
+    homePence,
+  };
+
+  useEffect(() => {
+    if (!savedElectric || vehicleId === "inline") return;
+    void api<{ tariffs: Tariff[] }>(`/v1/vehicles/${vehicleId}/tariffs`)
+      .then((r) => {
+        const home = r.tariffs.find((t) => t.is_default) ?? r.tariffs[0];
+        if (home) setHomePence(String(home.pence_per_kwh));
+      })
+      .catch(() => undefined);
+  }, [savedElectric, vehicleId]);
 
   useEffect(() => {
     void api<Health>("/health")
@@ -133,6 +203,12 @@ export function EstimatePage() {
         setDestination(parsed.destination.label);
         setDestPin(parsed.destination);
       }
+      if (parsed.waypoints) {
+        setViaDrafts(
+          parsed.waypoints.map((w) => ({ id: `${w.lat},${w.lng}`, text: w.label, pin: w })),
+        );
+      }
+      setSelectedRouteId(parsed.alternatives?.[0]?.id);
     }
     const params = new URLSearchParams(window.location.search);
     const shared = params.get("url") ?? params.get("text");
@@ -154,6 +230,12 @@ export function EstimatePage() {
       setDestination(json.destination.label);
       setDestPin(json.destination);
     }
+    if (json.waypoints) {
+      setViaDrafts(
+        json.waypoints.map((w) => ({ id: `${w.lat},${w.lng}`, text: w.label, pin: w })),
+      );
+    }
+    setSelectedRouteId(json.alternatives?.[0]?.id);
   }
 
   async function runEstimate(body: unknown) {
@@ -191,56 +273,58 @@ export function EstimatePage() {
     }
   }
 
-  async function searchPlace(value: string, setHits: (p: Place[]) => void) {
-    if (value.length < 2) return;
-    const res = await api<{ places: Place[] }>(`/v1/places?q=${encodeURIComponent(value)}`);
-    setHits(res.places);
-  }
-
-  function onOriginText(value: string) {
-    setOrigin(value);
-    const named = findPlaceByLabel(value);
-    if (named) {
-      setOriginPin(named);
-      if (estimate) setStale(true);
+  async function namePin(lat: number, lng: number): Promise<Place> {
+    try {
+      const place = await reversePlace(lat, lng);
+      setGeoError(null);
+      return place;
+    } catch {
+      setGeoError("Could not name that street — type the address.");
+      return { label: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng };
     }
-    void searchPlace(value, setOriginHits);
-  }
-
-  function onDestText(value: string) {
-    setDestination(value);
-    const named = findPlaceByLabel(value);
-    if (named) {
-      setDestPin(named);
-      if (estimate) setStale(true);
-    }
-    void searchPlace(value, setDestHits);
   }
 
   function onMapClick(pin: { lat: number; lng: number }) {
-    const place = { label: pinLabel(pin.lat, pin.lng), lat: pin.lat, lng: pin.lng };
-    if (!originPin) {
-      setOriginPin(place);
-      setOrigin(place.label);
-    } else {
-      setDestPin(place);
-      setDestination(place.label);
-    }
-    if (estimate) setStale(true);
+    void namePin(pin.lat, pin.lng).then((place) => {
+      if (focusStop === "origin" || !originPin) {
+        setOriginPin(place);
+        setOrigin(place.label);
+        setFocusStop("destination");
+      } else if (typeof focusStop === "number") {
+        setViaDrafts((drafts) =>
+          drafts.map((d, i) => (i === focusStop ? { ...d, text: place.label, pin: place } : d)),
+        );
+      } else {
+        setDestPin(place);
+        setDestination(place.label);
+      }
+      scheduleEstimate();
+    });
   }
 
   function onOriginDrag(pin: { lat: number; lng: number }) {
-    const place = { label: pinLabel(pin.lat, pin.lng), lat: pin.lat, lng: pin.lng };
-    setOriginPin(place);
-    setOrigin(place.label);
-    if (estimate) setStale(true);
+    void namePin(pin.lat, pin.lng).then((place) => {
+      setOriginPin(place);
+      setOrigin(place.label);
+      scheduleEstimate();
+    });
   }
 
   function onDestinationDrag(pin: { lat: number; lng: number }) {
-    const place = { label: pinLabel(pin.lat, pin.lng), lat: pin.lat, lng: pin.lng };
-    setDestPin(place);
-    setDestination(place.label);
-    if (estimate) setStale(true);
+    void namePin(pin.lat, pin.lng).then((place) => {
+      setDestPin(place);
+      setDestination(place.label);
+      scheduleEstimate();
+    });
+  }
+
+  function onWaypointDrag(index: number, pin: { lat: number; lng: number }) {
+    void namePin(pin.lat, pin.lng).then((place) => {
+      setViaDrafts((drafts) =>
+        drafts.map((d, i) => (i === index ? { ...d, text: place.label, pin: place } : d)),
+      );
+      scheduleEstimate();
+    });
   }
 
   function useMyLocation() {
@@ -251,18 +335,70 @@ export function EstimatePage() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const place = { label: pinLabel(lat, lng), lat, lng };
-        setOriginPin(place);
-        setOrigin(place.label);
-        if (estimate) setStale(true);
+        void namePin(pos.coords.latitude, pos.coords.longitude).then((place) => {
+          setOriginPin(place);
+          setOrigin(place.label);
+          scheduleEstimate();
+        });
       },
       () => {
         setGeoError("Location was blocked — type a place or tap the map.");
       },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
     );
+  }
+
+  function buildEstimateBody() {
+    const trip = tripRef.current;
+    const body: Record<string, unknown> = {
+      origin: tripPlace(trip.origin, trip.originPin),
+      destination: tripPlace(trip.destination, trip.destPin),
+      departsAt: new Date(trip.departsAt).toISOString(),
+      propulsion: trip.propulsion,
+    };
+    const vias = trip.viaDrafts
+      .filter((v) => v.pin || v.text.trim())
+      .map((v) => tripPlace(v.text, v.pin));
+    if (vias.length > 0) body.waypoints = vias;
+    if (trip.vehicleId === "inline") body.vehicleInline = vehicleInline();
+    else {
+      body.vehicleId = trip.vehicleId;
+      if (trip.savedElectric) {
+        const pence = Number(trip.homePence);
+        if (Number.isFinite(pence) && pence > 0) {
+          body.priceStrategy = "user-tariff";
+          body.pricePence = pence;
+        }
+      }
+    }
+    return body;
+  }
+
+  function scheduleEstimate() {
+    setStale(true);
+    window.clearTimeout(estimateTimer.current);
+    estimateTimer.current = window.setTimeout(() => {
+      const trip = tripRef.current;
+      if (!trip.origin.trim() || !trip.destination.trim()) return;
+      void runEstimate(buildEstimateBody());
+    }, 400);
+  }
+
+  function applyAlternative(id: string) {
+    if (!estimate?.alternatives) return;
+    const alt = estimate.alternatives.find((a) => a.id === id);
+    if (!alt) return;
+    setSelectedRouteId(id);
+    setEstimate({
+      ...estimate,
+      encodedPolyline: alt.encodedPolyline,
+      distanceMeters: alt.distanceMeters,
+      durationSeconds: alt.durationSeconds,
+      cost: {
+        ...estimate.cost,
+        totalPence: { ...estimate.cost.totalPence, point: alt.costPence },
+      },
+    });
   }
 
   function vehicleInline() {
@@ -319,14 +455,16 @@ export function EstimatePage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const body: Record<string, unknown> = {
-      origin: tripPlace(origin, originPin),
-      destination: tripPlace(destination, destPin),
-      departsAt: new Date(departsAt).toISOString(),
-      propulsion,
-    };
-    if (vehicleId === "inline") body.vehicleInline = vehicleInline();
-    else body.vehicleId = vehicleId;
+    const body = buildEstimateBody();
+    if (vehicleId !== "inline" && savedElectric) {
+      const pence = Number(homePence);
+      if (Number.isFinite(pence) && pence > 0) {
+        void api(`/v1/vehicles/${vehicleId}/tariffs`, {
+          method: "POST",
+          body: JSON.stringify({ kind: "home", pencePerKwh: pence, isDefault: true }),
+        }).catch(() => undefined);
+      }
+    }
     void runEstimate(body);
   }
 
@@ -341,7 +479,7 @@ export function EstimatePage() {
       });
       const list = await api<{ vehicles: Vehicle[] }>("/v1/vehicles");
       setVehicles(list.vehicles);
-      toast("Saved. Your car is on this device.");
+      toast("Saved. Sign in to keep this car on other devices.");
     } catch {
       setPendingSave("vehicle");
       setAuthOpen(true);
@@ -387,14 +525,27 @@ export function EstimatePage() {
     return `HMRC would allow £${(estimate.hmrc.approvedPence / 100).toFixed(2)} (${estimate.hmrc.ytdMiles.toFixed(0)} miles this tax year).`;
   }, [estimate]);
 
+  const viaPins = viaDrafts.map((v) => v.pin).filter((p): p is Place => Boolean(p));
   const mapProps = {
     onMapClick,
     onOriginDrag,
     onDestinationDrag,
+    onWaypointDrag,
+    onSelectAlternative: applyAlternative,
     reduceMotion: reduce,
     ...(originPin ? { origin: originPin } : {}),
     ...(destPin ? { destination: destPin } : {}),
+    ...(viaPins.length > 0 ? { waypoints: viaPins } : {}),
     ...(estimate?.encodedPolyline ? { encodedPolyline: estimate.encodedPolyline } : {}),
+    ...(estimate?.alternatives
+      ? {
+          alternatives: estimate.alternatives.map((a) => ({
+            id: a.id,
+            encodedPolyline: a.encodedPolyline,
+          })),
+        }
+      : {}),
+    ...(selectedRouteId ? { selectedRouteId } : {}),
   };
 
   const form = (
@@ -413,7 +564,7 @@ export function EstimatePage() {
       )}
       {stale ? (
         <p className="mb-4 text-sm text-warning">
-          Showing the last estimate stored on this device. Tap Estimate again after you move a pin.
+          Showing the last estimate stored on this device. Move a pin or tap Estimate to refresh.
         </p>
       ) : null}
 
@@ -460,42 +611,103 @@ export function EstimatePage() {
             </Select>
           </FormItem>
         ) : null}
+        {savedElectric ? (
+          <FormItem>
+            <Label htmlFor="home-pence">Home p/kWh</Label>
+            <Input
+              id="home-pence"
+              value={homePence}
+              onChange={(ev) => setHomePence(ev.target.value)}
+              className="tabular"
+            />
+          </FormItem>
+        ) : null}
         <FormItem>
-          <Label htmlFor="origin">From</Label>
-          <Input
+          <AddressField
             id="origin"
+            label="From"
             value={origin}
-            onChange={(ev) => onOriginText(ev.target.value)}
-            required
-            list="origin-places"
-            autoComplete="off"
+            onChange={(text) => {
+              setOrigin(text);
+              if (originPin && text !== originPin.label) setOriginPin(null);
+            }}
+            onFocusField={() => setFocusStop("origin")}
+            onSelect={(place) => {
+              setOrigin(place.label);
+              setOriginPin(place);
+              setFocusStop("destination");
+              scheduleEstimate();
+            }}
           />
-          <datalist id="origin-places">
-            {originHits.map((p) => (
-              <option key={p.label} value={p.label} />
-            ))}
-          </datalist>
           <Button type="button" variant="ghost" size="sm" onClick={useMyLocation}>
             Use my location
           </Button>
           {geoError ? <p className="text-xs text-warning">{geoError}</p> : null}
         </FormItem>
         <FormItem>
-          <Label htmlFor="destination">To</Label>
-          <Input
+          <AddressField
             id="destination"
+            label="To"
             value={destination}
-            onChange={(ev) => onDestText(ev.target.value)}
-            required
-            list="destination-places"
-            autoComplete="off"
+            onChange={(text) => {
+              setDestination(text);
+              if (destPin && text !== destPin.label) setDestPin(null);
+            }}
+            onFocusField={() => setFocusStop("destination")}
+            onSelect={(place) => {
+              setDestination(place.label);
+              setDestPin(place);
+              scheduleEstimate();
+            }}
           />
-          <datalist id="destination-places">
-            {destHits.map((p) => (
-              <option key={p.label} value={p.label} />
-            ))}
-          </datalist>
         </FormItem>
+        {viaDrafts.map((via, index) => (
+          <FormItem key={via.id}>
+            <AddressField
+              id={`via-${via.id}`}
+              label={`Stop ${index + 1}`}
+              value={via.text}
+              onChange={(text) =>
+                setViaDrafts((drafts) =>
+                  drafts.map((d, i) =>
+                    i === index
+                      ? { ...d, text, pin: d.pin && text === d.pin.label ? d.pin : null }
+                      : d,
+                  ),
+                )
+              }
+              onFocusField={() => setFocusStop(index)}
+              onSelect={(place) => {
+                setViaDrafts((drafts) =>
+                  drafts.map((d, i) => (i === index ? { ...d, text: place.label, pin: place } : d)),
+                );
+                scheduleEstimate();
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setViaDrafts((drafts) => drafts.filter((_, i) => i !== index));
+                setFocusStop("destination");
+              }}
+            >
+              Remove stop
+            </Button>
+          </FormItem>
+        ))}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setViaDrafts((drafts) => [...drafts, { id: crypto.randomUUID(), text: "", pin: null }]);
+            setFocusStop(viaDrafts.length);
+          }}
+        >
+          Add stop
+        </Button>
         <FormItem>
           <Label htmlFor="leave">Leave</Label>
           <Input

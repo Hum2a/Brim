@@ -36,7 +36,11 @@ export { hmrcAmapPence, ukTaxYearStartUtc, HMRC_AMAP_THRESHOLD_MILES } from './h
 export {
   searchPlaces,
   findPlaceByLabel,
+  findPlaceById,
   nearestPlace,
+  distanceMeters,
+  reverseGazetteer,
+  fixturePlaceId,
   UK_PLACES,
   type PlaceHit,
 } from './places.js';

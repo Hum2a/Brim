@@ -11,16 +11,16 @@ import { authSecret, readSession, sendAuthEmail, trustedOrigins } from '../auth.
 import { claimAnon } from './repo.js';
 import { getAuthMemory, getMemoryDb } from './memory.js';
 import { account, schema, session, user, verification } from './schema.js';
+import type { BrimDb } from './types.js';
 
-export function createDb(env: ApiBindings) {
+export type { BrimDb } from './types.js';
+
+export function createDb(env: ApiBindings): BrimDb {
   if (!isFixtureMode(env.BRIM_FIXTURES) && !env.DATABASE_URL) {
     throw new Error('createDb requires DATABASE_URL from the request env, not module scope');
   }
-  const db: {
-    memory: ReturnType<typeof getMemoryDb>;
-    connectionString?: string;
-    drizzle?: ReturnType<typeof drizzle<typeof schema>>;
-  } = {
+  const db: BrimDb = {
+    env,
     memory: getMemoryDb(),
   };
   if (env.DATABASE_URL) {
@@ -115,7 +115,7 @@ export function createAuth(env: ApiBindings, request?: Request) {
         const created = ctx.context.newSession;
         if (!created?.user || !request) return;
         const anon = await readSession(env, request.headers.get('Cookie') ?? undefined);
-        if (anon?.kind === 'anon') claimAnon(anon.ownerId, created.user.id);
+        if (anon?.kind === 'anon') await claimAnon(createDb(env), anon.ownerId, created.user.id);
       }),
     },
   });

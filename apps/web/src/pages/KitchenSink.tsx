@@ -1,33 +1,44 @@
-import { AnimatePresence, m } from "motion/react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, m } from 'motion/react';
+import { useEffect, useState } from 'react';
 import {
   PumpReadout,
   ReducedMotionProvider,
   pageTransition,
   usePrefersReducedMotion,
-} from "@brim/ui-kit";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@brim/ui-kit/accordion";
-import { Badge } from "@brim/ui-kit/badge";
-import { Button } from "@brim/ui-kit/button";
-import { Card } from "@brim/ui-kit/card";
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@brim/ui-kit/command";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@brim/ui-kit/dialog";
-import { Drawer, DrawerContent, DrawerTrigger } from "@brim/ui-kit/drawer";
-import { Form, FormItem } from "@brim/ui-kit/form";
-import { Input } from "@brim/ui-kit/input";
-import { Label } from "@brim/ui-kit/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@brim/ui-kit/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@brim/ui-kit/select";
-import { Separator } from "@brim/ui-kit/separator";
-import { Sheet, SheetContent, SheetTrigger } from "@brim/ui-kit/sheet";
-import { Skeleton } from "@brim/ui-kit/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@brim/ui-kit/tabs";
-import { toast } from "@brim/ui-kit/toast";
-import { Hint } from "@brim/ui-kit/tooltip";
+} from '@brim/ui-kit';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@brim/ui-kit/accordion';
+import { Badge } from '@brim/ui-kit/badge';
+import { Button } from '@brim/ui-kit/button';
+import { Card } from '@brim/ui-kit/card';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@brim/ui-kit/command';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@brim/ui-kit/dialog';
+import { Drawer, DrawerContent, DrawerTrigger } from '@brim/ui-kit/drawer';
+import { Form, FormItem } from '@brim/ui-kit/form';
+import { Input } from '@brim/ui-kit/input';
+import { Label } from '@brim/ui-kit/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@brim/ui-kit/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@brim/ui-kit/select';
+import { Separator } from '@brim/ui-kit/separator';
+import { Sheet, SheetContent, SheetTrigger } from '@brim/ui-kit/sheet';
+import { Skeleton } from '@brim/ui-kit/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@brim/ui-kit/tabs';
+import { toast } from '@brim/ui-kit/toast';
+import { Hint } from '@brim/ui-kit/tooltip';
 
 function MotionLab() {
   const reduce = usePrefersReducedMotion();
-  const [scene, setScene] = useState<"estimate" | "history">("estimate");
+  const [scene, setScene] = useState<'estimate' | 'history'>('estimate');
   const transition = reduce
     ? { initial: { opacity: 1 }, animate: { opacity: 1 }, exit: { opacity: 1 } }
     : pageTransition;
@@ -36,20 +47,27 @@ function MotionLab() {
     <div className="grid gap-6">
       <Card>
         <p className="mb-3 text-sm text-mist">
-          Cross-fade between two scenes. With reduced motion this snaps; otherwise it blurs and slides.
+          Cross-fade between two scenes. With reduced motion this snaps; otherwise it blurs and
+          slides.
         </p>
-        <Button type="button" variant="ghost" onClick={() => setScene((s) => (s === "estimate" ? "history" : "estimate"))}>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setScene((s) => (s === 'estimate' ? 'history' : 'estimate'))}
+        >
           Swap scene
         </Button>
         <div className="relative mt-4 min-h-32">
           <AnimatePresence mode="wait">
             <m.div key={scene} {...transition} className="glass p-5">
-              {scene === "estimate" ? (
+              {scene === 'estimate' ? (
                 <p className="display text-2xl">Estimate scene</p>
               ) : (
                 <p className="display text-2xl">History scene</p>
               )}
-              <p className="mt-2 text-sm text-mist">Shared wordmark and pump use layoutId on the real routes.</p>
+              <p className="mt-2 text-sm text-mist">
+                Shared wordmark and pump use layoutId on the real routes.
+              </p>
             </m.div>
           </AnimatePresence>
         </div>
@@ -65,12 +83,12 @@ function MotionLab() {
 
 export function KitchenSink() {
   const [open, setOpen] = useState(false);
-  const [fuel, setFuel] = useState("petrol");
+  const [fuel, setFuel] = useState('petrol');
   const [snap, setSnap] = useState(false);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("reduce-motion", snap);
-    return () => document.documentElement.classList.remove("reduce-motion");
+    document.documentElement.classList.toggle('reduce-motion', snap);
+    return () => document.documentElement.classList.remove('reduce-motion');
   }, [snap]);
 
   return (
@@ -78,8 +96,8 @@ export function KitchenSink() {
       <main className="mx-auto w-[min(960px,calc(100%-1.5rem))] py-8">
         <h1 className="display mb-2 text-4xl">Kitchen sink</h1>
         <p className="mb-6 max-w-xl text-mist">
-          Sharp glass, extra cinematic hues, Motion on the pump. If this looks like a stock shadcn + Framer landing
-          page, restyle it.
+          Sharp glass, extra cinematic hues, Motion on the pump. If this looks like a stock shadcn +
+          Framer landing page, restyle it.
         </p>
         <label className="mb-8 flex max-w-md flex-row items-center gap-3 text-sm">
           <input
@@ -115,6 +133,15 @@ export function KitchenSink() {
                     <Input defaultValue="Crawley" />
                   </FormItem>
                   <FormItem>
+                    <Label htmlFor="lab-password">Password</Label>
+                    <Input
+                      id="lab-password"
+                      type="password"
+                      defaultValue="forecourt"
+                      autoComplete="off"
+                    />
+                  </FormItem>
+                  <FormItem>
                     <Label>Propulsion</Label>
                     <Select value={fuel} onValueChange={setFuel}>
                       <SelectTrigger>
@@ -129,7 +156,12 @@ export function KitchenSink() {
                   <Hint label="Amber is reserved for the total">
                     <Button type="button">Primary control</Button>
                   </Hint>
-                  <Button type="button" variant="ghost" className="ml-2" onClick={() => setOpen(true)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="ml-2"
+                    onClick={() => setOpen(true)}
+                  >
                     Open dialog
                   </Button>
                 </Form>
@@ -157,7 +189,9 @@ export function KitchenSink() {
                         Popover
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent>Popover surface — 2px corners, glass, glow shadow.</PopoverContent>
+                    <PopoverContent>
+                      Popover surface — 2px corners, glass, glow shadow.
+                    </PopoverContent>
                   </Popover>
                   <Drawer>
                     <DrawerTrigger asChild>
@@ -175,7 +209,11 @@ export function KitchenSink() {
                     </SheetTrigger>
                     <SheetContent>Side glass.</SheetContent>
                   </Sheet>
-                  <Button type="button" variant="secondary" onClick={() => toast("Saved. Your car is on this device.")}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => toast('Saved. Your car is on this device.')}
+                  >
                     Toast
                   </Button>
                 </div>

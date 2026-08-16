@@ -11,6 +11,6 @@ child.on("exit", (code) => {
     console.log("test:rls: memory isolation passed. Live Neon suite skipped (no DATABASE_URL).");
     process.exit(0);
   }
-  console.log("test:rls: DATABASE_URL present — apply 0001_init.sql on a Neon branch and re-run subject SET brim.owner_id checks there.");
-  process.exit(0);
+  const live = spawn("node", ["scripts/rls-live.mjs"], { stdio: "inherit", shell: true });
+  live.on("exit", (liveCode) => process.exit(liveCode ?? 1));
 });

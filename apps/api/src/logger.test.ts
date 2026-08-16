@@ -16,4 +16,13 @@ describe("redaction", () => {
     const out = redact({ plate: "AB12CDE" }) as { plate: string };
     expect(out.plate).toBe("[REDACTED_VRM]");
   });
+
+  it("does not log full address strings", () => {
+    const out = redact({
+      address: "10 Station Road, Crawley",
+      formatted_address: "Victoria Street, London",
+    }) as { address: string; formatted_address: string };
+    expect(out.address).toBe("[REDACTED]");
+    expect(out.formatted_address).toBe("[REDACTED]");
+  });
 });

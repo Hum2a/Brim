@@ -15,6 +15,20 @@
       "when": 1722556800000,
       "tag": "0002_vca_make_model_idx",
       "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1722643200000,
+      "tag": "0003_rls_force",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1722729600000,
+      "tag": "0004_rls_role",
+      "breakpoints": false
     }
   ]
 }

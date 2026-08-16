@@ -5,6 +5,8 @@ self.addEventListener("install", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+  const path = new URL(req.url).pathname;
+  if (path === "/health" || path.startsWith("/v1/")) return;
   event.respondWith(
     fetch(req)
       .then((res) => {

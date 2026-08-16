@@ -2,18 +2,19 @@
 
 Single source of truth for agent and contributor rules. Generated Cursor/Claude/Windsurf/Aider/Copilot files are derived from this document by `npm run rules:sync`. If generated files drift, `npm run rules:check` fails. Do not edit generated files by hand.
 
-`docs/design-spec.md` is authoritative. Code that contradicts the spec is a bug in one of the two — flag it, do not silently reconcile.
+`docs/design-spec.md` is authoritative. Code that contradicts the spec is a bug in one of the two: flag it, do not silently reconcile.
 
 ## Hard rules
 
 These are not preferences. Violating them fails review.
 
-1. `packages/engine` is PURE. No `fetch`, no `Date.now()`, no env reads, no I/O of any kind. Every input is passed in, including the current time. If it needs a network call, the design is wrong — stop and ask.
-2. Per-request factories in Workers: `createDb(c.env.DATABASE_URL)`, `createAuth(c.env)`. NEVER a module-scope database or auth client, and never read `process.env` at module load — Workers bindings only exist per request and this crashes in production.
+1. `packages/engine` is PURE. No `fetch`, no `Date.now()`, no env reads, no I/O of any kind. Every input is passed in, including the current time. If it needs a network call, the design is wrong: stop and ask.
+2. Per-request factories in Workers: `createDb(c.env.DATABASE_URL)`, `createAuth(c.env)`. NEVER a module-scope database or auth client, and never read `process.env` at module load. Workers bindings only exist per request and this crashes in production.
 3. Vehicle registration marks are personal data under UK GDPR. A reg never appears in a URL path, a query string, a log line, an analytics event, or an error report. See spec §8.3.
 4. This repo is PUBLIC from the first commit. No secrets in code, in fixtures, in tests, or in commit messages. Ever.
-5. Script naming is `<domain>:<action>` — `dev:web`, `db:migrate`, `data:sync-fuel`, `test:rls`.
+5. Script naming is `<domain>:<action>`: `dev:web`, `db:migrate`, `data:sync-fuel`, `test:rls`.
 6. Never fake precision the inputs don't support. Every fallback in the estimate chain reports which tier it used and widens the confidence band. See spec §5.2 and §5.4.
+7. No em dashes (Unicode U+2014). Use a colon, a comma, parentheses, or a spaced hyphen. `npm test` fails if any remain.
 
 ## Engine purity
 
@@ -62,7 +63,7 @@ The wrapper MUST fail loudly if no environment is given.
 
 ## Stack
 
-- npm workspaces + Turborepo. npm ONLY — never pnpm or yarn.
+- npm workspaces + Turborepo. npm ONLY. Never pnpm or yarn.
 - React 19 + Vite (`apps/web`), Hono on Cloudflare Workers (`apps/api`)
 - Neon Postgres + Drizzle ORM, PostGIS, RLS-first
 - Better Auth, Resend
@@ -94,6 +95,7 @@ Glob: `apps/web/**`, `packages/ui-kit/**`, `apps/extension/**`
 - Browser never calls Google, DVLA, or Fuel Finder directly.
 - shadcn for behaviour, Brim tokens for appearance. `--radius: 2px`. Amber (`--gauge`) once per screen.
 - Numbers use `.tabular`. No gradients, no glass, no card shadows.
+- Password fields use `@brim/ui-kit/input` (`Input type="password"` or `PasswordInput`). Never a bare `<input type="password">`. The control always includes a show/hide toggle (`type="button"`, labelled Show password / Hide password).
 - Extension: URL parsing only, never DOM scraping. Manifest V3, minimal permissions.
 
 ## Data (data, scripts)

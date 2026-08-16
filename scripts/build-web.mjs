@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
-const apiBase = process.argv[2] ?? process.env.VITE_API_BASE ?? "https://brim-api-staging.humzab1711.workers.dev";
+// Same-origin deploy: the API Worker serves the SPA, so the browser calls /v1 on this host.
+const apiBase = process.argv[2] ?? process.env.VITE_API_BASE ?? "";
 const child = spawn("npx", ["vite", "build"], {
   cwd: new URL("../apps/web", import.meta.url),
   stdio: "inherit",

@@ -81,9 +81,26 @@ export function AccountPage() {
                   >
                     Sign out
                   </Button>
-                  <a className="text-sm underline" href={`${apiBase}/v1/auth/export`}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={async () => {
+                      const res = await fetch(`${apiBase}/v1/auth/export`, { credentials: "include" });
+                      if (!res.ok) {
+                        toast("Could not download your data.");
+                        return;
+                      }
+                      const blob = await res.blob();
+                      const href = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = href;
+                      link.download = "brim-account.json";
+                      link.click();
+                      URL.revokeObjectURL(href);
+                    }}
+                  >
                     Download all data
-                  </a>
+                  </Button>
                   <Button
                     type="button"
                     variant="warning"

@@ -22,12 +22,32 @@ export type RouteRequest = {
   emissionType?: "GASOLINE" | "DIESEL" | "HYBRID" | "ELECTRIC" | undefined;
 };
 
+export type RouteLabel = "default" | "alternate" | "fuel-efficient";
+
+export type LatLng = { lat: number; lng: number };
+
+export type RouteAlternative = {
+  id: string;
+  label: RouteLabel;
+  distanceMeters: number;
+  durationSeconds: number;
+  encodedPolyline: string;
+  durationTrafficSeconds?: number;
+  start?: LatLng;
+  end?: LatLng;
+};
+
 export type RouteResponse = {
   distanceMeters: number;
   durationSeconds: number;
   encodedPolyline: string;
   providerFuelLitres?: number;
   roadComposition?: { urban: number; rural: number; motorway: number };
+  routeLabel?: RouteLabel;
+  durationTrafficSeconds?: number;
+  start?: LatLng;
+  end?: LatLng;
+  alternatives?: RouteAlternative[];
 };
 
 export type RoutingErrorCode = "quota" | "auth" | "invalid-request" | "upstream";

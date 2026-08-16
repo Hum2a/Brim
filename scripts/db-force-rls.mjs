@@ -23,9 +23,10 @@ if (tables.length === 0) {
 let failed = false;
 for (const table of tables) {
   const enabled = new RegExp(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`, "i").test(sql);
+  const forced = new RegExp(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`, "i").test(sql);
   const policy = new RegExp(`CREATE POLICY \\w+ ON ${table}\\b`, "i").test(sql);
-  if (!enabled || !policy) {
-    console.error(`db:force-rls: ${table} lacks RLS enable and/or a policy`);
+  if (!enabled || !forced || !policy) {
+    console.error(`db:force-rls: ${table} lacks RLS enable, FORCE, and/or a policy`);
     failed = true;
   }
 }

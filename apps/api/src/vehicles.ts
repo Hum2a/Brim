@@ -8,6 +8,7 @@ import {
 import type { Context } from 'hono';
 import type { ApiBindings } from './env.js';
 import { ownerFromContext } from './session.js';
+import { createDb } from './db/client.js';
 import {
   deleteVehicle,
   getVehicle,
@@ -37,6 +38,7 @@ const vehicleBody = z.object({
   officialUnit: consumptionUnitSchema.optional(),
   officialCycle: testCycleSchema.optional(),
   vcaMatchId: z.string().optional(),
+  hasHeatPump: z.boolean().optional(),
 });
 
 const tariffBody = z.object({
@@ -48,77 +50,109 @@ const tariffBody = z.object({
   isDefault: z.boolean().optional(),
 });
 
+type VehicleBody = z.infer<typeof vehicleBody>;
+type VehicleFields = {
+  nickname?: string | undefined;
+  kind?: VehicleRow['kind'] | undefined;
+  propulsion?: VehicleRow['propulsion'] | undefined;
+  make?: string | undefined;
+  model?: string | undefined;
+  derivative?: string | undefined;
+  transmission?: string | undefined;
+  year?: number | undefined;
+  engineCc?: number | undefined;
+  co2Gkm?: number | undefined;
+  tankLitres?: number | undefined;
+  batteryKwhUsable?: number | undefined;
+  euroStatus?: string | undefined;
+  euroStatusSource?: 'dvla' | 'derived' | undefined;
+  officialConsumption?: number | undefined;
+  officialUnit?: VehicleBody['officialUnit'] | undefined;
+  officialCycle?: VehicleBody['officialCycle'] | undefined;
+  vcaMatchId?: string | undefined;
+  hasHeatPump?: boolean | undefined;
+};
+
+function applyVehicleFields(row: VehicleRow, data: VehicleFields): VehicleRow {
+  const next: VehicleRow = { ...row };
+  if (data.nickname) next.nickname = data.nickname;
+  if (data.kind) next.kind = data.kind;
+  if (data.propulsion) next.propulsion = data.propulsion;
+  if (data.make) next.make = data.make;
+  if (data.model) next.model = data.model;
+  if (data.derivative) next.derivative = data.derivative;
+  if (data.transmission) next.transmission = data.transmission;
+  if (data.year !== undefined) next.year = data.year;
+  if (data.engineCc !== undefined) next.engine_cc = data.engineCc;
+  if (data.co2Gkm !== undefined) next.co2_gkm = data.co2Gkm;
+  if (data.tankLitres !== undefined) next.tank_litres = data.tankLitres;
+  if (data.batteryKwhUsable !== undefined) next.battery_kwh_usable = data.batteryKwhUsable;
+  if (data.euroStatus) next.euro_status = data.euroStatus;
+  if (data.euroStatusSource) next.euro_status_source = data.euroStatusSource;
+  if (data.officialConsumption !== undefined) next.official_consumption = data.officialConsumption;
+  if (data.officialUnit) next.official_unit = data.officialUnit;
+  if (data.officialCycle) next.official_cycle = data.officialCycle;
+  if (data.vcaMatchId) next.vca_match_id = data.vcaMatchId;
+  if (data.hasHeatPump !== undefined) next.has_heat_pump = data.hasHeatPump;
+  return next;
+}
+
 async function owner(c: Context<{ Bindings: ApiBindings }>) {
   return ownerFromContext(c);
 }
 
 export async function listVehiclesHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  return c.json({ vehicles: listVehicles(session.ownerId) });
+  const db = createDb(c.env);
+  return c.json({ vehicles: await listVehicles(db, session.ownerId) });
 }
 
 export async function createVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
   const parsed = vehicleBody.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
-  const row: VehicleRow = {
-    id: crypto.randomUUID(),
-    owner_id: session.ownerId,
-    kind: parsed.data.kind,
-    propulsion: parsed.data.propulsion,
-    created_at: new Date().toISOString(),
-  };
-  if (parsed.data.nickname) row.nickname = parsed.data.nickname;
-  if (parsed.data.make) row.make = parsed.data.make;
-  if (parsed.data.model) row.model = parsed.data.model;
-  if (parsed.data.derivative) row.derivative = parsed.data.derivative;
-  if (parsed.data.transmission) row.transmission = parsed.data.transmission;
-  if (parsed.data.year !== undefined) row.year = parsed.data.year;
-  if (parsed.data.engineCc !== undefined) row.engine_cc = parsed.data.engineCc;
-  if (parsed.data.co2Gkm !== undefined) row.co2_gkm = parsed.data.co2Gkm;
-  if (parsed.data.tankLitres !== undefined) row.tank_litres = parsed.data.tankLitres;
-  if (parsed.data.batteryKwhUsable !== undefined)
-    row.battery_kwh_usable = parsed.data.batteryKwhUsable;
-  if (parsed.data.euroStatus) row.euro_status = parsed.data.euroStatus;
-  if (parsed.data.euroStatusSource) row.euro_status_source = parsed.data.euroStatusSource;
-  if (parsed.data.officialConsumption !== undefined)
-    row.official_consumption = parsed.data.officialConsumption;
-  if (parsed.data.officialUnit) row.official_unit = parsed.data.officialUnit;
-  if (parsed.data.officialCycle) row.official_cycle = parsed.data.officialCycle;
-  if (parsed.data.vcaMatchId) row.vca_match_id = parsed.data.vcaMatchId;
-  return c.json(saveVehicle(row), 201);
+  const row = applyVehicleFields(
+    {
+      id: crypto.randomUUID(),
+      owner_id: session.ownerId,
+      kind: parsed.data.kind,
+      propulsion: parsed.data.propulsion,
+      created_at: new Date().toISOString(),
+    },
+    parsed.data,
+  );
+  return c.json(await saveVehicle(createDb(c.env), row), 201);
 }
 
 export async function patchVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  const existing = getVehicle(session.ownerId, c.req.param('id') ?? '');
+  const db = createDb(c.env);
+  const existing = await getVehicle(db, session.ownerId, c.req.param('id') ?? '');
   if (!existing) return c.json({ error: 'not_found' }, 404);
   const parsed = vehicleBody.partial().safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
-  const next = { ...existing };
-  if (parsed.data.nickname) next.nickname = parsed.data.nickname;
-  if (parsed.data.propulsion) next.propulsion = parsed.data.propulsion;
-  if (parsed.data.kind) next.kind = parsed.data.kind;
-  return c.json(saveVehicle(next));
+  return c.json(await saveVehicle(db, applyVehicleFields(existing, parsed.data)));
 }
 
 export async function deleteVehicleHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  if (!deleteVehicle(session.ownerId, c.req.param('id') ?? ''))
+  if (!(await deleteVehicle(createDb(c.env), session.ownerId, c.req.param('id') ?? '')))
     return c.json({ error: 'not_found' }, 404);
   return c.json({ ok: true });
 }
 
 export async function listTariffsHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  return c.json({ tariffs: listTariffs(session.ownerId, c.req.param('id') ?? '') });
+  return c.json({
+    tariffs: await listTariffs(createDb(c.env), session.ownerId, c.req.param('id') ?? ''),
+  });
 }
 
 export async function createTariffHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
   const parsed = tariffBody.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: 'invalid_request' }, 400);
-  const row = saveTariff(session.ownerId, {
+  const row = await saveTariff(createDb(c.env), session.ownerId, {
     id: crypto.randomUUID(),
     vehicle_id: c.req.param('id') ?? '',
     kind: parsed.data.kind,

@@ -21,6 +21,16 @@ function line(origin: string, destination: string): string {
   ]);
 }
 
+function altLine(origin: string, destination: string): string {
+  const a = place(origin);
+  const b = place(destination);
+  return encodePolyline([
+    { lat: a.lat, lng: a.lng },
+    { lat: (a.lat + b.lat) / 2 + 0.04, lng: (a.lng + b.lng) / 2 + 0.04 },
+    { lat: b.lat, lng: b.lng },
+  ]);
+}
+
 const RECORDED: RecordedRoute[] = [
   {
     id: "crawley-london",
@@ -79,7 +89,7 @@ export class FixtureProvider implements RoutingProvider {
     tolls: false,
     fuelEstimate: true,
     roadComposition: true,
-    alternatives: false,
+    alternatives: true,
   };
 
   constructor(private readonly routes: RecordedRoute[] = RECORDED) {}
@@ -100,6 +110,31 @@ export class FixtureProvider implements RoutingProvider {
     };
     if (fuel !== undefined) response.providerFuelLitres = fuel;
     if (hit.roadComposition) response.roadComposition = hit.roadComposition;
+    const originHit = place(hit.origin);
+    const destHit = place(hit.destination);
+    response.start = { lat: originHit.lat, lng: originHit.lng };
+    response.end = { lat: destHit.lat, lng: destHit.lng };
+    response.routeLabel = "default";
+    response.alternatives = [
+      {
+        id: "route-0",
+        label: "default",
+        distanceMeters: hit.distanceMeters,
+        durationSeconds: hit.durationSeconds,
+        encodedPolyline: hit.encodedPolyline,
+        start: response.start,
+        end: response.end,
+      },
+      {
+        id: "route-1",
+        label: "alternate",
+        distanceMeters: Math.round(hit.distanceMeters * 1.08),
+        durationSeconds: Math.round(hit.durationSeconds * 1.12),
+        encodedPolyline: altLine(hit.origin, hit.destination),
+        start: response.start,
+        end: response.end,
+      },
+    ];
     return response;
   }
 }

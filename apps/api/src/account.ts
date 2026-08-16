@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import type { ApiBindings } from './env.js';
 import { betterAuthUser, ownerFromContext } from './session.js';
 import { clearCookieHeader, readSession } from './auth.js';
-import { createAuth } from './db/client.js';
+import { createAuth, createDb } from './db/client.js';
 import { claimAnon, deleteOwner, exportOwner } from './db/repo.js';
 
 export async function sessionHandler(c: Context<{ Bindings: ApiBindings }>) {
@@ -24,19 +24,19 @@ export async function claimAnonHandler(c: Context<{ Bindings: ApiBindings }>) {
     (body.success ? body.data.anonId : undefined) ??
     (cookieAnon?.kind === 'anon' ? cookieAnon.ownerId : undefined);
   if (!anonId) return c.json({ merged: false, moved: 0 });
-  return c.json(claimAnon(anonId, user.ownerId));
+  return c.json(await claimAnon(createDb(c.env), anonId, user.ownerId));
 }
 
 export async function exportAccountHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await ownerFromContext(c);
   if (session.kind !== 'user') return c.json({ error: 'not_signed_in' }, 401);
-  return c.json(exportOwner(session.ownerId));
+  return c.json(await exportOwner(createDb(c.env), session.ownerId));
 }
 
 export async function deleteAccountHandler(c: Context<{ Bindings: ApiBindings }>) {
   const user = await betterAuthUser(c.env, c.req.raw);
   if (!user) return c.json({ error: 'not_signed_in' }, 401);
-  deleteOwner(user.ownerId);
+  await deleteOwner(createDb(c.env), user.ownerId);
   const auth = createAuth(c.env, c.req.raw);
   const ctx = await auth.$context;
   await ctx.internalAdapter.deleteUser(user.ownerId);

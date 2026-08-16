@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Context } from 'hono';
 import type { ApiBindings } from './env.js';
 import { ownerFromContext } from './session.js';
+import { createDb } from './db/client.js';
 import { deleteJourney, getJourney, listJourneys, saveJourney } from './db/repo.js';
 import type { JourneyRow } from './db/memory.js';
 
@@ -41,13 +42,16 @@ export async function saveJourneyHandler(c: Context<{ Bindings: ApiBindings }>) 
   };
   if (parsed.data.vehicleId) row.vehicle_id = parsed.data.vehicleId;
   if (parsed.data.departsAt) row.departs_at = parsed.data.departsAt;
-  return c.json(saveJourney(row), 201);
+  return c.json(await saveJourney(createDb(c.env), row), 201);
 }
 
 export async function listJourneysHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
   const limit = Number(c.req.query('limit') ?? 50);
-  const items = listJourneys(session.ownerId).slice(0, Number.isFinite(limit) ? limit : 50);
+  const items = (await listJourneys(createDb(c.env), session.ownerId)).slice(
+    0,
+    Number.isFinite(limit) ? limit : 50,
+  );
   return c.json({
     journeys: items.map((j) => ({
       id: j.id,
@@ -65,14 +69,14 @@ export async function listJourneysHandler(c: Context<{ Bindings: ApiBindings }>)
 
 export async function getJourneyHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  const row = getJourney(session.ownerId, c.req.param('id') ?? '');
+  const row = await getJourney(createDb(c.env), session.ownerId, c.req.param('id') ?? '');
   if (!row) return c.json({ error: 'not_found' }, 404);
   return c.json(row);
 }
 
 export async function deleteJourneyHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  if (!deleteJourney(session.ownerId, c.req.param('id') ?? ''))
+  if (!(await deleteJourney(createDb(c.env), session.ownerId, c.req.param('id') ?? '')))
     return c.json({ error: 'not_found' }, 404);
   return c.json({ ok: true });
 }
@@ -84,7 +88,7 @@ function csvEscape(value: string): string {
 
 export async function exportJourneysHandler(c: Context<{ Bindings: ApiBindings }>) {
   const session = await owner(c);
-  const rows = listJourneys(session.ownerId);
+  const rows = await listJourneys(createDb(c.env), session.ownerId);
   const header =
     'date,from,to,miles,vehicle,energy cost,charges,total,HMRC approved amount,difference';
   const lines = rows.map((j) => {
